@@ -1,0 +1,20 @@
+{
+  "name": "wonder-royale-server",
+  "version": "1.0.0",
+  "description": "Authoritative multiplayer server for Wonder Royale (Express + Socket.IO)",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "node test/run.js",
+    "test:browser": "node test/browser.js"
+  },
+  "license": "MIT",
+  "private": true,
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "socket.io": "^4.7.5"
+  }
+}

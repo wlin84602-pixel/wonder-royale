@@ -85,6 +85,7 @@ function wireSocket(s){
   s.on('lobby',onLobby);
   s.on('lp',onArena);
   s.on('ag',onGoal);
+  s.on('cm',onChat);
   s.on('match:start',d=>{if(inRoom)beginMatch(d,false)});
   s.on('s',onSnap);
   s.on('m',m=>{if(playing)applyMe(m)});
@@ -258,8 +259,8 @@ function renderLobby(){
 }
 
 /* ---------- waiting field: a big empty green rectangle with two mini games (Coin Rush, kick the ball) ---------- */
-const ARENA_W=760,ARENA_H=460,GOAL_H=120;     /* half sizes; the server uses the same numbers */
-let arenaOn=false,lpT=0,arenaCoins=[],arenaBall={x:0,y:0,tx:0,ty:0},arenaMsg=null,arenaScore=new Map(),infoT=0;
+const ARENA_W=800,ARENA_H=450,GOAL_H=120;     /* half sizes; the server uses the same numbers */
+let arenaOn=false,arenaPunch=false,lpT=0,arenaCoins=[],arenaBall={x:0,y:0,tx:0,ty:0},arenaMsg=null,arenaScore=new Map(),infoT=0;
 function enterArena(){
   arenaOn=true;
   ISLAND=ARENA_W;CX=CY=ARENA_W+90;
@@ -298,6 +299,7 @@ function onArena(d){
   for(const q of d.p){
     arenaScore.set(q[0],[q[4]|0,q[5]|0]);
     const r=remotes.get(q[0]);if(!r)continue;
+    const pm=q[6]|0;if(r.pend||r.mcSeen==null)r.mcSeen=pm;else if(pm>r.mcSeen){r.mcSeen=pm;r.swing=.26;r.swA=num(q[3],r.ang);r.ang=r.swA}
     const nx=CX+num(q[1],0),ny=CY+num(q[2],0);
     if(r.pend){r.pend=false;r.x=nx;r.y=ny;r.tvx=0;r.tvy=0}
     else{r.tvx=(nx-r.tx)*7;r.tvy=(ny-r.ty)*7}
@@ -307,10 +309,46 @@ function onArena(d){
   if(d.c)arenaCoins=d.c.map(c=>({id:c[0],x:CX+c[1],y:CY+c[2]}));
   const t=performance.now();if(t-infoT>250){infoT=t;arenaInfo()}
 }
+/* chat: press Enter, type, press Enter; the message floats above your character for a few seconds */
+const chatOpen=()=>!$('chatIn').hidden;
+function openChat(){
+  if(!arenaOn||state!=='arena')return;
+  for(const k in down)down[k]=false;
+  const c=$('chatIn');c.value='';c.hidden=false;c.focus();
+}
+function closeChat(){const c=$('chatIn');c.hidden=true;c.blur();setTimeout(focusGame,30)}
+$('chatIn').addEventListener('keydown',ev=>{
+  ev.stopPropagation();
+  if(ev.key==='Enter'){ev.preventDefault();const t=$('chatIn').value.trim().slice(0,60);if(t&&sock&&sock.connected)sock.emit('chat',{t});closeChat()}
+  else if(ev.key==='Escape'){ev.preventDefault();closeChat()}
+});
+window.addEventListener('keydown',ev=>{
+  if(ev.key!=='Enter'||ev.repeat||!arenaOn||state!=='arena'||ev.target===$('chatIn'))return;
+  ev.preventDefault();openChat();
+},true);
+function onChat(d){
+  if(!arenaOn||!d)return;
+  const e=byPid.get(d.id);if(e)e.chat={t:String(d.t).slice(0,60),l:5};
+}
+function drawBubble(e){
+  const c=e.chat;if(!c)return;
+  ctx.font='700 14px "Chakra Petch",sans-serif';ctx.textAlign='center';
+  const words=c.t.split(' '),lines=[];let cur='';
+  for(const w of words){const t=cur?cur+' '+w:w;if(ctx.measureText(t).width>190&&cur){lines.push(cur);cur=w}else cur=t}
+  if(cur)lines.push(cur);
+  const lh=17,w=Math.min(220,Math.max(...lines.map(l=>ctx.measureText(l).width))+20),h=lines.length*lh+12;
+  const x=e.x,y=e.y-e.r-34-h;
+  ctx.globalAlpha=Math.min(1,c.l*2);
+  ctx.fillStyle='rgba(255,255,255,.96)';
+  ctx.beginPath();ctx.roundRect?ctx.roundRect(x-w/2,y,w,h,10):ctx.rect(x-w/2,y,w,h);ctx.fill();
+  ctx.beginPath();ctx.moveTo(x-7,y+h-1);ctx.lineTo(x+7,y+h-1);ctx.lineTo(x,y+h+8);ctx.closePath();ctx.fill();
+  ctx.fillStyle='#16222a';lines.forEach((l,i)=>ctx.fillText(l,x,y+14+i*lh));
+  ctx.globalAlpha=1;
+}
 function onGoal(d){if(arenaOn&&d)arenaMsg={t:2.4,txt:'GOAL!  '+cleanName(d.n)+' scored',mine:d.id===myId}}
 function arenaView(){
-  const aw=Math.max(200,W-20),ah=Math.max(200,H-285),sc=Math.min(aw/(2*ARENA_W+210),ah/(2*ARENA_H+40));
-  return{sc,ox:W/2,oy:255+ah/2};
+  const sc=Math.min((W-16)/(2*ARENA_W+140),(H-16)/(2*ARENA_H+16));
+  return{sc,ox:W/2,oy:H/2};
 }
 function arenaStep(dt){
   const p=player;if(!p)return;
@@ -320,13 +358,17 @@ function arenaStep(dt){
   const v=arenaView();
   if(stick.a.on){if(Math.hypot(stick.a.x,stick.a.y)>.12)p.ang=Math.atan2(stick.a.y,stick.a.x)}
   else if(!isTouch)p.ang=Math.atan2(mouse.y-(v.oy+(p.y-CY)*v.sc),mouse.x-(v.ox+(p.x-CX)*v.sc));
+  for(const e of ents){e.swing=Math.max(0,e.swing-dt);e.mcd=Math.max(0,e.mcd-dt);if(e.chat){e.chat.l-=dt;if(e.chat.l<=0)e.chat=null}}
+  const wantPunch=arenaPunch;arenaPunch=false;
+  if((wantPunch||isDown('fire')||isDown('melee')||melBtn||(stick.a.on&&Math.hypot(stick.a.x,stick.a.y)>.35))&&p.mcd<=0&&!chatOpen()){p.mcd=.4;p.swing=.26;p.swA=p.ang;p.mc++;sfx(210,.09,'sawtooth',.05,.4)}
+  if(chatOpen()){ix=0;iy=0}
   moveEnt(p,ix,iy,265,dt);
   p.x=clamp(p.x,CX-ARENA_W+24,CX+ARENA_W-24);p.y=clamp(p.y,CY-ARENA_H+24,CY+ARENA_H-24);
   smoothRemotes(dt);
   const k=Math.min(1,dt*16);arenaBall.x+=(arenaBall.tx-arenaBall.x)*k;arenaBall.y+=(arenaBall.ty-arenaBall.y)*k;
   if(arenaMsg){arenaMsg.t-=dt;if(arenaMsg.t<=0)arenaMsg=null}
   lpT+=dt;
-  if(lpT>=.066&&sock&&sock.connected){lpT=0;sock.volatile.emit('lp',{x:Math.round(p.x-CX),y:Math.round(p.y-CY),a:Math.round(p.ang*100)/100})}
+  if(lpT>=.066&&sock&&sock.connected){lpT=0;sock.volatile.emit('lp',{x:Math.round(p.x-CX),y:Math.round(p.y-CY),a:Math.round(p.ang*100)/100,m:p.mc|0})}
 }
 function drawArena(){
   ctx.setTransform(DPR,0,0,DPR,0,0);
@@ -369,9 +411,10 @@ function drawArena(){
     ctx.strokeStyle='rgba(0,0,0,.45)';ctx.lineWidth=3;
     const nm=e.name+(e===player?' (you)':'');ctx.strokeText(nm,e.x,e.y-e.r-12);ctx.fillText(nm,e.x,e.y-e.r-12);
   }
+  for(const e of sorted)drawBubble(e);
   ctx.restore();
   ctx.textAlign='center';ctx.font='700 15px "Chakra Petch",sans-serif';ctx.fillStyle='rgba(255,255,255,.85)';
-  ctx.fillText('While you wait: collect the coins and kick the ball into a goal.',W/2,H-14);
+  ctx.fillText('Collect coins, kick the ball into a goal. Punch ('+actLabel('fire')+') to hit it, press Enter to chat.',W/2,H-10);
   if(arenaMsg){
     const a=Math.min(1,arenaMsg.t*2);ctx.globalAlpha=a;ctx.font='400 44px "Bungee",var(--display),sans-serif';
     ctx.fillStyle=arenaMsg.mine?'#ffd166':'#fff';ctx.strokeStyle='rgba(0,0,0,.5)';ctx.lineWidth=6;

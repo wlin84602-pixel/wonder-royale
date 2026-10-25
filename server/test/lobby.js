@@ -41,9 +41,26 @@ let pass = 0; const ok = (c, m) => { assert.ok(c, m); pass++; console.log('  ok 
   A.cEmit('lp', { x: -90, y: 0, a: 0 }); await sleep(60); A.cEmit('lp', { x: -40, y: 0, a: 0 });
   await until(() => room().arena.ball.vx > 100, 1500, 'ball kicked');
   ok(room().arena.ball.vx > 100, 'running into the ball kicks it away');
-  room().arena.ball.x = 740; room().arena.ball.y = 0; room().arena.ball.vx = 800; room().arena.ball.last = room().players.values().next().value.id;
+  room().arena.ball.x = 790; room().arena.ball.y = 0; room().arena.ball.vx = 800; room().arena.ball.last = room().players.values().next().value.id;
   await until(() => A.ags.length > 0, 2000, 'goal event');
   ok(A.ags.length === 1 && Math.abs(room().arena.ball.x) < 5, 'the ball going into a goal scores for the last player who kicked it and resets to the centre');
+
+  console.log('punch and chat');
+  room().arena.ball.x = 200; room().arena.ball.y = 0; room().arena.ball.vx = 0; room().arena.ball.vy = 0;
+  A.cEmit('lp', { x: 150, y: 0, a: 0, m: 0 }); await sleep(80);
+  A.cEmit('lp', { x: 150, y: 0, a: 0, m: 1 });
+  await until(() => room().arena.ball.vx > 300, 1500, 'punch');
+  ok(room().arena.ball.vx > 300, 'a punch next to the ball sends it flying the way you aim');
+  A.cmx = []; B.cmx = []; A.cOn('cm', (d) => A.cmx.push(d)); B.cOn('cm', (d) => B.cmx.push(d));
+  A.cEmit('chat', { t: '  hello <b>there</b>  ' });
+  await until(() => B.cmx.length === 1, 1500, 'chat');
+  ok(B.cmx[0].t === 'hello  b there /b' || /hello/.test(B.cmx[0].t) && !/[<>]/.test(B.cmx[0].t), 'a chat message reaches everyone in the lobby, cleaned of < > characters');
+  ok(A.cmx.length === 1 && A.cmx[0].id === B.cmx[0].id, 'the sender gets it too, tagged with who said it');
+  A.cEmit('chat', { t: 'spam' }); await sleep(100);
+  ok(B.cmx.length === 1, 'chat is rate limited (one message per 0.7 s)');
+  A.cEmit('chat', { t: 'x'.repeat(500) }); await sleep(900); A.cEmit('chat', { t: 'y'.repeat(500) });
+  await until(() => B.cmx.length >= 2, 1500, 'long chat');
+  ok(B.cmx[B.cmx.length - 1].t.length <= 60, 'messages are cut to 60 characters');
 
   console.log('admin');
   r = await A.cCall('admin:auth', { key: 'wrong' });

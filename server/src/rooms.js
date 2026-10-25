@@ -14,7 +14,7 @@ const GRACE_PLAY_S = 45;        // ...and their character during a match
 const CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const AUTO_CD_S = 30;           // public lobby: countdown once two real players are in
 const FULL_CD_S = 10;           // ...shortened when the lobby is full
-const AW = 760, AH = 460;       // waiting field: half width / half height (client draws the same rectangle)
+const AW = 800, AH = 450;       // waiting field: half width / half height (client draws the same rectangle)
 const ARENA_LIM = 800;          // positions are clamped to +-this around the centre
 const GOAL_H = 120;             // half height of each goal opening
 const COINS_N = 9;
@@ -62,6 +62,7 @@ class RoomManager {
     socket.on('admin:auth', (d, ack) => { if (!allow()) return; ackSafe(ack, this.adminAuth(socket, d || {})); });
     socket.on('room:start', (_d, ack) => { if (!allow()) return; ackSafe(ack, this.start(socket)); });
     socket.on('room:opts', (d, ack) => { if (!allow()) return; ackSafe(ack, this.setOpts(socket, d || {})); });
+    socket.on('chat', (d) => { if (allow()) this.chat(socket, d); });
     socket.on('lp', (d) => { if (allow()) this.arenaPos(socket, d); });
     socket.on('in', (d) => { if (allow()) this.input(socket, d); });
     socket.on('act', (d) => { if (allow()) this.act(socket, d); });
@@ -292,6 +293,9 @@ class RoomManager {
     const nx = Math.max(-AW, Math.min(AW, num(d.x, 0))), ny = Math.max(-AH, Math.min(AH, num(d.y, 0))), now = Date.now();
     if (p.lx !== undefined && p.lt && now - p.lt > 20) { p.lvx = (nx - p.lx) / ((now - p.lt) / 1000); p.lvy = (ny - p.ly) / ((now - p.lt) / 1000); }
     p.lt = now; p.lx = nx; p.ly = ny;
+    const m = Math.floor(num(d.m, 0));
+    if (m > (p.lm | 0) && m - (p.lm | 0) < 5) p.punch = true;
+    p.lm = Math.max(p.lm | 0, Math.min(m, 1e9));
     p.la = Math.max(-7, Math.min(7, num(d.a, 0)));
   }
   input(socket, d) {
@@ -321,6 +325,15 @@ class RoomManager {
       try { this.tickRoom(room, dt); } catch (e) { console.error('room error', room.code, e); this.closeBroken(room); }
     }
   }
+  chat(socket, d) {
+    const c = this.ctxOf(socket); if (!c || !d) return;
+    const { room, p } = c;
+    if (room.phase !== 'lobby' && room.phase !== 'countdown') return;
+    const now = Date.now(); if (now - (p.chatAt || 0) < 700) return; p.chatAt = now;
+    const t = String(d.t == null ? '' : d.t).replace(/[\u0000-\u001f\u007f<>]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60);
+    if (!t) return;
+    this.io.to(room.code).emit('cm', { id: p.id, t });
+  }
   /* mini games on the waiting field: Coin Rush (collect coins) and Kick the ball (score in either goal) */
   arenaOf(room) {
     if (!room.arena) {
@@ -336,6 +349,10 @@ class RoomManager {
       for (let i = 0; i < A.coins.length; i++) {
         const c = A.coins[i];
         if (Math.hypot(c.x - p.lx, c.y - p.ly) < R + 18) { p.ac = (p.ac | 0) + 1; A.coins[i] = A.rc(); }
+      }
+      if (p.punch) {                                                  // a punch near the ball sends it flying in the puncher's aim direction
+        p.punch = false;
+        if (Math.hypot(b.x - p.lx, b.y - p.ly) < R + BR + 38) { b.vx = Math.cos(p.la || 0) * 760; b.vy = Math.sin(p.la || 0) * 760; b.last = p.id; }
       }
       const dx = b.x - p.lx, dy = b.y - p.ly, d = Math.hypot(dx, dy);
       if (d < R + BR && d > 0.001) {
@@ -362,7 +379,7 @@ class RoomManager {
   }
   pushArena(room) {
     const a = [];
-    for (const p of room.players.values()) if (p.connected && p.lx !== undefined) a.push([p.id, Math.round(p.lx), Math.round(p.ly), Math.round(p.la * 100) / 100, p.ac | 0, p.ag | 0]);
+    for (const p of room.players.values()) if (p.connected && p.lx !== undefined) a.push([p.id, Math.round(p.lx), Math.round(p.ly), Math.round(p.la * 100) / 100, p.ac | 0, p.ag | 0, p.lm | 0]);
     if (!a.length) return;
     const A = this.arenaOf(room);
     this.io.to(room.code).emit('lp', { p: a, b: [Math.round(A.ball.x), Math.round(A.ball.y)], c: A.coins.map((c) => [c.id, c.x, c.y]) });

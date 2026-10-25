@@ -78,14 +78,14 @@ const FAKE_IO = `
 
   const A = await player('Ann'), B = await player('Bob');
   await A.goto(); await B.goto();
-  const vis = (P, id) => P.page.evaluate((i) => { const e = document.getElementById(i); return !!e && !e.hidden && e.offsetParent !== null; }, id);
+  const vis = (P, id) => P.page.evaluate((i) => { const e = document.getElementById(i); const r = e && e.getBoundingClientRect(); return !!e && !e.hidden && r.width > 0 && r.height > 0 && getComputedStyle(e).display !== 'none'; }, id);
   console.log('home page');
   const label = await A.page.evaluate(() => [...document.querySelectorAll('#view button.go.big')].map((b) => b.textContent));
   ok(label.length === 1 && label[0] === 'SOLO', 'home page has one big SOLO button');
   await A.page.click('#view button.go.big');
   await waitFor(A, () => !document.getElementById('lobby').hidden, 8000, 'A in lobby');
   ok(true, 'clicking SOLO opens the lobby');
-  ok(!(await vis(A, 'roomCode')) && (await vis(A, 'lobbyTag')), 'lobby says real players only and shows no room code');
+  ok(!(await vis(A, 'roomCode')) && !(await vis(A, 'slots')), 'the public lobby shows no room code and no big player grid (you are on the field instead)');
   ok(!(await vis(A, 'lobbyCtl')) && (await vis(A, 'lobbyAdmin')), 'normal player sees no pause / start buttons, only Admin login');
   await B.page.click('#view button.go.big');
   await waitFor(B, () => !document.getElementById('lobby').hidden, 8000, 'B in lobby');
@@ -97,6 +97,8 @@ const FAKE_IO = `
   await waitFor(B, () => state === 'arena' && ents.length === 2, 5000, 'B arena');
   ok(true, 'both players stand on the waiting island and see each other');
   ok(await A.ev('circs.length===0&&houses.length===0&&loot.length===0&&arenaCoins.length>0'), 'the waiting field is an empty rectangle with coins, no obstacles, buildings or loot');
+  await waitFor(B, () => { const r = [...remotes.values()][0]; return r && !r.pend; }, 4000, 'remote placed');
+  await sleep(300);
   const b0 = await B.ev('(()=>{const r=[...remotes.values()][0];return {x:r.x,y:r.y}})()');
   const a0 = await A.ev('({x:player.x,y:player.y})');
   await A.page.keyboard.down('KeyD'); await sleep(900); await A.page.keyboard.up('KeyD'); await sleep(500);
@@ -105,6 +107,22 @@ const FAKE_IO = `
   ok(a1.x - a0.x > 60 || Math.abs(a1.x - a0.x) > 60, 'moving with the keys walks the player around the island (' + Math.round(a1.x - a0.x) + ' px)');
   ok(Math.abs(b1.x - b0.x) > 40 && Math.abs((b1.x - b0.x) - (a1.x - a0.x)) < 60, 'the other player sees that movement (' + Math.round(b1.x - b0.x) + ' px)');
   await A.page.screenshot({ path: process.env.SHOT_DIR ? process.env.SHOT_DIR + '/arena.png' : '/dev/null' });
+  console.log('chat and punch in the browser');
+  await A.page.keyboard.press('Enter');
+  await waitFor(A, () => !document.getElementById('chatIn').hidden && document.activeElement.id === 'chatIn', 2000, 'chat box');
+  ok(true, 'Enter opens the chat box');
+  await A.page.keyboard.type('hi there');
+  await A.page.keyboard.press('Enter');
+  await waitFor(A, () => player.chat && player.chat.t === 'hi there', 3000, 'own bubble');
+  await waitFor(B, () => [...remotes.values()][0].chat && [...remotes.values()][0].chat.t === 'hi there', 3000, 'bubble on B');
+  ok(await A.page.evaluate(() => document.getElementById('chatIn').hidden), 'sending closes the chat box and the message floats over the character on both screens');
+  if (process.env.SHOT_DIR) await A.page.screenshot({ path: process.env.SHOT_DIR + '/arena2.png' });
+  const mc0 = await A.ev('player.mc');
+  await A.page.mouse.click(550, 450);
+  await sleep(300);
+  ok((await A.ev('player.mc')) > mc0, 'left click throws a punch in the lobby');
+  await waitFor(B, () => [...remotes.values()][0].mcSeen >= 1, 3000, 'punch seen by B');
+  ok(true, 'the other player sees the punch');
   console.log('admin controls');
   await A.page.evaluate(() => { window.prompt = () => 'sesame'; });
   await A.page.click('#lobbyAdmin');

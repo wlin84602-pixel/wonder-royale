@@ -204,11 +204,12 @@ window.addEventListener('mousedown',ev=>{
     if(ev.button===0){const z=curZoom();forceAirdrop(cam.x+(ev.clientX-W/2)/z,cam.y+(ev.clientY-H/2)/z)}else banner('Airdrop cancelled',1.5);
     return;
   }
-  if(state!=='play'||ignoreTarget(ev.target))return;
+  if((state!=='play'&&state!=='arena')||ignoreTarget(ev.target))return;
   if(player&&inAir()){if(ev.button!==0)ev.preventDefault();return}
   if(ev.button!==0)ev.preventDefault();else try{window.focus()}catch(e){}
   mouse.x=ev.clientX;mouse.y=ev.clientY;down[code]=true;
-  if(player)pressed(code);
+  if(state==='arena'&&code==='M:0')arenaPunch=true;
+  if(player&&state==='play')pressed(code);
 });
 window.addEventListener('mouseup',ev=>{
   down['M:'+ev.button]=false;

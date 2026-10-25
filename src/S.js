@@ -151,6 +151,7 @@ function drawChar(c,sk,r,o){
   }
   if(sk.wd)drawWardenWings(c,sk,r,!!o.flash);
   if(sk.wd){drawWardenHelm(c,sk,r,!!o.flash);return}
+  if(sk.gold&&typeof drawGoldHead==='function'&&drawGoldHead(c,sk,r,o))return;
   if(sk.helm&&AZURE_IMG.complete&&AZURE_IMG.naturalWidth){
     c.save();c.translate(r*.1,0);c.rotate(-Math.PI/2);
     const w=r*3.1,h=w*AZURE_IMG.naturalHeight/AZURE_IMG.naturalWidth,tm=c.getTransform?c.getTransform():null,sc=tm?Math.hypot(tm.a,tm.b):1;

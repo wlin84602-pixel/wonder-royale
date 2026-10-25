@@ -79,6 +79,7 @@ const FAKE_IO = `
   const A = await player('Ann'), B = await player('Bob');
   await A.goto(); await B.goto();
   const vis = (P, id) => P.page.evaluate((i) => { const e = document.getElementById(i); const r = e && e.getBoundingClientRect(); return !!e && !e.hidden && r.width > 0 && r.height > 0 && getComputedStyle(e).display !== 'none'; }, id);
+  await A.page.evaluate(() => { P.skin = 79; }); await B.page.evaluate(() => { P.skin = 85; });
   console.log('home page');
   const label = await A.page.evaluate(() => [...document.querySelectorAll('#view button.go.big')].map((b) => b.textContent));
   ok(label.length === 1 && label[0] === 'SOLO', 'home page has one big SOLO button');

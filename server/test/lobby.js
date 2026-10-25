@@ -27,6 +27,24 @@ let pass = 0; const ok = (c, m) => { assert.ok(c, m); pass++; console.log('  ok 
   r = await B.cCall('room:ctl', { a: 'now' });
   ok(!r.ok, 'a normal player cannot use Start instantly');
 
+  console.log('waiting field mini games');
+  const room = () => rm.rooms.get(A.last.lobby.code);
+  A.lps = []; A.cOn('lp', (d) => A.lps.push(d)); A.ags = []; A.cOn('ag', (d) => A.ags.push(d));
+  A.cEmit('lp', { x: -300, y: 200, a: 0 }); B.cEmit('lp', { x: 300, y: -200, a: 0 });
+  await until(() => A.lps.length > 2, 2000, 'field updates');
+  const last = A.lps[A.lps.length - 1];
+  ok(last.p.length === 2 && last.b && last.c.length === 9, 'the server sends both positions, the ball and 9 coins');
+  const coin = last.c[0];
+  A.cEmit('lp', { x: coin[1], y: coin[2], a: 0 });
+  await until(() => (A.lps[A.lps.length - 1].p.find((q) => q[0] === r.id) || [])[4] >= 1 || A.lps[A.lps.length - 1].p.some((q) => q[4] >= 1), 2000, 'coin counted');
+  ok(true, 'walking over a coin scores it and spawns a new one (' + A.lps[A.lps.length - 1].c.length + ' coins left on the field)');
+  A.cEmit('lp', { x: -90, y: 0, a: 0 }); await sleep(60); A.cEmit('lp', { x: -40, y: 0, a: 0 });
+  await until(() => room().arena.ball.vx > 100, 1500, 'ball kicked');
+  ok(room().arena.ball.vx > 100, 'running into the ball kicks it away');
+  room().arena.ball.x = 740; room().arena.ball.y = 0; room().arena.ball.vx = 800; room().arena.ball.last = room().players.values().next().value.id;
+  await until(() => A.ags.length > 0, 2000, 'goal event');
+  ok(A.ags.length === 1 && Math.abs(room().arena.ball.x) < 5, 'the ball going into a goal scores for the last player who kicked it and resets to the centre');
+
   console.log('admin');
   r = await A.cCall('admin:auth', { key: 'wrong' });
   ok(!r.ok, 'wrong admin key is rejected');

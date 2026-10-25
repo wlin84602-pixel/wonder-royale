@@ -96,7 +96,7 @@ const FAKE_IO = `
   await waitFor(A, () => state === 'arena' && ents.length === 2, 5000, 'A arena');
   await waitFor(B, () => state === 'arena' && ents.length === 2, 5000, 'B arena');
   ok(true, 'both players stand on the waiting island and see each other');
-  ok(await A.ev('circs.length===0&&houses.length===0&&loot.length===0&&ISLAND<700'), 'the island is small and has no obstacles, buildings or loot');
+  ok(await A.ev('circs.length===0&&houses.length===0&&loot.length===0&&arenaCoins.length>0'), 'the waiting field is an empty rectangle with coins, no obstacles, buildings or loot');
   const b0 = await B.ev('(()=>{const r=[...remotes.values()][0];return {x:r.x,y:r.y}})()');
   const a0 = await A.ev('({x:player.x,y:player.y})');
   await A.page.keyboard.down('KeyD'); await sleep(900); await A.page.keyboard.up('KeyD'); await sleep(500);

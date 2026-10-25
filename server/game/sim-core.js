@@ -2442,7 +2442,7 @@ let last=performance.now(),menuT=0;
 function frame(now){
   const dt=Math.min(.05,(now-last)/1000);last=now;
   if(mp)netTick(dt);
-  if(state==='arena'){arenaStep(dt);draw()}
+  if(state==='arena'){arenaStep(dt);drawArena()}
   else if(state==='hub'||state==='lobby'){
     menuT+=dt;updZone(0);
     cam.x=CX+Math.cos(menuT*.12)*ISLAND*.4;cam.y=CY+Math.sin(menuT*.12)*ISLAND*.4;

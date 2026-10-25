@@ -14,7 +14,10 @@ const GRACE_PLAY_S = 45;        // ...and their character during a match
 const CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const AUTO_CD_S = 30;           // public lobby: countdown once two real players are in
 const FULL_CD_S = 10;           // ...shortened when the lobby is full
-const ARENA_LIM = 700;           // waiting island coordinates are clamped to +-this around its centre
+const AW = 760, AH = 460;       // waiting field: half width / half height (client draws the same rectangle)
+const ARENA_LIM = 800;          // positions are clamped to +-this around the centre
+const GOAL_H = 120;             // half height of each goal opening
+const COINS_N = 9;
 const DEFAULT_OPTS = { map: 1, storm: 1, loot: 1 };
 
 const num = (v, d) => (typeof v === 'number' && isFinite(v) ? v : d);
@@ -248,7 +251,8 @@ class RoomManager {
       .map((p) => ({ id: p.id, name: p.name, skin: p.skin, sub: p.sub, ml: p.ml, bp: p.bp, cp: p.cp }));
     if (roster.length < (force ? 1 : MIN_PLAYERS)) { room.phase = 'lobby'; room.cd = 0; this.pushLobby(room); return; }
     for (const p of [...room.players.values()]) if (!roster.some((r) => r.id === p.id)) { this.byToken.delete(p.token); room.players.delete(p.id); }
-    for (const p of room.players.values()) { delete p.lx; delete p.ly; delete p.la; }
+    for (const p of room.players.values()) { delete p.lx; delete p.ly; delete p.la; delete p.lt; p.ac = 0; p.ag = 0; }
+    room.arena = null;
     room.rn++;
     const seed = (crypto.randomInt(1, 2 ** 30) ^ (room.rn * 7919)) >>> 0;
     const cfg = this.cfgOf(room);
@@ -285,8 +289,9 @@ class RoomManager {
     const c = this.ctxOf(socket); if (!c || !d || typeof d !== 'object') return;
     const { room, p } = c;
     if (room.phase !== 'lobby' && room.phase !== 'countdown') return;
-    p.lx = Math.max(-ARENA_LIM, Math.min(ARENA_LIM, num(d.x, 0)));
-    p.ly = Math.max(-ARENA_LIM, Math.min(ARENA_LIM, num(d.y, 0)));
+    const nx = Math.max(-AW, Math.min(AW, num(d.x, 0))), ny = Math.max(-AH, Math.min(AH, num(d.y, 0))), now = Date.now();
+    if (p.lx !== undefined && p.lt && now - p.lt > 20) { p.lvx = (nx - p.lx) / ((now - p.lt) / 1000); p.lvy = (ny - p.ly) / ((now - p.lt) / 1000); }
+    p.lt = now; p.lx = nx; p.ly = ny;
     p.la = Math.max(-7, Math.min(7, num(d.a, 0)));
   }
   input(socket, d) {
@@ -310,16 +315,57 @@ class RoomManager {
   /* ---------- loops ---------- */
   tick() {
     const now = Date.now(), dt = Math.min(0.1, (now - this.last) / 1000); this.last = now;
-    this.lpN = ((this.lpN | 0) + 1) % 3;
+    this.lpN = ((this.lpN | 0) + 1) % 2;
     for (const room of [...this.rooms.values()]) {
-      if (this.lpN === 0 && (room.phase === 'lobby' || room.phase === 'countdown')) this.pushArena(room);
+      if (room.phase === 'lobby' || room.phase === 'countdown') { this.tickArena(room, dt); if (this.lpN === 0) this.pushArena(room); }
       try { this.tickRoom(room, dt); } catch (e) { console.error('room error', room.code, e); this.closeBroken(room); }
+    }
+  }
+  /* mini games on the waiting field: Coin Rush (collect coins) and Kick the ball (score in either goal) */
+  arenaOf(room) {
+    if (!room.arena) {
+      const rc = () => ({ id: Math.floor(Math.random() * 1e9), x: Math.round((Math.random() * 2 - 1) * (AW - 70)), y: Math.round((Math.random() * 2 - 1) * (AH - 70)) });
+      room.arena = { coins: Array.from({ length: COINS_N }, rc), ball: { x: 0, y: 0, vx: 0, vy: 0 }, rc };
+    }
+    return room.arena;
+  }
+  tickArena(room, dt) {
+    const A = this.arenaOf(room), b = A.ball, R = 22, BR = 26;
+    const live = [...room.players.values()].filter((p) => p.connected && p.lx !== undefined);
+    for (const p of live) {
+      for (let i = 0; i < A.coins.length; i++) {
+        const c = A.coins[i];
+        if (Math.hypot(c.x - p.lx, c.y - p.ly) < R + 18) { p.ac = (p.ac | 0) + 1; A.coins[i] = A.rc(); }
+      }
+      const dx = b.x - p.lx, dy = b.y - p.ly, d = Math.hypot(dx, dy);
+      if (d < R + BR && d > 0.001) {
+        const nx = dx / d, ny = dy / d, sp = Math.hypot(p.lvx || 0, p.lvy || 0);
+        b.x = p.lx + nx * (R + BR); b.y = p.ly + ny * (R + BR);
+        const kick = Math.max(300, Math.min(900, sp * 1.5));
+        b.vx = nx * kick + (p.lvx || 0) * 0.3; b.vy = ny * kick + (p.lvy || 0) * 0.3;
+        b.last = p.id;
+      }
+    }
+    const f = Math.exp(-1.2 * dt); b.vx *= f; b.vy *= f;
+    b.x += b.vx * dt; b.y += b.vy * dt;
+    const inGoalY = Math.abs(b.y) < GOAL_H;
+    if (Math.abs(b.x) > AW + 6 && inGoalY) {                       // goal
+      const who = room.players.get(b.last);
+      if (who) { who.ag = (who.ag | 0) + 1; this.io.to(room.code).emit('ag', { n: who.name, id: who.id }); }
+      b.x = 0; b.y = 0; b.vx = 0; b.vy = 0; b.last = null;
+    } else {
+      if (b.x > AW - BR && !inGoalY) { b.x = AW - BR; b.vx = -Math.abs(b.vx) * 0.8; }
+      if (b.x < -AW + BR && !inGoalY) { b.x = -AW + BR; b.vx = Math.abs(b.vx) * 0.8; }
+      if (b.y > AH - BR) { b.y = AH - BR; b.vy = -Math.abs(b.vy) * 0.8; }
+      if (b.y < -AH + BR) { b.y = -AH + BR; b.vy = Math.abs(b.vy) * 0.8; }
     }
   }
   pushArena(room) {
     const a = [];
-    for (const p of room.players.values()) if (p.connected && p.lx !== undefined) a.push([p.id, Math.round(p.lx), Math.round(p.ly), Math.round(p.la * 100) / 100]);
-    if (a.length) this.io.to(room.code).emit('lp', { p: a });
+    for (const p of room.players.values()) if (p.connected && p.lx !== undefined) a.push([p.id, Math.round(p.lx), Math.round(p.ly), Math.round(p.la * 100) / 100, p.ac | 0, p.ag | 0]);
+    if (!a.length) return;
+    const A = this.arenaOf(room);
+    this.io.to(room.code).emit('lp', { p: a, b: [Math.round(A.ball.x), Math.round(A.ball.y)], c: A.coins.map((c) => [c.id, c.x, c.y]) });
   }
   closeBroken(room) {
     this.io.to(room.code).emit('match:error', { error: 'The match hit a server error and was reset.' });

@@ -246,5 +246,5 @@ function paintSkin(canvas,sk,px,chute){
   c.setTransform(d,0,0,d,0,0);c.clearRect(0,0,px,px);c.translate(px/2,px/2);
   const r=px*(chute?.17:.34);
   if(chute){{const cs=chuteSkin(sk,typeof P!=='undefined'&&P?P.chute:0);drawChute(c,cs,px*.47);drawRopes(c,px*.47,r,cs)}}
-  c.rotate(-Math.PI/2);drawChar(c,sk,r,{});
+  c.rotate(-Math.PI/2);drawChar(c,sk,r,{pv:1});
 }

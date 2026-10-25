@@ -9,7 +9,7 @@ const GOLD_RECT=[[4, 6, 128, 123], [140, 6, 128, 123], [278, 4, 123, 128], [4, 1
 function drawGoldHead(c,sk,r,o){
   if(!GOLD_IMG.complete||!GOLD_IMG.naturalWidth)return false;
   const g=sk.gold,k=r*2.45/128,dw=g[2]*k,dh=g[3]*k;
-  c.save();c.translate(r*.06,0);c.rotate(Math.PI/2);
+  c.save();c.translate(r*.06,0);c.rotate(o&&o.pv?Math.PI/2:-Math.PI/2);   /* previews keep the icon upright; in the world it is turned 180 degrees */
   c.imageSmoothingEnabled=true;c.imageSmoothingQuality='high';
   c.drawImage(GOLD_IMG,g[0],g[1],g[2],g[3],-dw/2,-dh/2,dw,dh);
   if(o&&o.flash){c.globalAlpha=.55;c.fillStyle='#ffffff';c.beginPath();c.arc(0,0,r*.7,0,Math.PI*2);c.fill()}

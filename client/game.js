@@ -737,7 +737,7 @@ function paintSkin(canvas,sk,px,chute){
   c.setTransform(d,0,0,d,0,0);c.clearRect(0,0,px,px);c.translate(px/2,px/2);
   const r=px*(chute?.17:.34);
   if(chute){{const cs=chuteSkin(sk,typeof P!=='undefined'&&P?P.chute:0);drawChute(c,cs,px*.47);drawRopes(c,px*.47,r,cs)}}
-  c.rotate(-Math.PI/2);drawChar(c,sk,r,{});
+  c.rotate(-Math.PI/2);drawChar(c,sk,r,{pv:1});
 }
 
 /* Black and gold skins 78 to 89, drawn from the supplied artwork (background removed, one sprite sheet of 12 icons).
@@ -751,7 +751,7 @@ const GOLD_RECT=[[4, 6, 128, 123], [140, 6, 128, 123], [278, 4, 123, 128], [4, 1
 function drawGoldHead(c,sk,r,o){
   if(!GOLD_IMG.complete||!GOLD_IMG.naturalWidth)return false;
   const g=sk.gold,k=r*2.45/128,dw=g[2]*k,dh=g[3]*k;
-  c.save();c.translate(r*.06,0);c.rotate(Math.PI/2);
+  c.save();c.translate(r*.06,0);c.rotate(o&&o.pv?Math.PI/2:-Math.PI/2);   /* previews keep the icon upright; in the world it is turned 180 degrees */
   c.imageSmoothingEnabled=true;c.imageSmoothingQuality='high';
   c.drawImage(GOLD_IMG,g[0],g[1],g[2],g[3],-dw/2,-dh/2,dw,dh);
   if(o&&o.flash){c.globalAlpha=.55;c.fillStyle='#ffffff';c.beginPath();c.arc(0,0,r*.7,0,Math.PI*2);c.fill()}
@@ -881,14 +881,14 @@ function paintChute(canvas,idx,px,sk){
   const c=canvas.getContext('2d');if(!c)return;
   c.setTransform(d,0,0,d,0,0);c.clearRect(0,0,px,px);c.translate(px/2,px/2);
   const r=px*.17,cs=chuteSkin(sk,idx);
-  drawChute(c,cs,px*.47);drawRopes(c,px*.47,r,cs);c.rotate(-Math.PI/2);drawChar(c,sk,r,{});
+  drawChute(c,cs,px*.47);drawRopes(c,px*.47,r,cs);c.rotate(-Math.PI/2);drawChar(c,sk,r,{pv:1});
 }
 function paintPack(canvas,idx,px,sk){
   const d=Math.min(2,window.devicePixelRatio||1);
   canvas.width=Math.round(px*d);canvas.height=Math.round(px*d);canvas.style.width=px+'px';canvas.style.height=px+'px';
   const c=canvas.getContext('2d');if(!c)return;
   c.setTransform(d,0,0,d,0,0);c.clearRect(0,0,px,px);c.translate(px/2,px*.4);
-  const r=px*.19;c.rotate(-Math.PI/2);drawPack(c,idx,r);drawChar(c,sk,r,{});
+  const r=px*.19;c.rotate(-Math.PI/2);drawPack(c,idx,r);drawChar(c,sk,r,{pv:1});
 }
 function drawEmoteBubble(c,x,y,g,t){
   const k=Math.min(1,(2.6-t)*6),a=Math.min(1,t*3),sc=.6+.4*Math.min(1,k)+Math.sin(Math.min(2.6,t)*9)*.03;

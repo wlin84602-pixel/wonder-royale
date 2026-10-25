@@ -121,14 +121,14 @@ function paintChute(canvas,idx,px,sk){
   const c=canvas.getContext('2d');if(!c)return;
   c.setTransform(d,0,0,d,0,0);c.clearRect(0,0,px,px);c.translate(px/2,px/2);
   const r=px*.17,cs=chuteSkin(sk,idx);
-  drawChute(c,cs,px*.47);drawRopes(c,px*.47,r,cs);c.rotate(-Math.PI/2);drawChar(c,sk,r,{});
+  drawChute(c,cs,px*.47);drawRopes(c,px*.47,r,cs);c.rotate(-Math.PI/2);drawChar(c,sk,r,{pv:1});
 }
 function paintPack(canvas,idx,px,sk){
   const d=Math.min(2,window.devicePixelRatio||1);
   canvas.width=Math.round(px*d);canvas.height=Math.round(px*d);canvas.style.width=px+'px';canvas.style.height=px+'px';
   const c=canvas.getContext('2d');if(!c)return;
   c.setTransform(d,0,0,d,0,0);c.clearRect(0,0,px,px);c.translate(px/2,px*.4);
-  const r=px*.19;c.rotate(-Math.PI/2);drawPack(c,idx,r);drawChar(c,sk,r,{});
+  const r=px*.19;c.rotate(-Math.PI/2);drawPack(c,idx,r);drawChar(c,sk,r,{pv:1});
 }
 function drawEmoteBubble(c,x,y,g,t){
   const k=Math.min(1,(2.6-t)*6),a=Math.min(1,t*3),sc=.6+.4*Math.min(1,k)+Math.sin(Math.min(2.6,t)*9)*.03;

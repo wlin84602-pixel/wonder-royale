@@ -14,6 +14,7 @@ const GRACE_PLAY_S = 45;        // ...and their character during a match
 const CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const AUTO_CD_S = 30;           // public lobby: countdown once two real players are in
 const FULL_CD_S = 10;           // ...shortened when the lobby is full
+const ARENA_LIM = 700;           // waiting island coordinates are clamped to +-this around its centre
 const DEFAULT_OPTS = { map: 1, storm: 1, loot: 1 };
 
 const num = (v, d) => (typeof v === 'number' && isFinite(v) ? v : d);
@@ -58,6 +59,7 @@ class RoomManager {
     socket.on('admin:auth', (d, ack) => { if (!allow()) return; ackSafe(ack, this.adminAuth(socket, d || {})); });
     socket.on('room:start', (_d, ack) => { if (!allow()) return; ackSafe(ack, this.start(socket)); });
     socket.on('room:opts', (d, ack) => { if (!allow()) return; ackSafe(ack, this.setOpts(socket, d || {})); });
+    socket.on('lp', (d) => { if (allow()) this.arenaPos(socket, d); });
     socket.on('in', (d) => { if (allow()) this.input(socket, d); });
     socket.on('act', (d) => { if (allow()) this.act(socket, d); });
     socket.on('pingx', (t, ack) => ackSafe(ack, t));
@@ -246,6 +248,7 @@ class RoomManager {
       .map((p) => ({ id: p.id, name: p.name, skin: p.skin, sub: p.sub, ml: p.ml, bp: p.bp, cp: p.cp }));
     if (roster.length < (force ? 1 : MIN_PLAYERS)) { room.phase = 'lobby'; room.cd = 0; this.pushLobby(room); return; }
     for (const p of [...room.players.values()]) if (!roster.some((r) => r.id === p.id)) { this.byToken.delete(p.token); room.players.delete(p.id); }
+    for (const p of room.players.values()) { delete p.lx; delete p.ly; delete p.la; }
     room.rn++;
     const seed = (crypto.randomInt(1, 2 ** 30) ^ (room.rn * 7919)) >>> 0;
     const cfg = this.cfgOf(room);
@@ -277,6 +280,15 @@ class RoomManager {
     if (!room.players.has(room.hostId)) room.hostId = [...room.players.values()][0].id;
     this.pushLobby(room);
   }
+  /* waiting island: players walk around while the lobby counts down. Only cosmetic positions, relative to the island centre. */
+  arenaPos(socket, d) {
+    const c = this.ctxOf(socket); if (!c || !d || typeof d !== 'object') return;
+    const { room, p } = c;
+    if (room.phase !== 'lobby' && room.phase !== 'countdown') return;
+    p.lx = Math.max(-ARENA_LIM, Math.min(ARENA_LIM, num(d.x, 0)));
+    p.ly = Math.max(-ARENA_LIM, Math.min(ARENA_LIM, num(d.y, 0)));
+    p.la = Math.max(-7, Math.min(7, num(d.a, 0)));
+  }
   input(socket, d) {
     const c = this.ctxOf(socket); if (!c || !d || typeof d !== 'object') return;
     const { room, p } = c;
@@ -298,9 +310,16 @@ class RoomManager {
   /* ---------- loops ---------- */
   tick() {
     const now = Date.now(), dt = Math.min(0.1, (now - this.last) / 1000); this.last = now;
+    this.lpN = ((this.lpN | 0) + 1) % 3;
     for (const room of [...this.rooms.values()]) {
+      if (this.lpN === 0 && (room.phase === 'lobby' || room.phase === 'countdown')) this.pushArena(room);
       try { this.tickRoom(room, dt); } catch (e) { console.error('room error', room.code, e); this.closeBroken(room); }
     }
+  }
+  pushArena(room) {
+    const a = [];
+    for (const p of room.players.values()) if (p.connected && p.lx !== undefined) a.push([p.id, Math.round(p.lx), Math.round(p.ly), Math.round(p.la * 100) / 100]);
+    if (a.length) this.io.to(room.code).emit('lp', { p: a });
   }
   closeBroken(room) {
     this.io.to(room.code).emit('match:error', { error: 'The match hit a server error and was reset.' });

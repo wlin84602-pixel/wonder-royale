@@ -16,6 +16,7 @@ npm install --prefix server     # or: npm install   (root package.json lists the
 npm start                       # http://localhost:3000  (serves client/ too)
 ```
 Open it in two browser tabs and press the big **SOLO** button in both: you land in a public lobby of real players only (no bots) and the match starts by itself 30 s after the 2nd player arrives (10 s once 6 are in).
+While the lobby counts down, players stand on a small obstacle-free **waiting island**, can walk around and see each other (positions are relayed by the server as `lp` messages), and the countdown shows on top. When the timer ends everyone drops into the real map.
 Friends-only rooms: **Play with friends** → Create room → the other tab joins with the 5-letter code → host presses Start.
 
 ### Admin (pause / resume / Start instantly)

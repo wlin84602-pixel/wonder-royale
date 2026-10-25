@@ -2444,7 +2444,8 @@ let last=performance.now(),menuT=0;
 function frame(now){
   const dt=Math.min(.05,(now-last)/1000);last=now;
   if(mp)netTick(dt);
-  if(state==='hub'||state==='lobby'){
+  if(state==='arena'){arenaStep(dt);draw()}
+  else if(state==='hub'||state==='lobby'){
     menuT+=dt;updZone(0);
     cam.x=CX+Math.cos(menuT*.12)*ISLAND*.4;cam.y=CY+Math.sin(menuT*.12)*ISLAND*.4;
     for(const l of loot)l.b+=dt*3;
@@ -2541,6 +2542,7 @@ function wireSocket(s){
   s.on('disconnect',()=>{connected=false;if(inRoom)$('netbar').hidden=false;setNetStatus('Connection lost. Reconnecting…',true)});
   s.on('connect_error',()=>{connected=false;if(inRoom)$('netbar').hidden=false;setNetStatus('Cannot reach the server. Retrying…',true)});
   s.on('lobby',onLobby);
+  s.on('lp',onArena);
   s.on('match:start',d=>{if(inRoom)beginMatch(d,false)});
   s.on('s',onSnap);
   s.on('m',m=>{if(playing)applyMe(m)});
@@ -2611,7 +2613,7 @@ function enterRoom(r){
   $('online').hidden=true;showLobbyScreen();renderLobby();
 }
 function showLobbyScreen(){
-  state='lobby';showHud(false);
+  state='lobby';showHud(false);enterArena();
   $('hub').hidden=true;$('online').hidden=true;$('end').hidden=true;$('lobby').hidden=false;$('mpbar').hidden=true;$('pchip').hidden=true;
 }
 $('onCreate').addEventListener('click',async()=>{
@@ -2645,6 +2647,7 @@ $('roomCode').addEventListener('click',()=>{
 function leaveOnline(silent){
   const was=inRoom;
   if(was&&sock&&sock.connected){try{sock.emit('room:leave',{})}catch(e){}}
+  arenaOn=false;$('lobby').classList.remove('arena');
   inRoom=false;rejoining=false;clearSession();myId='';myCode='';LOB=null;lobbyKey='';
   playing=false;endShown=false;matchSeed=-1;NETMODE=null;mp=false;
   remotes.clear();byPid.clear();
@@ -2679,7 +2682,7 @@ function onLobby(d){
   LOB=d;
   if(!d.players.some(p=>p.id===myId)){leaveOnline(false);banner('You were removed from the room.',4);return}
   if(d.phase==='lobby'&&(playing||endShown))exitMatch(true);
-  if(!playing)renderLobby();
+  if(!playing){renderLobby();if(arenaOn)syncArena()}
 }
 function renderLobby(){
   const d=LOB;if(!d)return;
@@ -2695,7 +2698,8 @@ function renderLobby(){
     if(s.dataset.k!==String(sk)){s.dataset.k=String(sk);paintSkin(cv2,SKINS[sk],64,true)}
   }
   const o=d.opts,ms=['Small','Medium','Large'][clamp(o.map|0,0,2)],ss=['Slow','Normal','Fast'][clamp(o.storm|0,0,2)],ls=['Sparse','Normal','Plentiful'][clamp(o.loot|0,0,2)];
-  $('lobbyInfo').textContent=ms+' map · '+ss+' storm · '+ls+' loot · '+d.min+' to '+d.max+' players';
+  $('lobbyInfo').textContent=arenaOn?d.players.map(p=>cleanName(p.name)).join(', ')+'  ·  '+d.players.length+' of '+d.max+' players  ·  '+ms+' map':ms+' map · '+ss+' storm · '+ls+' loot · '+d.min+' to '+d.max+' players';
+  $('lobby').classList.toggle('arena',arenaOn);
   const ho=$('hostOpts');ho.hidden=!(ctl&&d.phase==='lobby');
   ho.querySelectorAll('select').forEach(s=>{if(document.activeElement!==s)s.value=String(o[s.dataset.k]|0)});
   const live=d.players.filter(p=>p.connected).length;
@@ -2711,6 +2715,64 @@ function renderLobby(){
   $('cdown').textContent=big;if(!/copied/.test($('cdnote').textContent)||d.phase!=='lobby')$('cdnote').textContent=small;
 }
 
+/* ---------- waiting island: a small empty arena to walk around in while the lobby counts down ---------- */
+const ARENA_R=520;
+let arenaOn=false,lpT=0;
+function enterArena(){
+  arenaOn=true;
+  ISLAND=ARENA_R;CX=CY=ARENA_R+90;MAPA=Math.pow(ISLAND/1520,2);
+  setCfg([0,0,0,0,0]);booms.length=0;genWorld(20261);
+  circs=[];blocks=[];decor=[];loot=[];houses=[];doors=[];wins=[];crates=[];
+  bullets=[];parts=[];feed=[];ents=[];remotes.clear();byPid.clear();
+  initZone();zone.r=1e6;zone.state='done';
+  const mine=LOB&&LOB.players.find(p=>p.id===myId);
+  player=mkNetEnt(Object.assign({id:myId},myProfile(),mine?{name:mine.name,skin:mine.skin,sub:mine.sub}:{}));
+  player.st=3;player.remote=false;
+  const a=Math.random()*TAU,rr=Math.random()*110;
+  player.x=CX+Math.cos(a)*rr;player.y=CY+Math.sin(a)*rr;
+  ents.push(player);byPid.set(myId,player);
+  cam.x=player.x;cam.y=player.y;zoomMul=.58;state='arena';showHud(false);lpT=0;
+  syncArena();
+}
+function syncArena(){
+  if(!arenaOn||!LOB)return;
+  const ids=new Set();
+  for(const p of LOB.players){
+    ids.add(p.id);if(p.id===myId)continue;
+    if(!remotes.has(p.id)){
+      const r=mkNetEnt(p);r.st=3;r.remote=true;r.pend=true;r.tx=r.x=CX;r.ty=r.y=CY;r.tvx=0;r.tvy=0;r.tang=r.ang;
+      remotes.set(p.id,r);byPid.set(p.id,r);ents.push(r);
+    }
+  }
+  for(const [id,r] of [...remotes]){if(!ids.has(id)){remotes.delete(id);byPid.delete(id);const i=ents.indexOf(r);if(i>=0)ents.splice(i,1)}}
+}
+function onArena(d){
+  if(!arenaOn||!d||!d.p)return;
+  for(const q of d.p){
+    const r=remotes.get(q[0]);if(!r)continue;
+    const nx=CX+num(q[1],0),ny=CY+num(q[2],0);
+    if(r.pend){r.pend=false;r.x=nx;r.y=ny;r.tvx=0;r.tvy=0}
+    else{r.tvx=(nx-r.tx)*5;r.tvy=(ny-r.ty)*5}
+    r.tx=nx;r.ty=ny;r.tang=num(q[3],r.tang);r.vx=r.tvx;r.vy=r.tvy;
+  }
+}
+function arenaStep(dt){
+  const p=player;if(!p)return;
+  time+=dt;
+  let ix=(isDown('right')?1:0)-(isDown('left')?1:0),iy=(isDown('down')?1:0)-(isDown('up')?1:0);
+  if(stick.m.on){ix=stick.m.x;iy=stick.m.y}
+  const z=curZoom();
+  if(stick.a.on){if(Math.hypot(stick.a.x,stick.a.y)>.12)p.ang=Math.atan2(stick.a.y,stick.a.x)}
+  else if(!isTouch)p.ang=Math.atan2(mouse.y-(H/2+(p.y-cam.y)*z),mouse.x-(W/2+(p.x-cam.x)*z));
+  moveEnt(p,ix,iy,265,dt);
+  const dx=p.x-CX,dy=p.y-CY,dd=Math.hypot(dx,dy),lim=ARENA_R-40;
+  if(dd>lim){p.x=CX+dx/dd*lim;p.y=CY+dy/dd*lim}
+  smoothRemotes(dt);updParts(dt);
+  cam.x+=(p.x-cam.x)*Math.min(1,dt*9);cam.y+=(p.y-cam.y)*Math.min(1,dt*9);
+  lpT+=dt;
+  if(lpT>=.066&&sock&&sock.connected){lpT=0;sock.volatile.emit('lp',{x:Math.round(p.x-CX),y:Math.round(p.y-CY),a:Math.round(p.ang*100)/100})}
+}
+
 /* ---------- match entry and exit ---------- */
 function mkNetEnt(r){
   const e=mkEnt(CX,CY,false,cleanName(r.name),clamp(r.skin|0,0,99));
@@ -2719,6 +2781,7 @@ function mkNetEnt(r){
   return e;
 }
 function beginMatch(d,restore){
+  arenaOn=false;$('lobby').classList.remove('arena');
   if(playing&&!restore&&d.seed===matchSeed)return;
   matchSeed=d.seed;roster=d.roster;cfgM=d.cfg;
   NETMODE='client';mp=true;
@@ -2748,7 +2811,7 @@ function beginMatch(d,restore){
 function exitMatch(toLobby){
   playing=false;endShown=false;matchSeed=-1;NETMODE=null;remotes.clear();byPid.clear();
   if(toLobby){
-    state='lobby';player=null;ents=[];setupPreview();showHud(false);
+    arenaOn=false;player=null;ents=[];showLobbyScreen();
     $('end').hidden=true;$('lobby').hidden=false;$('mpbar').hidden=true;$('pchip').hidden=true;
     renderLobby();
   }

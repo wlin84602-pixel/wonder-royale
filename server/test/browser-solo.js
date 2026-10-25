@@ -92,6 +92,19 @@ const FAKE_IO = `
   await waitFor(A, () => /Starting in/.test(document.getElementById('cdown').textContent), 5000, 'auto countdown');
   ok(true, 'countdown starts on its own when the second real player arrives');
 
+  console.log('waiting island');
+  await waitFor(A, () => state === 'arena' && ents.length === 2, 5000, 'A arena');
+  await waitFor(B, () => state === 'arena' && ents.length === 2, 5000, 'B arena');
+  ok(true, 'both players stand on the waiting island and see each other');
+  ok(await A.ev('circs.length===0&&houses.length===0&&loot.length===0&&ISLAND<700'), 'the island is small and has no obstacles, buildings or loot');
+  const b0 = await B.ev('(()=>{const r=[...remotes.values()][0];return {x:r.x,y:r.y}})()');
+  const a0 = await A.ev('({x:player.x,y:player.y})');
+  await A.page.keyboard.down('KeyD'); await sleep(900); await A.page.keyboard.up('KeyD'); await sleep(500);
+  const a1 = await A.ev('({x:player.x,y:player.y})');
+  const b1 = await B.ev('(()=>{const r=[...remotes.values()][0];return {x:r.x,y:r.y}})()');
+  ok(a1.x - a0.x > 60 || Math.abs(a1.x - a0.x) > 60, 'moving with the keys walks the player around the island (' + Math.round(a1.x - a0.x) + ' px)');
+  ok(Math.abs(b1.x - b0.x) > 40 && Math.abs((b1.x - b0.x) - (a1.x - a0.x)) < 60, 'the other player sees that movement (' + Math.round(b1.x - b0.x) + ' px)');
+  await A.page.screenshot({ path: process.env.SHOT_DIR ? process.env.SHOT_DIR + '/arena.png' : '/dev/null' });
   console.log('admin controls');
   await A.page.evaluate(() => { window.prompt = () => 'sesame'; });
   await A.page.click('#lobbyAdmin');

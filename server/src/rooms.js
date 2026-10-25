@@ -12,6 +12,8 @@ const TICK_HZ = 30;
 const GRACE_LOBBY_S = 20;       // how long a disconnected player keeps their lobby seat
 const GRACE_PLAY_S = 45;        // ...and their character during a match
 const CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+const AUTO_CD_S = 30;           // public lobby: countdown once two real players are in
+const FULL_CD_S = 10;           // ...shortened when the lobby is full
 const DEFAULT_OPTS = { map: 1, storm: 1, loot: 1 };
 
 const num = (v, d) => (typeof v === 'number' && isFinite(v) ? v : d);
@@ -26,6 +28,7 @@ class RoomManager {
     this.io = io;
     this.rooms = new Map();
     this.byToken = new Map();            // token -> {room, player}
+    this.adminKey = String(opts.adminKey != null ? opts.adminKey : (process.env.ADMIN_KEY || ''));
     this.log = opts.log || (() => {});
     this.limits = opts.limits || { melees: 12, packs: 21, paras: 22, skins: 100, emotes: 24 };
     this.tickMs = 1000 / TICK_HZ;
@@ -50,6 +53,9 @@ class RoomManager {
     socket.on('room:join', (d, ack) => { if (!allow()) return; ackSafe(ack, this.join(socket, d || {})); });
     socket.on('room:rejoin', (d, ack) => { if (!allow()) return; ackSafe(ack, this.rejoin(socket, d || {})); });
     socket.on('room:leave', (_d, ack) => { this.leave(socket, true); ackSafe(ack, { ok: true }); });
+    socket.on('room:solo', (d, ack) => { if (!allow()) return; ackSafe(ack, this.solo(socket, d || {})); });
+    socket.on('room:ctl', (d, ack) => { if (!allow()) return; ackSafe(ack, this.control(socket, d || {})); });
+    socket.on('admin:auth', (d, ack) => { if (!allow()) return; ackSafe(ack, this.adminAuth(socket, d || {})); });
     socket.on('room:start', (_d, ack) => { if (!allow()) return; ackSafe(ack, this.start(socket)); });
     socket.on('room:opts', (d, ack) => { if (!allow()) return; ackSafe(ack, this.setOpts(socket, d || {})); });
     socket.on('in', (d) => { if (allow()) this.input(socket, d); });
@@ -80,7 +86,7 @@ class RoomManager {
     };
   }
   addPlayer(room, socket, d) {
-    const p = Object.assign({ id: crypto.randomBytes(4).toString('hex'), token: crypto.randomBytes(16).toString('hex'), socketId: socket.id, connected: true, discAt: 0, joinedAt: Date.now(), lastIn: 0 }, this.profile(d));
+    const p = Object.assign({ id: crypto.randomBytes(4).toString('hex'), token: crypto.randomBytes(16).toString('hex'), socketId: socket.id, connected: true, discAt: 0, joinedAt: Date.now(), lastIn: 0, admin: !!socket.data.admin }, this.profile(d));
     room.players.set(p.id, p);
     this.byToken.set(p.token, { room, p });
     socket.data.code = room.code; socket.data.pid = p.id;
@@ -90,7 +96,7 @@ class RoomManager {
   create(socket, d) {
     this.leave(socket, true);
     const code = this.newCode(); if (!code) return { ok: false, error: 'Server is full, try again.' };
-    const room = { code, players: new Map(), hostId: null, phase: 'lobby', cd: 0, over: 0, opts: Object.assign({}, DEFAULT_OPTS), sim: null, match: null, rn: 0, results: null };
+    const room = { code, players: new Map(), hostId: null, phase: 'lobby', cd: 0, over: 0, opts: Object.assign({}, DEFAULT_OPTS), sim: null, match: null, rn: 0, results: null, pub: !!d._pub, paused: false };
     this.rooms.set(code, room);
     const p = this.addPlayer(room, socket, d);
     room.hostId = p.id;
@@ -111,6 +117,51 @@ class RoomManager {
     const p = this.addPlayer(room, socket, d);
     this.pushLobby(room);
     return { ok: true, code, id: p.id, token: p.token, lobby: this.lobbyOf(room) };
+  }
+  /* ---------- public lobby ("Solo" button), pause / resume / start instantly, admin ---------- */
+  solo(socket, d) {
+    let room = null;
+    for (const r of this.rooms.values()) {
+      if (!r.pub || (r.phase !== 'lobby' && r.phase !== 'countdown')) continue;
+      if (this.liveCount(r) >= MAX_PLAYERS) continue;
+      if (!room || this.liveCount(r) > this.liveCount(room)) room = r;     // fill the fullest open lobby first
+    }
+    if (!room) return this.create(socket, Object.assign({}, d, { _pub: true }));
+    this.leave(socket, true);
+    const p = this.addPlayer(room, socket, d);
+    this.pushLobby(room);
+    return { ok: true, code: room.code, id: p.id, token: p.token, lobby: this.lobbyOf(room) };
+  }
+  canControl(room, p) { return !!(p.admin || (!room.pub && room.hostId === p.id)); }
+  adminAuth(socket, d) {
+    if (!this.adminKey) return { ok: false, error: 'Admin is not set up on this server (set the ADMIN_KEY variable).' };
+    if ((socket.data.adminFails | 0) >= 5) return { ok: false, error: 'Too many tries. Reload the page.' };
+    const h = (x) => crypto.createHash('sha256').update(String(x)).digest();
+    if (!crypto.timingSafeEqual(h(d.key), h(this.adminKey))) { socket.data.adminFails = (socket.data.adminFails | 0) + 1; return { ok: false, error: 'Wrong admin key.' }; }
+    socket.data.admin = true;
+    const c = this.ctxOf(socket);
+    if (c) { c.p.admin = true; this.pushLobby(c.room); }
+    return { ok: true };
+  }
+  control(socket, d) {
+    const c = this.ctxOf(socket); if (!c) return { ok: false, error: 'Not in a room.' };
+    const { room, p } = c;
+    if (!this.canControl(room, p)) return { ok: false, error: 'Only the admin can do that.' };
+    const a = String(d.a || '');
+    if (a === 'pause' || a === 'resume') {
+      if (room.phase !== 'lobby' && room.phase !== 'countdown') return { ok: false, error: 'Nothing to pause right now.' };
+      room.paused = a === 'pause';
+      this.pushLobby(room);
+      return { ok: true };
+    }
+    if (a === 'now') {
+      if (room.phase !== 'lobby' && room.phase !== 'countdown') return { ok: false, error: 'A match is already running.' };
+      if (this.liveCount(room) < 1) return { ok: false, error: 'Nobody is connected.' };
+      room.paused = false; room._lastCd = null;
+      this.startMatch(room, true);
+      return { ok: true };
+    }
+    return { ok: false, error: 'Unknown command.' };
   }
   rejoin(socket, d) {
     const hit = this.byToken.get(String(d.token || ''));
@@ -164,25 +215,25 @@ class RoomManager {
   liveCount(room) { let n = 0; for (const p of room.players.values()) if (p.connected) n++; return n; }
   lobbyOf(room) {
     return {
-      code: room.code, hostId: room.hostId, phase: room.phase, cd: Math.max(0, Math.ceil(room.cd)), min: MIN_PLAYERS, max: MAX_PLAYERS, opts: room.opts,
-      players: [...room.players.values()].sort((a, b) => a.joinedAt - b.joinedAt).map((p) => ({ id: p.id, name: p.name, skin: p.skin, sub: p.sub, connected: p.connected }))
+      code: room.code, hostId: room.hostId, phase: room.phase, cd: Math.max(0, Math.ceil(room.cd)), min: MIN_PLAYERS, max: MAX_PLAYERS, opts: room.opts, pub: !!room.pub, paused: !!room.paused,
+      players: [...room.players.values()].sort((a, b) => a.joinedAt - b.joinedAt).map((p) => ({ id: p.id, name: p.name, skin: p.skin, sub: p.sub, connected: p.connected, ad: p.admin ? 1 : 0 }))
     };
   }
   pushLobby(room) { this.io.to(room.code).emit('lobby', this.lobbyOf(room)); }
   start(socket) {
     const c = this.ctxOf(socket); if (!c) return { ok: false, error: 'Not in a room.' };
     const { room, p } = c;
-    if (room.hostId !== p.id) return { ok: false, error: 'Only the host can start.' };
+    if (!this.canControl(room, p)) return { ok: false, error: room.pub ? 'Only the admin can start this lobby early.' : 'Only the host can start.' };
     if (room.phase !== 'lobby') return { ok: false, error: 'Already starting.' };
     if (this.liveCount(room) < MIN_PLAYERS) return { ok: false, error: 'Need at least ' + MIN_PLAYERS + ' players.' };
-    room.phase = 'countdown'; room.cd = COUNTDOWN_S;
+    room.phase = 'countdown'; room.cd = COUNTDOWN_S; room.paused = false;
     this.pushLobby(room);
     return { ok: true };
   }
   setOpts(socket, d) {
     const c = this.ctxOf(socket); if (!c) return { ok: false };
     const { room, p } = c;
-    if (room.hostId !== p.id || room.phase !== 'lobby') return { ok: false };
+    if (!this.canControl(room, p) || room.phase !== 'lobby') return { ok: false };
     room.opts = { map: int(d.map, 0, 2, room.opts.map), storm: int(d.storm, 0, 2, room.opts.storm), loot: int(d.loot, 0, 2, room.opts.loot) };
     this.pushLobby(room);
     return { ok: true };
@@ -190,10 +241,10 @@ class RoomManager {
 
   /* ---------- match ---------- */
   cfgOf(room) { const o = room.opts; return [o.map, o.storm, o.loot, MIN_PLAYERS, COUNTDOWN_S, 1, 1, 1, 0, 1]; }
-  startMatch(room) {
+  startMatch(room, force) {
     const roster = [...room.players.values()].filter((p) => p.connected).slice(0, MAX_PLAYERS)
       .map((p) => ({ id: p.id, name: p.name, skin: p.skin, sub: p.sub, ml: p.ml, bp: p.bp, cp: p.cp }));
-    if (roster.length < MIN_PLAYERS) { room.phase = 'lobby'; this.pushLobby(room); return; }
+    if (roster.length < (force ? 1 : MIN_PLAYERS)) { room.phase = 'lobby'; room.cd = 0; this.pushLobby(room); return; }
     for (const p of [...room.players.values()]) if (!roster.some((r) => r.id === p.id)) { this.byToken.delete(p.token); room.players.delete(p.id); }
     room.rn++;
     const seed = (crypto.randomInt(1, 2 ** 30) ^ (room.rn * 7919)) >>> 0;
@@ -220,7 +271,7 @@ class RoomManager {
   }
   backToLobby(room) {
     if (room.sim) room.sim.dispose();
-    room.sim = null; room.match = null; room.results = null; room.phase = 'lobby'; room.cd = 0;
+    room.sim = null; room.match = null; room.results = null; room.phase = 'lobby'; room.cd = 0; room.paused = false;
     for (const p of [...room.players.values()]) if (!p.connected) { this.byToken.delete(p.token); room.players.delete(p.id); }
     if (!room.players.size) { this.destroy(room); return; }
     if (!room.players.has(room.hostId)) room.hostId = [...room.players.values()][0].id;
@@ -256,7 +307,12 @@ class RoomManager {
     this.backToLobby(room);
   }
   tickRoom(room, dt) {
+    if (room.phase === 'lobby' && room.pub && !room.paused && this.liveCount(room) >= MIN_PLAYERS) {
+      room.phase = 'countdown'; room.cd = AUTO_CD_S; room._lastCd = null; this.pushLobby(room);       // public lobby starts itself
+    }
     if (room.phase === 'countdown') {
+      if (room.paused) return;
+      if (room.pub && this.liveCount(room) >= MAX_PLAYERS && room.cd > FULL_CD_S) room.cd = FULL_CD_S;
       room.cd -= dt;
       const sec = Math.ceil(room.cd);
       if (room._lastCd !== sec) { room._lastCd = sec; this.pushLobby(room); }

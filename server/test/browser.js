@@ -146,10 +146,14 @@ const FAKE_IO = `
   const pa = await A.ev('({x:player.x,y:player.y})');
   await A.page.keyboard.down('KeyD'); await sleep(700); await A.page.keyboard.up('KeyD');
   await sleep(250);
-  const mv = await A.ev('({x:player.x,y:player.y})');
+  let mv = await A.ev('({x:player.x,y:player.y})');
+  if (Math.abs(mv.x - pa.x) <= 40) {            // random landing spot can sit against a wall: try the other way
+    await A.page.keyboard.down('KeyA'); await sleep(900); await A.page.keyboard.up('KeyA'); await sleep(250);
+    mv = await A.ev('({x:player.x,y:player.y})');
+  }
   const aPid = await A.ev('player.pid');
   const srvA = sim.eval('ents').find((e) => e.pid === aPid);
-  ok(mv.x - pa.x > 40, 'holding D moves the local player right (' + Math.round(mv.x - pa.x) + ' px)');
+  ok(Math.abs(mv.x - pa.x) > 40, 'holding a move key moves the local player (' + Math.round(Math.abs(mv.x - pa.x)) + ' px)');
   ok(Math.hypot(srvA.x - mv.x, srvA.y - mv.y) < 40, 'server position follows the client (diff ' + Math.round(Math.hypot(srvA.x - mv.x, srvA.y - mv.y)) + ' px)');
 
   // server gives A a gun: it must show up in the client inventory (client never invents loot)

@@ -237,12 +237,14 @@ function tabHome(){
   const inp=h('input');inp.id='nick';inp.maxLength=12;inp.autocomplete='off';inp.spellcheck=false;inp.placeholder='Player';inp.value=P.name;
   inp.addEventListener('input',()=>{P.name=inp.value.slice(0,12);saveProfile()});
   lab.appendChild(inp);right.appendChild(lab);
-  const live=btn('Play online (2 to 6)','go',()=>{if(!live.disabled){P.name=inp.value.slice(0,12);saveProfile();startOnline()}});
+  const solo=btn('SOLO','go big',()=>{if(!solo.disabled){P.name=inp.value.slice(0,12);saveProfile();startSolo()}});
   const note=h('div','best');
-  right.appendChild(live);right.appendChild(note);
-  right.appendChild(btn('Solo vs bots','go alt',()=>{P.name=inp.value.slice(0,12);saveProfile();startGame()}));
+  right.appendChild(solo);right.appendChild(note);
+  const live=btn('Play with friends (room code)','go alt',()=>{if(!live.disabled){P.name=inp.value.slice(0,12);saveProfile();startOnline()}});
+  right.appendChild(live);
+  right.appendChild(btn('Practice vs bots','go alt',()=>{P.name=inp.value.slice(0,12);saveProfile();startGame()}));
   right.appendChild(h('div','best',setSummary()+' · '+(BOTN[S.bots]+1)+' fighters in solo'));
-  homeBits={live,note};refreshHome();
+  homeBits={live:solo,live2:live,note};refreshHome();
   wrap.appendChild(right);
   view.appendChild(wrap);
   const t=effTier(),into=P.xp-tierOf()*XPT;
@@ -254,7 +256,7 @@ function tabHome(){
   view.appendChild(pc);
   const how=h('div','panel');
   how.appendChild(h('div','ptitle','How live matches work'));
-  how.appendChild(h('p','lede','Press Play online, then create a room and share its 5 letter code, or enter a friend\'s code to join. Up to 6 players wait in the room lobby and the host presses Start once at least 2 are in. Everyone drops with empty hands from a plane that flies over the island: press Space or Jump to drop, and the parachute opens automatically near the ground. Break crates (gold ones hold the best loot) and grab weapons and heals into your 6 slots. The server runs the match, so everyone sees the same fight. If your connection drops, the game reconnects and puts you back in your match.'));
+  how.appendChild(h('p','lede','Press SOLO to wait in a lobby with other real players (no bots). The match starts by itself once 2 players are in, up to 6 can join. Or press Play with friends, create a room and share its 5 letter code. In a friends room the host presses Start once at least 2 are in. Everyone drops with empty hands from a plane that flies over the island: press Space or Jump to drop, and the parachute opens automatically near the ground. Break crates (gold ones hold the best loot) and grab weapons and heals into your 6 slots. The server runs the match, so everyone sees the same fight. If your connection drops, the game reconnects and puts you back in your match.'));
   view.appendChild(how);
   const ctl=h('div','panel');ctl.appendChild(h('div','ptitle','Controls'));
   ctl.appendChild(h('p','lede','Move: '+['up','left','down','right'].map(a=>actLabel(a)).join(', ')+'. Aim with the mouse. Shoot: '+actLabel('fire')+'. Open doors and crates, pick up loot or jump from the plane: '+actLabel('use')+'. Melee: '+actLabel('melee')+'. Slots 1 to 6: '+[1,2,3,4,5,6].map(n=>actLabel('s'+n)).join(' ')+' (or '+actLabel('next')+' and '+actLabel('prev')+' to cycle). Emotes: '+[1,2,3,4,5,6].map(n=>actLabel('e'+n)).join(' ')+'. Hold shoot to use a heal. Drag a hotbar slot onto another slot to swap them, or drag it out of the bar to drop it. Change any of these in Settings, Controls. On a phone: left thumb moves, right thumb aims and shoots, and the on-screen buttons handle melee, emotes and jumping.'));
@@ -263,7 +265,7 @@ function tabHome(){
 function refreshHome(){
   if(!homeBits)return;
   const o=onlineStatus();
-  homeBits.live.disabled=!o.ok;homeBits.note.textContent=o.text;
+  homeBits.live.disabled=!o.ok;if(homeBits.live2)homeBits.live2.disabled=!o.ok;homeBits.note.textContent=o.text;
 }
 setInterval(()=>{if(state==='hub'&&tab==='home'&&!$('hub').hidden)refreshHome()},800);
 

@@ -5,7 +5,7 @@
   "description": "Wonder Royale: real-time multiplayer battle royale (client + authoritative Socket.IO server)",
   "scripts": {
     "start": "node server/index.js",
-    "test": "node server/test/run.js",
+    "test": "node server/test/run.js && node server/test/lobby.js",
     "build": "node tools/build.js"
   },
   "engines": {

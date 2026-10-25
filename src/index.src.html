@@ -246,6 +246,11 @@ canvas.sk{display:block}
 #online .card{align-items:stretch;text-align:center}
 #onCode{font-family:var(--display);font-size:30px;letter-spacing:.28em;text-align:center;text-transform:uppercase;background:#ffffff10;border:1px solid #ffffff33;border-radius:8px;padding:10px;color:var(--fg);user-select:text;-webkit-user-select:text;min-width:0}
 #onErr{color:var(--bad)}
+button.go.big{font-size:clamp(30px,9vw,44px);padding:22px 14px;letter-spacing:.06em;box-shadow:0 6px 0 #00000055}
+#lobbyCtl{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+#lobbyCtl button{flex:1;min-width:150px}
+#lobbyAdmin{background:none;border:0;color:var(--muted);font:inherit;font-size:12px;text-decoration:underline;cursor:pointer;padding:4px}
+#lobbyTag{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
 .or{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.12em}
 #roomCode{font-family:var(--display);font-size:clamp(30px,9vw,46px);letter-spacing:.22em;color:var(--gold);cursor:pointer;line-height:1}
 #hostOpts{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
@@ -327,8 +332,9 @@ canvas.sk{display:block}
 <div class="ov" id="lobby" hidden>
   <div class="card">
     <h1>Lobby</h1>
-    <div class="best">Room code (click to copy)</div>
+    <div class="best" id="roomLbl">Room code (click to copy)</div>
     <div id="roomCode"></div>
+    <div id="lobbyTag" hidden>Real players only</div>
     <div id="hostOpts" hidden></div>
     <div class="best" id="lobbyInfo"></div>
     <div id="slots"></div>
@@ -337,6 +343,11 @@ canvas.sk{display:block}
       <div class="best" id="cdnote"></div>
     </div>
     <button class="go" id="lobbyStart" type="button" hidden>Start match</button>
+    <div id="lobbyCtl" hidden>
+      <button class="go alt" id="lobbyPause" type="button">Pause countdown</button>
+      <button class="go" id="lobbyNow" type="button">Start instantly</button>
+    </div>
+    <button id="lobbyAdmin" type="button" hidden>Admin login</button>
     <button class="go alt" id="lobbyLeave" type="button">Leave lobby</button>
   </div>
 </div>

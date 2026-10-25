@@ -78,6 +78,7 @@ function wireSocket(s){
     setNetStatus('Connected. Create a room or join one with a code.');
     const ses=loadSession();
     if(ses&&(inRoom||rejoining))tryRejoin(ses);
+    else authAdmin();
   });
   s.on('disconnect',()=>{connected=false;if(inRoom)$('netbar').hidden=false;setNetStatus('Connection lost. Reconnecting…',true)});
   s.on('connect_error',()=>{connected=false;if(inRoom)$('netbar').hidden=false;setNetStatus('Cannot reach the server. Retrying…',true)});
@@ -113,7 +114,39 @@ function startOnline(){
   state='lobby';showHud(false);
   ensureSocket().then(()=>{if(connected)setNetStatus('Connected. Create a room or join one with a code.')}).catch(()=>{});
 }
-function onlineStatus(){return{ok:true,text:'Create a room or join a friend by code · 2 to 6 players'}}
+function onlineStatus(){return{ok:true,text:'Wait in a lobby with real players · starts when 2 to 6 are in'}}
+/* ---------- public lobby (SOLO button) ---------- */
+async function startSolo(){
+  startOnline();
+  setNetStatus('Finding a lobby…');
+  try{await ensureSocket()}catch(e){return}
+  for(let i=0;i<160&&!connected;i++)await new Promise(r=>setTimeout(r,50));
+  await authAdmin();
+  const r=await call('room:solo',myProfile());
+  if(!r.ok){$('onErr').textContent=r.error||'Could not find a lobby.';return}
+  enterRoom(r);
+}
+/* ---------- admin (owner) login: the key is the ADMIN_KEY variable set on the server ---------- */
+const AKEY='wr_admin_key';
+async function authAdmin(ask){
+  let k='';try{k=localStorage.getItem(AKEY)||''}catch(e){}
+  if(ask){k=(window.prompt('Admin key (the ADMIN_KEY set on your server):')||'').trim();if(!k)return false}
+  if(!k||!sock||!sock.connected)return false;
+  const r=await call('admin:auth',{key:k});
+  if(r.ok){try{localStorage.setItem(AKEY,k)}catch(e){}return true}
+  if(ask)banner(r.error||'Wrong admin key.',4);
+  else{try{localStorage.removeItem(AKEY)}catch(e){}}
+  return false;
+}
+$('lobbyAdmin').addEventListener('click',async()=>{if(await authAdmin(true))banner('Admin unlocked.',3)});
+$('lobbyPause').addEventListener('click',async()=>{
+  const r=await call('room:ctl',{a:LOB&&LOB.paused?'resume':'pause'});
+  if(r&&!r.ok)$('cdnote').textContent=r.error||'Could not do that.';
+});
+$('lobbyNow').addEventListener('click',async()=>{
+  const r=await call('room:ctl',{a:'now'});
+  if(r&&!r.ok)$('cdnote').textContent=r.error||'Could not start.';
+});
 function enterRoom(r){
   inRoom=true;myId=r.id;myCode=r.code;mySession.token=r.token;saveSession();LOB=r.lobby;
   mp=true;paused=false;
@@ -192,28 +225,31 @@ function onLobby(d){
 }
 function renderLobby(){
   const d=LOB;if(!d)return;
-  const host=d.hostId===myId,slots=$('slots').children;
-  $('roomCode').textContent=d.code;
+  const me=d.players.find(p=>p.id===myId)||{},isAdmin=!!me.ad,host=d.hostId===myId&&!d.pub,ctl=isAdmin||host,slots=$('slots').children;
+  $('roomCode').textContent=d.code;$('roomCode').hidden=!!d.pub;$('roomLbl').hidden=!!d.pub;$('lobbyTag').hidden=!d.pub;
   for(let i=0;i<MAXSLOTS;i++){
     const p=d.players[i],s=slots[i];if(!s)continue;
     const nm=s.querySelector('.sname'),cv2=s.querySelector('canvas');
     if(!p){s.className='slot open';nm.textContent='Open slot';if(s.dataset.k!==''){s.dataset.k='';const c=cv2.getContext('2d');if(c){c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,cv2.width,cv2.height)}}continue}
     const sk=clamp(p.skin|0,0,99);
-    s.className='slot'+(p.id===myId?' me':'')+(p.id===d.hostId?' host':'')+(p.connected?'':' away');
-    nm.textContent=cleanName(p.name)+(p.id===myId?' (you)':'')+(p.connected?'':' (reconnecting)');
+    s.className='slot'+(p.id===myId?' me':'')+(p.id===d.hostId&&!d.pub?' host':'')+(p.ad?' host':'')+(p.connected?'':' away');
+    nm.textContent=cleanName(p.name)+(p.ad?' ★':'')+(p.id===myId?' (you)':'')+(p.connected?'':' (reconnecting)');
     if(s.dataset.k!==String(sk)){s.dataset.k=String(sk);paintSkin(cv2,SKINS[sk],64,true)}
   }
   const o=d.opts,ms=['Small','Medium','Large'][clamp(o.map|0,0,2)],ss=['Slow','Normal','Fast'][clamp(o.storm|0,0,2)],ls=['Sparse','Normal','Plentiful'][clamp(o.loot|0,0,2)];
   $('lobbyInfo').textContent=ms+' map · '+ss+' storm · '+ls+' loot · '+d.min+' to '+d.max+' players';
-  const ho=$('hostOpts');ho.hidden=!(host&&d.phase==='lobby');
+  const ho=$('hostOpts');ho.hidden=!(ctl&&d.phase==='lobby');
   ho.querySelectorAll('select').forEach(s=>{if(document.activeElement!==s)s.value=String(o[s.dataset.k]|0)});
   const live=d.players.filter(p=>p.connected).length;
-  const st=$('lobbyStart');st.hidden=!host||d.phase!=='lobby';st.disabled=live<d.min;
+  const st=$('lobbyStart');st.hidden=!(ctl&&!d.pub)||d.phase!=='lobby';st.disabled=live<d.min;
+  const lc=$('lobbyCtl');lc.hidden=!(ctl&&(d.phase==='lobby'||d.phase==='countdown'));
+  $('lobbyPause').textContent=d.paused?'Resume countdown':'Pause countdown';
+  $('lobbyAdmin').hidden=isAdmin;
   let big='',small='';
-  if(d.phase==='countdown'){big='Starting in '+d.cd;small='Get ready to drop.'}
+  if(d.phase==='countdown'){big=d.paused?'Paused at '+d.cd:'Starting in '+d.cd;small=d.paused?'The admin paused the countdown.':'Get ready to drop.'}
   else if(d.phase==='play'){big='Match in progress';small='Joining…'}
   else if(d.phase==='over'){big='Round over';small='Back to the lobby in a moment.'}
-  else{big='Waiting for players';small=live<d.min?live+' of '+d.min+' needed. Share the room code: '+d.code:(host?'Press Start match when everyone is in.':'Waiting for the host to start.')}
+  else{big=d.paused?'Countdown paused':'Waiting for players';small=d.paused?'The admin paused the lobby. It will start when resumed.':live<d.min?live+' of '+d.min+' real players here. '+(d.pub?'The match starts by itself when '+d.min+' are in.':'Share the room code: '+d.code):(d.pub?'Starting automatically.':host?'Press Start match when everyone is in.':'Waiting for the host to start.')}
   $('cdown').textContent=big;if(!/copied/.test($('cdnote').textContent)||d.phase!=='lobby')$('cdnote').textContent=small;
 }
 

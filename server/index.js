@@ -32,7 +32,11 @@ app.get('/health', (_req, res) => res.status(200).json({ ok: true, uptime: Math.
 /* The client is a static site. If it sits next to the server (monorepo deploy) we serve it here as well. */
 const clientDir = [path.join(__dirname, '..', 'client'), path.join(__dirname, 'client')].find((d) => fs.existsSync(path.join(d, 'index.html')));
 if (clientDir) {
-  app.use(express.static(clientDir, { extensions: ['html'], maxAge: '1h' }));
+  // html/js/css are always revalidated (ETag), so a new deploy shows up on the next normal refresh
+  app.use(express.static(clientDir, {
+    extensions: ['html'],
+    setHeaders: (res, file) => { res.setHeader('Cache-Control', /\.(html|js|css)$/.test(file) ? 'no-cache' : 'public, max-age=3600'); }
+  }));
   app.get('/', (_req, res) => res.sendFile(path.join(clientDir, 'index.html')));
 } else {
   app.get('/', (_req, res) => res.type('text').send('Wonder Royale server is running. Host the client separately and point it at this URL.'));

@@ -96,10 +96,7 @@ function islandDrawPlaneAt(position){const art=planeSprites[planeVariant];x.save
 function islandDrawRemote(a){
  if(a.phase&&a.phase!=='ground'){const chute=cosmeticSprite('parachutes',a.parachute??0);if(chute){x.save();x.translate(a.x,a.y);x.rotate(a.angle+Math.PI/2);const f=110/Math.max(chute.width,chute.height);x.drawImage(chute,-chute.width*f/2,-chute.height*f/2,chute.width*f,chute.height*f);x.restore()}return}
  if(!islandNetwork.ready)return drawCharacter(a);
- const mask=cosmeticSprite('skins',a.skin),faceH=mask?mask.height*66/Math.max(mask.width,mask.height):66;x.save();x.translate(a.x,a.y);x.rotate(a.angle||0);const pack=cosmeticSprite('backpacks',a.backpack??-1);
- if(pack){const wings=a.backpack>=10;x.save();x.translate(wings?0:-faceH/2+3,0);x.rotate(wings?Math.PI/2:-Math.PI/2);const f=(wings?184:52)/Math.max(pack.width,pack.height);x.drawImage(pack,-pack.width*f/2,-pack.height*f/2,pack.width*f,pack.height*f);x.restore()}
- if(mask){const f=66/Math.max(mask.width,mask.height);x.save();x.rotate(Math.PI/2);x.drawImage(mask,-mask.width*f/2,-mask.height*f/2,mask.width*f,mask.height*f);x.restore()}else circle(0,0,25,'#c8d8a9');
- if(a.slot!==0)drawHeldWeapon(a.weaponType??0,faceH/2-4);else drawSidewaysMelee(a.melee??0,faceH/2-4,a.meleeSwing||0,cosmetics.skins[a.skin]?.[1]||'#d7dfcb');x.restore();
+ drawCharacter(a);
 }
 draw=function(){
  if(!islandState||!player)return islandOriginal.draw();islandClampCamera();
@@ -201,17 +198,22 @@ selectSlot=function(index){islandPreviousSelectSlot(index);if(islandNetwork.read
 onmouseup=function(e){islandPreviousMouseUp(e);if(islandNetwork.ready)islandSendInput()};
 onkeyup=function(e){islandPreviousKeyUp(e);if(islandNetwork.ready)islandSendInput()};
 onblur=function(){clearInput();if(islandNetwork.ready)islandSendInput()};
-// A melee is carried across the body, rather than along the firearm's aim line.
-// In character-local space +x faces forward and +y is the character's right.
-function drawSidewaysMelee(index,mouth,swing=0,gloveColor='#d7dfcb'){
- const blade=cosmeticSprite('melees',index);if(gloveColor==='transparent')gloveColor='#bca255';
- if(!blade){circle(mouth+8,0,7,'#d7dfcb');return}
- const factor=76/Math.max(blade.width,blade.height),gripX=mouth+3,gripY=-12;
- const angle=(index>=10?Math.PI:Math.PI*5/4)-Math.sin((1-(swing||0)/.18)*Math.PI)*((swing||0)>0?.8:0);
- // The handle is the pivot, so the hand stays attached during the swing.
- const handleX=index>=10?0:blade.width*.28,handleY=blade.height*(index>=10?.30:.28);
- x.save();x.lineCap='round';x.strokeStyle='#28463f';x.lineWidth=8;x.beginPath();x.moveTo(mouth-7,-10);x.lineTo(gripX,gripY);x.stroke();
- x.strokeStyle=gloveColor;x.lineWidth=5;x.stroke();x.fillStyle=gloveColor;x.strokeStyle='#28463f';x.lineWidth=1.5;x.beginPath();x.arc(gripX,gripY,5,0,Math.PI*2);x.fill();x.stroke();
- x.translate(gripX,gripY);x.rotate(angle);x.drawImage(blade,(-blade.width/2-handleX)*factor,(-blade.height/2-handleY)*factor,blade.width*factor,blade.height*factor);x.restore();
+// All grounded actors use one cosmetic assembly, including network opponents.
+function islandCosmeticBody(skin){return CosmeticRig.body(cosmeticSprite('skins',skin),skin)}
+function drawSidewaysMelee(index,mouth,swing=0,gloveColor='#d7dfcb',skin=selectedCosmetic('skins')){
+ const bodyInfo=islandCosmeticBody(skin),info=CosmeticRig.melee(cosmeticSprite('melees',index),index,bodyInfo,swing);
+ if(!CosmeticRig.drawMelee(x,info,gloveColor))circle(bodyInfo.mouth+8,0,7,'#d7dfcb');
 }
 drawEquippedMelee=function(mouth){drawSidewaysMelee(selectedCosmetic('melees'),mouth,player.meleeSwing||0,chosen('skins')[1])};
+drawCharacter=function(a){
+ const local=a===player,skin=local?selectedCosmetic('skins'):a.skin,packIndex=local?selectedCosmetic('backpacks'):(a.backpack??-1),meleeIndex=local?selectedCosmetic('melees'):(a.melee??-1);
+ const bodyInfo=islandCosmeticBody(skin),equippedSlot=local?slot:(a.slot??1),g=local?(equippedSlot===0?null:a.inventory[equippedSlot]):(equippedSlot===0?null:{type:a.weaponType??0});
+ x.save();x.imageSmoothingEnabled=true;x.imageSmoothingQuality='high';x.translate(a.x,a.y);x.rotate(a.angle||0);
+ CosmeticRig.drawPack(x,CosmeticRig.pack(cosmeticSprite('backpacks',packIndex),packIndex,bodyInfo));
+ if(!CosmeticRig.drawBody(x,bodyInfo))circle(0,0,26,'#bca255');
+ if(local&&selectedItem==='medkit'){const mouth=bodyInfo.mouth;x.fillStyle='#ecece1';x.beginPath();x.roundRect(mouth-2,-9,19,18,4);x.fill();x.fillStyle='#b84a43';x.fillRect(mouth+5,-6,3,12);x.fillRect(mouth+1,-2,11,3)}
+ else if(g)drawHeldWeapon(g.type,bodyInfo.mouth);
+ else if(equippedSlot===0)drawSidewaysMelee(meleeIndex,bodyInfo.mouth,a.meleeSwing||0,cosmetics.skins[skin]?.[1]||'#bca255',skin);
+ x.restore();
+ if(!local&&!islandNetwork.ready){x.fillStyle='#263b2b';x.fillRect(a.x-22,a.y-43,44,5);x.fillStyle='#e7f07d';x.fillRect(a.x-22,a.y-43,44*Math.max(0,a.hp)/75,5)}
+};

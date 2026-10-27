@@ -8,6 +8,7 @@
   },
   "scripts": {
     "start": "node island-server.cjs",
-    "test": "node tests/run-island-tests.cjs"
+    "test": "node tests/run-island-tests.cjs",
+    "test:cosmetics": "node tests/cosmetic-render.test.cjs"
   }
 }

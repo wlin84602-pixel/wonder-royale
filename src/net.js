@@ -255,7 +255,7 @@ function renderLobby(){
   else if(d.phase==='play'){big='Match in progress';small='Joining…'}
   else if(d.phase==='over'){big='Round over';small='Back to the lobby in a moment.'}
   else{big=d.paused?'Countdown paused':'Waiting for players';small=d.paused?'The admin paused the lobby. It will start when resumed.':live<d.min?live+' of '+d.min+' real players here. '+(d.pub?'The match starts by itself when '+d.min+' are in.':'Share the room code: '+d.code):(d.pub?'Starting automatically.':host?'Press Start match when everyone is in.':'Waiting for the host to start.')}
-  $('cdown').textContent=big;if(!/copied/.test($('cdnote').textContent)||d.phase!=='lobby')$('cdnote').textContent=small;
+  $('cdown').classList.toggle('tick',d.phase==='countdown'&&!d.paused&&d.cd<=5);$('cdown').textContent=big;if(!/copied/.test($('cdnote').textContent)||d.phase!=='lobby')$('cdnote').textContent=small;
 }
 
 /* ---------- waiting field: a big empty green rectangle with two mini games (Coin Rush, kick the ball) ---------- */

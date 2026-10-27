@@ -62,3 +62,4 @@ Protocol: `room:create|solo|join|rejoin|leave|start|opts|ctl` and `admin:auth` (
 - **Midas M4** (black and gold, 44 dmg, very fast, wide view, gold/black animated bullets): found in about a third of airdrops, or from the admin panel (Golden M4 button / weapon list).
 
 - Polish: floating damage numbers, low-health pulse, press/fade transitions, mobile viewport + favicon + meta tags.
+- Polish 2: loading screen, victory screen with confetti and count-up, HP bar colour tiers, feed/gun animations, lobby slot and countdown animations, feed moved below the banner.

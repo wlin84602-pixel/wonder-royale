@@ -2262,7 +2262,7 @@ function hud(dt){
   else zt='Final circle';
   el.zone.textContent=zt;
   const hp=Math.max(0,Math.ceil(player.hp));
-  el.hpb.style.width=hp+'%';el.shb.style.width=Math.round(player.sh)+'%';
+  el.hpb.style.width=hp+'%';el.shb.style.width=Math.round(player.sh)+'%';el.hpb.className=hp<=30?'low':hp<=60?'mid':'';
   el.hpt.textContent='Health '+hp+(player.sh>0?'  Shield '+Math.round(player.sh):'');
   const hi=held(player);
   let gname='Fists',gsub='',gcol='',gkey='fists';
@@ -2270,7 +2270,7 @@ function hud(dt){
   else   if(hi&&hi.type==='gun'){gname=WEAP[hi.w].name;gsub=wrn(hi.w,hi.rar)+' · '+(player.rl>0?'Reloading…':hi.mg+' / '+reserveOf(player,hi))+' ['+actLabel('reload')+']';gcol=wcol(hi.w,hi.rar);gkey='g'+hi.w+'_'+hi.rar}
   else if(hi){gname=HEALS[hi.id].name+' x'+hi.n;gsub=HEALS[hi.id].desc;gcol=HEALS[hi.id].col;gkey='h'+hi.id}
   el.gun.textContent=gname;el.gun.style.color=gcol;el.ammo.textContent=gsub;
-  if(lastGun!==gkey){lastGun=gkey;const c=el.gi.getContext('2d');if(c){c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,120,40);if(hi&&hi.type==='melee'){c.translate(40,20);drawMelee(c,player.ml,1.6)}else if(hi&&hi.type==='gun')drawGunIcon(c,hi.w,hi.rar,120,40);else if(hi){c.translate(60,22);drawHeal(c,hi.id,1.6)}}}
+  if(lastGun!==gkey){lastGun=gkey;el.gun.classList.remove('pop');void el.gun.offsetWidth;el.gun.classList.add('pop');const c=el.gi.getContext('2d');if(c){c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,120,40);if(hi&&hi.type==='melee'){c.translate(40,20);drawMelee(c,player.ml,1.6)}else if(hi&&hi.type==='gun')drawGunIcon(c,hi.w,hi.rar,120,40);else if(hi){c.translate(60,22);drawHeal(c,hi.id,1.6)}}}
   updHotbar();
   const u=player.use;
   if(u&&player.inv[u.slot]){$('usebar').hidden=false;$('usefill').style.width=Math.round(100*Math.min(1,u.t/u.T))+'%';$('uselabel').textContent='Using '+HEALS[player.inv[u.slot].id].name}else $('usebar').hidden=true;
@@ -2279,7 +2279,7 @@ function hud(dt){
   if(S.fps){fpsAcc+=dt;fpsN++;if(fpsAcc>.5){fpsShow=Math.round(fpsN/fpsAcc);fpsAcc=0;fpsN=0}el.fps.hidden=false;el.fps.textContent=fpsShow+' fps'}else el.fps.hidden=true;
   if(mp)mpHud();
   const key=feed.map(f=>f.txt).join('|');
-  if(key!==lastFeed){lastFeed=key;el.feed.textContent='';for(const f of feed){const d=document.createElement('div');d.textContent=f.txt;el.feed.appendChild(d)}}
+  if(key!==lastFeed){lastFeed=key;const pn=el.feed.childElementCount;el.feed.textContent='';feed.forEach((f,i)=>{const d=document.createElement('div');d.textContent=f.txt;if(i>=pn)d.className='new';el.feed.appendChild(d)})}
 }
 const hbEls=[];
 /* drag a hotbar slot: onto another slot swaps them, up and out of the bar drops the item (slot 1 is the fixed melee slot) */
@@ -2395,8 +2395,13 @@ function showEnd(){
   $('again').hidden=false;$('end').hidden=false;$('again').focus({preventScroll:true});
 }
 function fillEnd(title,msg,place,kills,t,rw){
-  $('endTitle').textContent=title;$('endMsg').textContent=msg;
-  $('sPlace').textContent='#'+place;$('sKills').textContent=kills;$('sTime').textContent=fmt(t);
+  const win=title==='Last one standing';
+  $('end').classList.toggle('win',win);
+  const cf=$('confetti');cf.textContent='';cf.hidden=!win;
+  if(win){const cols=['#ffd166','#ff6b4a','#5cc8ff','#6ee7a8','#c58bff','#ffffff'];for(let i=0;i<36;i++){const p=document.createElement('i');p.style.left=(Math.random()*100)+'%';p.style.background=cols[i%cols.length];p.style.setProperty('--dx',((Math.random()-.5)*160)+'px');p.style.animationDelay=(-Math.random()*3.2)+'s';p.style.animationDuration=(2.4+Math.random()*1.8)+'s';cf.appendChild(p)}}
+  $('endTitle').textContent=win?'Victory!':title;$('endMsg').textContent=msg;
+  $('sPlace').textContent='#'+place;$('sTime').textContent=fmt(t);
+  {const ke=$('sKills'),kn=kills|0,t0=performance.now();ke.textContent=kn?'0':'0';if(kn>0){const st=()=>{const k=Math.min(1,(performance.now()-t0)/700);ke.textContent=Math.round(kn*k);if(k<1)requestAnimationFrame(st)};requestAnimationFrame(st)}}
   $('rewards').textContent='+'+rw.xp+' XP · +'+rw.coins+' coins'+(rw.tier>rw.tier0?' · Battle pass tier '+rw.tier+' reached':'');
 }
 function startGame(){
@@ -2784,7 +2789,7 @@ function renderLobby(){
   else if(d.phase==='play'){big='Match in progress';small='Joining…'}
   else if(d.phase==='over'){big='Round over';small='Back to the lobby in a moment.'}
   else{big=d.paused?'Countdown paused':'Waiting for players';small=d.paused?'The admin paused the lobby. It will start when resumed.':live<d.min?live+' of '+d.min+' real players here. '+(d.pub?'The match starts by itself when '+d.min+' are in.':'Share the room code: '+d.code):(d.pub?'Starting automatically.':host?'Press Start match when everyone is in.':'Waiting for the host to start.')}
-  $('cdown').textContent=big;if(!/copied/.test($('cdnote').textContent)||d.phase!=='lobby')$('cdnote').textContent=small;
+  $('cdown').classList.toggle('tick',d.phase==='countdown'&&!d.paused&&d.cd<=5);$('cdown').textContent=big;if(!/copied/.test($('cdnote').textContent)||d.phase!=='lobby')$('cdnote').textContent=small;
 }
 
 /* ---------- waiting field: a big empty green rectangle with two mini games (Coin Rush, kick the ball) ---------- */

@@ -203,7 +203,7 @@ const FAKE_IO = `
   await waitFor(B, () => player.alive === false, 4000, 'B dead on client');
   ok(true, 'B sees elimination decided by the server');
   await waitFor(A, () => !document.getElementById('end').hidden, 15000, 'A end card');
-  ok(/Last one standing/.test(await A.ev("document.getElementById('endTitle').textContent")), 'winner sees the result card');
+  ok(/Victory/.test(await A.ev("document.getElementById('endTitle').textContent")), 'winner sees the result card');
   await waitFor(B, () => !document.getElementById('end').hidden, 15000, 'B end card');
   ok(true, 'loser sees the result card');
   await waitFor(A, () => !document.getElementById('lobby').hidden && !playing, 20000, 'back to lobby');

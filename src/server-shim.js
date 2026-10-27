@@ -36,7 +36,7 @@ var SRV=(function(){
   function srvUse(e){
     const nd=nearestDoor(e,DOOR_REACH);let ld=1e9;
     for(const l of loot){const q=dist2(e,l);if(q<ld)ld=q}
-    if(nd&&(ld>PICK_R*PICK_R||nd.q<=Math.sqrt(ld)*.5))toggleDoor(nd.d,true,e);
+    if(nd&&(ld>PICK_R*PICK_R||nd.q<=Math.sqrt(ld)*.8))toggleDoor(nd.d,true,e);
     else if(ld<=PICK_R*PICK_R)tryPickup(e,true);
     else openCrate(e);
   }

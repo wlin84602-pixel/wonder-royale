@@ -111,8 +111,9 @@ function hurtTree(c,d){
   if(NETHOOK)NETHOOK('tree',c);
 }
 function toggleDoor(d,local,who){
-  if(Date.now()-d.ts<90)return;
+  if(Date.now()-d.ts<45)return;
   d.open=!d.open;d.ts=Date.now();
+  if(NETMODE!=='server')burst(d.cx,d.cy,'#e6d5b0',3,70,.22);
   if(d.open&&who){
     /* swing away from whoever opens it: outwards when they stand inside, inwards when they are outside */
     const iv=d.side===0?[0,1]:d.side===2?[0,-1]:d.side===3?[1,0]:[-1,0];
@@ -121,7 +122,7 @@ function toggleDoor(d,local,who){
   if(!player||Math.hypot(player.x-d.x,player.y-d.y)<900)sfx(d.open?300:210,.07,'square',.03,.8);
   if(NETHOOK)NETHOOK('door',d);
 }
-const DOOR_REACH=58;
+const DOOR_REACH=74;
 function nearestDoor(p,rng){
   let best=null,bd=rng;
   for(const d of doors){const dx=Math.max(d.x-p.x,0,p.x-(d.x+d.w)),dy=Math.max(d.y-p.y,0,p.y-(d.y+d.h)),q=Math.hypot(dx,dy);if(q<bd){bd=q;best=d}}
@@ -1594,10 +1595,13 @@ function fireAction(a){
   if(a==='pause'){toggleMenu();return}
   if(a==='admin'){toggleAdmin();return}
   if(paused||menuOpen)return;
-  if(a==='use'){if(inAir())return;if(NETMODE==='client'){if(player.alive)netAct('use');return}if(player.alive){
+  if(a==='use'){if(inAir())return;if(NETMODE==='client'){if(player.alive){
+      const nd=nearestDoor(player,DOOR_REACH);let ld=1e9;for(const l of loot){const q=dist2(player,l);if(q<ld)ld=q}
+      if(nd&&(ld>PICK_R*PICK_R||nd.q<=Math.sqrt(ld)*.8)){toggleDoor(nd.d,true,player);nd.d.pend=performance.now()}
+      netAct('use')}return}if(player.alive){
     /* a door you are touching comes first; otherwise pick up what is under you, otherwise open the nearest crate */
     const nd=nearestDoor(player,DOOR_REACH);let ld=1e9;for(const l of loot){const q=dist2(player,l);if(q<ld)ld=q}
-    if(nd&&(ld>PICK_R*PICK_R||nd.q<=Math.sqrt(ld)*.5))toggleDoor(nd.d,true,player);
+    if(nd&&(ld>PICK_R*PICK_R||nd.q<=Math.sqrt(ld)*.8))toggleDoor(nd.d,true,player);
     else if(ld<=PICK_R*PICK_R)tryPickup(player,true);else openCrate()}return}
   let m=/^s([1-6])$/.exec(a);if(m){if(player.alive)selSlot(+m[1]-1);return}
   if(a==='reload'){if(player.alive)startReload(player);return}
@@ -1858,42 +1862,75 @@ function drawEnt(e){
 }
 const FLOORC=['#a98b5e','#9c8f6e','#7d8187','#5f666b','#b6a283','#8c7b68','#d9bd8c','#cdb07a','#a78560','#c9dbe4','#7a6a4c','#6b5e4a','#6e5144','#55525c','#b9a06a','#c8d3da'];
 let doorT=performance.now();
+/* door looks: painted wood per building, riveted iron for the hard buildings, banded oak for the fort */
+const DWOOD={0:['#a47244','#80522b','#5e3a1c'],1:['#8f6a44','#6e4b2b','#4e3320'],4:['#3e9a6a','#2c7a52','#1f5a3b'],5:['#2f9aa0','#237a80','#185a5f'],6:['#3aa9b0','#2a8a90','#1d6a70'],7:['#7a4aa8','#5d3585','#43255f'],8:['#6a4a30','#4e3320','#38241a'],9:['#cfe3f0','#a9c6d9','#86a5ba'],10:['#c9b46a','#a8934a','#826f34'],11:['#8a7a62','#6a5c48','#4c4232'],14:['#c84a3f','#a03228','#7a2119'],15:['#efe6d2','#d3c7aa','#b3a584']};
+const DHANDLE={15:'#d9b74a',9:'#7a8a96'};
+function doorKind(h){return h===2||h===3||h===13?'iron':h===12?'fort':'wood'}
 function drawDoor(d,top){
   const now=performance.now();
   if(!top){
-    /* each door animates on its own clock: a very quick 0.07 s swing, straight to the end */
+    /* each door animates on its own clock: a very quick swing that starts fast and settles */
     const dt=Math.min(.1,(now-(d.at||now))/1000);d.at=now;
+    if(d.pend&&now-d.pend>700){d.pend=0;d.open=!d.open}/* a predicted toggle the server never confirmed */
     const tgt=d.open?1:0;
-    if(d.anim<tgt)d.anim=Math.min(tgt,d.anim+dt/.07);else if(d.anim>tgt)d.anim=Math.max(tgt,d.anim-dt/.07);
+    if(d.anim<tgt)d.anim=Math.min(tgt,d.anim+dt/.1);else if(d.anim>tgt)d.anim=Math.max(tgt,d.anim-dt/.1);
   }
-  const a=d.anim,hz=d.horiz,th=Math.min(hz?d.h:d.w,18),L=hz?d.w:d.h,mr=d.mir?-1:1;
+  const a0=d.anim,a=1-Math.pow(1-a0,3),hz=d.horiz,th=Math.min(hz?d.h:d.w,18),L=hz?d.w:d.h,mr=d.mir?-1:1,kind=doorKind(d.hue);
   ctx.save();
-  if(!top){ctx.fillStyle=FLOORC[d.hue]||'#a98b5e';ctx.fillRect(d.x,d.y,d.w,d.h)}
+  if(!top){
+    ctx.fillStyle=FLOORC[d.hue]||'#a98b5e';ctx.fillRect(d.x,d.y,d.w,d.h);
+    /* worn threshold and stone jambs */
+    ctx.fillStyle='rgba(255,255,255,.1)';ctx.fillRect(d.x,d.y,d.w,d.h);
+    ctx.fillStyle='#37322e';
+    if(hz){ctx.fillRect(d.x-5,d.y-3,7,d.h+6);ctx.fillRect(d.x+d.w-2,d.y-3,7,d.h+6);ctx.fillStyle='rgba(255,255,255,.22)';ctx.fillRect(d.x-4,d.y-2,2,d.h+4);ctx.fillRect(d.x+d.w-1,d.y-2,2,d.h+4)}
+    else{ctx.fillRect(d.x-3,d.y-5,d.w+6,7);ctx.fillRect(d.x-3,d.y+d.h-2,d.w+6,7);ctx.fillStyle='rgba(255,255,255,.22)';ctx.fillRect(d.x-2,d.y-4,d.w+4,2);ctx.fillRect(d.x-2,d.y+d.h-1,d.w+4,2)}
+  }
   /* the door is hinged at one end and swings 90 degrees into the building, so it never disappears */
   const inward=((d.side===0||d.side===3)?1:-1)*(d.dir||1);
-  ctx.translate(hz?d.x+(d.mir?d.w:0):d.x+d.w/2,hz?d.y+d.h/2:d.y+(d.mir?d.h:0));
-  ctx.rotate((hz?0:Math.PI/2)+a*Math.PI/2*(hz?inward:-inward)*mr);if(d.mir)ctx.scale(-1,1);
+  const hx=hz?d.x+(d.mir?d.w:0):d.x+d.w/2,hy=hz?d.y+d.h/2:d.y+(d.mir?d.h:0);
+  const ang0=hz?0:Math.PI/2,ang=ang0+a*Math.PI/2*(hz?inward:-inward)*mr;
+  if(!top&&a>.03){
+    /* the area the door sweeps through darkens, so you can read which way it opens */
+    const dir=(an)=>mr<0?an+Math.PI:an,s0=dir(ang0),s1=dir(ang);
+    let dl=s1-s0;while(dl>Math.PI)dl-=TAU;while(dl<-Math.PI)dl+=TAU;
+    ctx.fillStyle='rgba(0,0,0,.12)';ctx.beginPath();ctx.moveTo(hx,hy);ctx.arc(hx,hy,L,s0,s0+dl,dl<0);ctx.closePath();ctx.fill();
+  }
+  ctx.translate(hx,hy);ctx.rotate(ang);if(d.mir)ctx.scale(-1,1);
   ctx.fillStyle='rgba(0,0,0,.3)';ctx.fillRect(2,-th/2+3,L,th);
-  /* wooden planks: warm base, long grain lines, board seams, knots, iron hinges and a brass handle */
-  const g=ctx.createLinearGradient(0,-th/2,0,th/2);g.addColorStop(0,'#9a6a38');g.addColorStop(.5,'#7d4f26');g.addColorStop(1,'#62391a');
+  const sd=(d.id||0)*7.13;
+  let c0,c1,c2;
+  if(kind==='iron'){c0='#9aa3a9';c1='#707a81';c2='#4f575d'}
+  else if(kind==='fort'){c0='#6a4528';c1='#523420';c2='#3a2415'}
+  else{[c0,c1,c2]=DWOOD[d.hue]||DWOOD[0]}
+  const g=ctx.createLinearGradient(0,-th/2,0,th/2);g.addColorStop(0,c0);g.addColorStop(.5,c1);g.addColorStop(1,c2);
   ctx.fillStyle=g;ctx.fillRect(0,-th/2,L,th);
   ctx.save();ctx.beginPath();ctx.rect(0,-th/2,L,th);ctx.clip();
-  const sd=(d.id||0)*7.13;
-  ctx.lineWidth=1;
-  for(let k=0;k<7;k++){
-    const y=-th/2+(k+.5)*th/7,ph=Math.sin(sd+k*1.7)*2;
-    ctx.strokeStyle=k%2?'rgba(50,25,8,.38)':'rgba(255,214,150,.22)';
-    ctx.beginPath();ctx.moveTo(0,y);ctx.bezierCurveTo(L*.3,y+ph,L*.6,y-ph,L,y+ph*.5);ctx.stroke();
+  if(kind==='wood'||kind==='fort'){
+    ctx.lineWidth=1;
+    for(let k=0;k<7;k++){const y=-th/2+(k+.5)*th/7,ph=Math.sin(sd+k*1.7)*2;ctx.strokeStyle=k%2?'rgba(30,15,5,.3)':'rgba(255,230,180,.16)';ctx.beginPath();ctx.moveTo(0,y);ctx.bezierCurveTo(L*.3,y+ph,L*.6,y-ph,L,y+ph*.5);ctx.stroke()}
   }
-  ctx.strokeStyle='rgba(30,14,4,.55)';ctx.lineWidth=1.5;
-  for(let x=L/4;x<L-4;x+=L/4){ctx.beginPath();ctx.moveTo(x,-th/2);ctx.lineTo(x,th/2);ctx.stroke()}
-  ctx.fillStyle='rgba(40,20,6,.45)';
-  for(let k=0;k<2;k++){const kx=L*(.2+((Math.sin(sd*3+k*5)+1)/2)*.6),ky=Math.sin(sd+k*3)*th*.22;ctx.beginPath();ctx.ellipse(kx,ky,3.4,2,0,0,TAU);ctx.fill()}
+  if(kind==='wood'){
+    /* raised panels */
+    const n=L>96?3:2,pw=(L-26)/n;
+    for(let k=0;k<n;k++){const px=12+k*pw+3,w2=pw-6;ctx.fillStyle='rgba(0,0,0,.16)';ctx.fillRect(px,-th/2+3,w2,th-6);ctx.strokeStyle='rgba(255,255,255,.3)';ctx.lineWidth=1.2;ctx.strokeRect(px+1,-th/2+4,w2-2,th-8);ctx.strokeStyle='rgba(0,0,0,.35)';ctx.beginPath();ctx.moveTo(px,th/2-3);ctx.lineTo(px+w2,th/2-3);ctx.lineTo(px+w2,-th/2+3);ctx.stroke()}
+    if(d.hue===15||d.hue===4){/* glazed door */ctx.fillStyle='rgba(170,225,255,.7)';ctx.fillRect(L*.3,-th/2+4,L*.4,th-8);ctx.strokeStyle='rgba(255,255,255,.7)';ctx.lineWidth=1.2;ctx.beginPath();ctx.moveTo(L*.5,-th/2+4);ctx.lineTo(L*.5,th/2-4);ctx.stroke()}
+  }else if(kind==='iron'){
+    ctx.strokeStyle='rgba(0,0,0,.35)';ctx.lineWidth=1.4;for(let x=L/5;x<L-4;x+=L/5){ctx.beginPath();ctx.moveTo(x,-th/2);ctx.lineTo(x,th/2);ctx.stroke()}
+    ctx.fillStyle='rgba(255,255,255,.22)';ctx.fillRect(0,-th/2+1,L,2);
+    ctx.fillStyle='#c8d0d5';for(let x=10;x<L-8;x+=14){ctx.beginPath();ctx.arc(x,-th/2+4,1.5,0,TAU);ctx.arc(x,th/2-4,1.5,0,TAU);ctx.fill()}
+    ctx.fillStyle='#e0b43a';ctx.fillRect(L*.55,-th/2,10,th);ctx.fillStyle='#2a2a2a';for(let k=0;k<3;k++)ctx.fillRect(L*.55+k*3.6,-th/2,1.8,th);
+  }else{
+    ctx.fillStyle='#24201d';for(const fx of[.18,.5,.82]){ctx.fillRect(L*fx-4,-th/2,8,th)}
+    ctx.fillStyle='#8a8f93';for(const fx of[.18,.5,.82]){ctx.beginPath();ctx.arc(L*fx,-th/2+4,1.6,0,TAU);ctx.arc(L*fx,th/2-4,1.6,0,TAU);ctx.fill()}
+  }
+  if(kind!=='fort'&&kind!=='iron'){ctx.strokeStyle='rgba(30,14,4,.45)';ctx.lineWidth=1.3;for(let x=L/4;x<L-4;x+=L/4){ctx.beginPath();ctx.moveTo(x,-th/2);ctx.lineTo(x,th/2);ctx.stroke()}}
   ctx.restore();
-  ctx.fillStyle='#2e2a28';ctx.fillRect(2,-th/2+1,10,th-2);ctx.fillRect(L-30,-th/2+1,9,th-2);
-  ctx.fillStyle='#55504c';ctx.fillRect(4,-th/2+3,6,2);ctx.fillRect(4,th/2-5,6,2);
-  ctx.strokeStyle=top?'#ffd166':'rgba(0,0,0,.6)';ctx.lineWidth=top?3:2;ctx.strokeRect(0,-th/2,L,th);
-  ctx.fillStyle='#e0b24a';ctx.beginPath();ctx.arc(L-12,0,4.5,0,TAU);ctx.fill();ctx.fillStyle='rgba(255,255,255,.55)';ctx.beginPath();ctx.arc(L-13.2,-1.2,1.6,0,TAU);ctx.fill();
+  /* hinges and handle */
+  ctx.fillStyle='#2b2724';ctx.fillRect(2,-th/2+1,10,th-2);ctx.fillRect(L-30,-th/2+1,9,th-2);
+  ctx.fillStyle='#6a6560';ctx.fillRect(4,-th/2+3,6,2);ctx.fillRect(4,th/2-5,6,2);
+  ctx.strokeStyle=top?'#ffd166':'rgba(0,0,0,.65)';ctx.lineWidth=top?3:2;ctx.strokeRect(0,-th/2,L,th);
+  if(kind==='iron'){ctx.fillStyle='#d9dee2';ctx.fillRect(L-22,-2.4,16,4.8);ctx.fillStyle='rgba(0,0,0,.4)';ctx.fillRect(L-22,1.2,16,1.4)}
+  else{ctx.fillStyle=DHANDLE[d.hue]||'#e0b24a';ctx.beginPath();ctx.arc(L-12,0,4.8,0,TAU);ctx.fill();ctx.strokeStyle='rgba(0,0,0,.4)';ctx.lineWidth=1;ctx.stroke();ctx.fillStyle='rgba(255,255,255,.6)';ctx.beginPath();ctx.arc(L-13.3,-1.3,1.7,0,TAU);ctx.fill()}
   ctx.restore();
 }
 function drawTreeBody(c){
@@ -2532,7 +2569,7 @@ var SRV=(function(){
   function srvUse(e){
     const nd=nearestDoor(e,DOOR_REACH);let ld=1e9;
     for(const l of loot){const q=dist2(e,l);if(q<ld)ld=q}
-    if(nd&&(ld>PICK_R*PICK_R||nd.q<=Math.sqrt(ld)*.5))toggleDoor(nd.d,true,e);
+    if(nd&&(ld>PICK_R*PICK_R||nd.q<=Math.sqrt(ld)*.8))toggleDoor(nd.d,true,e);
     else if(ld<=PICK_R*PICK_R)tryPickup(e,true);
     else openCrate(e);
   }

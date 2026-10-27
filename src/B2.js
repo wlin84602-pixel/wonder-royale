@@ -111,8 +111,9 @@ function hurtTree(c,d){
   if(NETHOOK)NETHOOK('tree',c);
 }
 function toggleDoor(d,local,who){
-  if(Date.now()-d.ts<90)return;
+  if(Date.now()-d.ts<45)return;
   d.open=!d.open;d.ts=Date.now();
+  if(NETMODE!=='server')burst(d.cx,d.cy,'#e6d5b0',3,70,.22);
   if(d.open&&who){
     /* swing away from whoever opens it: outwards when they stand inside, inwards when they are outside */
     const iv=d.side===0?[0,1]:d.side===2?[0,-1]:d.side===3?[1,0]:[-1,0];
@@ -121,7 +122,7 @@ function toggleDoor(d,local,who){
   if(!player||Math.hypot(player.x-d.x,player.y-d.y)<900)sfx(d.open?300:210,.07,'square',.03,.8);
   if(NETHOOK)NETHOOK('door',d);
 }
-const DOOR_REACH=58;
+const DOOR_REACH=74;
 function nearestDoor(p,rng){
   let best=null,bd=rng;
   for(const d of doors){const dx=Math.max(d.x-p.x,0,p.x-(d.x+d.w)),dy=Math.max(d.y-p.y,0,p.y-(d.y+d.h)),q=Math.hypot(dx,dy);if(q<bd){bd=q;best=d}}

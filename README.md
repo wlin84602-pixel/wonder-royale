@@ -64,3 +64,4 @@ Protocol: `room:create|solo|join|rejoin|leave|start|opts|ctl` and `admin:auth` (
 - Polish: floating damage numbers, low-health pulse, press/fade transitions, mobile viewport + favicon + meta tags.
 - Polish 2: loading screen, victory screen with confetti and count-up, HP bar colour tiers, feed/gun animations, lobby slot and countdown animations, feed moved below the banner.
 - Buildings: per-type roofs (gable, hip, sawtooth, tent, dome, thatch, parapet), floor patterns, stone/plank walls, framed windows, chimney smoke, stone paths and lamps at doors (visual only).
+- Doors: 45 ms toggle cooldown, reach 74, client-side prediction in multiplayer (server confirms), eased 0.1 s swing, new sprites (painted wood, riveted iron, banded oak), jambs and a swing-area shadow.

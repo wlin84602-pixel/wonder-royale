@@ -556,7 +556,7 @@ function applyEvent(ev){
     case 'c-':{const c=crates.find(x=>x.id===ev[1]);if(c)breakCrate(c,false);break}
     case 'c+':{if(!crates.some(c=>c.id===ev[1]))crates.push({id:ev[1],x:ev[2],y:ev[3],gold:!!ev[4],hp:ev[5],max:ev[6],r:ev[7],seed:ev[8],air:ev[9]?1:undefined,hit:0});break}
     case 't':{const c=circs[ev[1]];if(!c)return;c.hp=ev[2];c.hit=.14;if(ev[3]&&!c.dead)killTree(c,true);else burst(c.x,c.y,c.k==='rock'?'#a9b6b3':'#3a8a54',3,110,.35);break}
-    case 'd':{const d=doors[ev[1]];if(!d)return;const o=!!ev[2];d.dir=ev[3]===-1?-1:1;d.ts=Date.now();if(d.open!==o){d.open=o;if(Math.hypot(player.x-d.x,player.y-d.y)<900)sfx(o?300:210,.07,'square',.03,.8)}break}
+    case 'd':{const d=doors[ev[1]];if(!d)return;const o=!!ev[2];d.dir=ev[3]===-1?-1:1;d.ts=Date.now();d.pend=0;if(d.open!==o){d.open=o;if(Math.hypot(player.x-d.x,player.y-d.y)<900)sfx(o?300:210,.07,'square',.03,.8)}break}
     case 'f':{feed.push({t:ev[2],txt:ev[1]});break}
     case 'death':{
       const e=byPid.get(ev[1]);if(!e)return;

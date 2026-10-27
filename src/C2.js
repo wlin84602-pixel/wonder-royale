@@ -709,6 +709,12 @@ function draw(){
   ctx.globalAlpha=1;
   for(const bm of booms){const k=bm.t/.45;ctx.globalAlpha=.55*(1-k);ctx.fillStyle='#ffb02e';ctx.beginPath();ctx.arc(bm.x,bm.y,bm.r*(.35+.65*k),0,TAU);ctx.fill();ctx.globalAlpha=.9*(1-k);ctx.strokeStyle='#fff3c4';ctx.lineWidth=6*(1-k)+1;ctx.beginPath();ctx.arc(bm.x,bm.y,bm.r*(.3+.7*k),0,TAU);ctx.stroke()}
   ctx.globalAlpha=1;
+  if(dnums.length){
+    const nw=performance.now();ctx.textAlign='center';ctx.font='800 18px system-ui,sans-serif';ctx.lineWidth=4;ctx.strokeStyle='rgba(0,0,0,.7)';ctx.lineJoin='round';
+    for(let i=dnums.length-1;i>=0;i--){const n=dnums[i],a=(nw-n.t)/700;if(a>=1){dnums.splice(i,1);continue}
+      ctx.globalAlpha=1-a*a;const y=n.y-a*34;ctx.strokeText(n.v,n.x,y);ctx.fillStyle=n.col;ctx.fillText(n.v,n.x,y)}
+    ctx.globalAlpha=1;ctx.textAlign='left';
+  }
   for(const p of parts){ctx.globalAlpha=Math.max(0,p.life/p.max);ctx.fillStyle=p.col;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,TAU);ctx.fill()}
   {
     const nowT=performance.now(),rdt=Math.min(.1,(nowT-roofT)/1000);roofT=nowT;
@@ -757,6 +763,7 @@ function draw(){
   ctx.setTransform(DPR,0,0,DPR,0,0);
   if(player&&state==='play'){
     if(dmgFlash>0){const g=ctx.createRadialGradient(W/2,H/2,Math.min(W,H)*.3,W/2,H/2,Math.max(W,H)*.7);g.addColorStop(0,'rgba(255,60,60,0)');g.addColorStop(1,'rgba(255,60,60,'+Math.min(.6,dmgFlash*1.6)+')');ctx.fillStyle=g;ctx.fillRect(0,0,W,H)}
+    if(player.alive&&player.hp<=30){const pu=.5+.5*Math.sin(performance.now()/260),g=ctx.createRadialGradient(W/2,H/2,Math.min(W,H)*.38,W/2,H/2,Math.max(W,H)*.75);g.addColorStop(0,'rgba(255,40,40,0)');g.addColorStop(1,'rgba(255,40,40,'+(.12+.2*pu)*(1-player.hp/45)+')');ctx.fillStyle=g;ctx.fillRect(0,0,W,H)}
     if(hitmark>0){ctx.strokeStyle='#fff';ctx.lineWidth=2.5;ctx.beginPath();const mxp=isTouch?W/2:mouse.x,myp=isTouch?H/2:mouse.y;ctx.moveTo(mxp-9,myp-9);ctx.lineTo(mxp-4,myp-4);ctx.moveTo(mxp+9,myp-9);ctx.lineTo(mxp+4,myp-4);ctx.moveTo(mxp-9,myp+9);ctx.lineTo(mxp-4,myp+4);ctx.moveTo(mxp+9,myp+9);ctx.lineTo(mxp+4,myp+4);ctx.stroke()}
   }
   for(const s of [stick.m,stick.a]){

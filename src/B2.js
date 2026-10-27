@@ -387,6 +387,8 @@ function tryPickup(e,manual){
 
 /* ---------- combat ---------- */
 function burst(x,y,col,n,sp,life){for(let i=0;i<n;i++){const a=rand(0,TAU),s=rand(.3,1)*sp;parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:life*rand(.6,1),max:life,col,r:rand(1.5,3.5)})}}
+const dnums=[];
+function popDmg(x,y,d,col){if(NETMODE==='server'||!(d>=1))return;dnums.push({x:x+rand(-10,10),y:y-18,v:Math.round(d),t:performance.now(),col:col||'#ffffff'});if(dnums.length>40)dnums.shift()}
 function damage(e,d,from){
   if(!e.alive||NETMODE==='client')return;
   if(e===player&&admOn('god'))return;
@@ -395,7 +397,7 @@ function damage(e,d,from){
   e.hp-=rem;burst(e.x,e.y,e.sh>0?COL.shield:'#ffffff',4,140,.35);
   if(from===player&&e!==player){SESS.hits++;SESS.dmg+=d}
   if(e===player){addShake(5);dmgFlash=.3;sfx(120,.08,'square',.06,.5)}
-  else if(from===player){hitmark=.15;sfx(900,.04,'square',.03)}
+  else if(from===player){hitmark=.15;sfx(900,.04,'square',.03);popDmg(e.x,e.y,d,e.sh>0?COL.shield:'#ffffff')}
   if(e.bot&&from&&from!==e)e.tgt=from;
   if(NETHOOK)NETHOOK('hit',e,from,d);
   if(e.hp<=0)kill(e,from);
@@ -447,7 +449,7 @@ function bulletHit(b,e){
   if(NETMODE==='client'){burst(b.x,b.y,'#ffffff',4,120,.25);return true}
   if(!mp){damage(e,b.dmg,b.o);return true}
   if(e===player){if(b.o!==player){damage(e,b.dmg,b.o);return true}return false}
-  if(e.remote&&b.o===player){burst(b.x,b.y,'#ffffff',4,120,.25);hitmark=.15;SESS.hits++;SESS.dmg+=b.dmg;return true}
+  if(e.remote&&b.o===player){burst(b.x,b.y,'#ffffff',4,120,.25);popDmg(e.x,e.y,b.dmg,'#ffffff');hitmark=.15;SESS.hits++;SESS.dmg+=b.dmg;return true}
   return false;
 }
 function updBullets(dt){

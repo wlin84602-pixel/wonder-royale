@@ -1,4 +1,8 @@
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f1a1d">
+<meta name="description" content="Wonder Royale: a free top-down battle royale. Drop in, loot up and be the last one standing.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230f1a1d'/%3E%3Ccircle cx='32' cy='32' r='18' fill='%23ff6b4a'/%3E%3Ccircle cx='32' cy='32' r='8' fill='%23ffd166'/%3E%3C/svg%3E">
 <title>Wonder Royale</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -90,6 +94,12 @@ button.go{font-family:var(--display);font-size:19px;background:var(--coral);colo
 button.go.sm{font-size:14px;padding:10px 14px}
 button.go:hover{filter:brightness(1.08)}
 button:focus-visible{outline:3px solid var(--fg);outline-offset:2px}
+button{transition:transform .08s,filter .12s,background .15s,border-color .15s}
+button:not(:disabled):active{transform:scale(.97)}
+button:disabled{cursor:not-allowed}
+#hub:not([hidden]){animation:hubin .25s ease-out}
+@keyframes hubin{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){#hub:not([hidden]){animation:none}button{transition:none}}
 button.go.alt{background:transparent;color:var(--fg);border:2px solid #ffffff44}
 button.go:disabled{opacity:.5;cursor:not-allowed;filter:none}
 .best{font-size:13px;color:var(--muted);min-height:1em;line-height:1.4}
@@ -385,5 +395,5 @@ button.go.big{font-size:clamp(30px,9vw,44px);padding:22px 14px;letter-spacing:.0
   </div>
 </div>
 
-<script src="config.js?v=c26e0403c0"></script>
-<script src="game.js?v=c26e0403c0"></script>
+<script src="config.js?v=3a97f54683"></script>
+<script src="game.js?v=3a97f54683"></script>

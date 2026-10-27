@@ -60,3 +60,5 @@ Protocol: `room:create|solo|join|rejoin|leave|start|opts|ctl` and `admin:auth` (
 - **Skin only** toggle (Home and Locker): hides the melee weapon and backpack in matches (fists only); other players see it too.
 - Characters are slightly bigger (radius 22 -> 25).
 - **Midas M4** (black and gold, 44 dmg, very fast, wide view, gold/black animated bullets): found in about a third of airdrops, or from the admin panel (Golden M4 button / weapon list).
+
+- Polish: floating damage numbers, low-health pulse, press/fade transitions, mobile viewport + favicon + meta tags.

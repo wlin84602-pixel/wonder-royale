@@ -1,0 +1,64 @@
+{
+  "types": [
+    {
+      "name": "PISTOL",
+      "clip": 12,
+      "damage": 22,
+      "rate": 0.28,
+      "speed": 700,
+      "color": "#d4ded8"
+    },
+    {
+      "name": "ASSAULT RIFLE",
+      "clip": 30,
+      "damage": 18,
+      "rate": 0.12,
+      "speed": 850,
+      "color": "#76c6ff"
+    },
+    {
+      "name": "SHOTGUN",
+      "clip": 5,
+      "damage": 12,
+      "rate": 0.65,
+      "speed": 630,
+      "color": "#bb8bf3"
+    },
+    {
+      "name": "SNIPER RIFLE",
+      "clip": 5,
+      "damage": 68,
+      "rate": 1.1,
+      "speed": 1100,
+      "color": "#f2c45e"
+    }
+  ],
+  "cooldowns": {
+    "Pump Shotgun": 1000,
+    "Assault Shotgun": 333,
+    "Bolt-Action Sniper": 1000,
+    "Semi-Auto Sniper": 500,
+    "Desert Eagle": 500,
+    "M4 Assault Rifle": 100,
+    "SCAR Assault Rifle": 100,
+    "AK-Style Rifle": 167,
+    "MP5": 67,
+    "P90": 45,
+    "Vector": 42,
+    "Pistol": 280
+  },
+  "profiles": [
+    "Pistol",
+    "M4 Assault Rifle",
+    "Pump Shotgun",
+    "Bolt-Action Sniper"
+  ],
+  "reloadMs": 1150,
+  "rarity": [
+    1,
+    1.1,
+    1.2,
+    1.35,
+    1.5
+  ]
+}

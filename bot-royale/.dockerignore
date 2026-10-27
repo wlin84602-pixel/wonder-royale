@@ -1,0 +1,5 @@
+tests
+*-test-results.json
+island-checks-summary.json
+node_modules
+.git

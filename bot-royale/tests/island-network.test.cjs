@@ -12,7 +12,7 @@ async function until(fn,message,timeout=3500){const started=Date.now();while(!fn
   const one=(await post('join',{room:'test',name:'Player One'})).body,two=(await post('join',{room:'test',name:'Player Two'})).body;
   assert.equal(one.seed,two.seed);assert.deepEqual(one.route,two.route);
   const a=await stream(one.token),b=await stream(two.token);await until(()=>a.last&&b.last,'Snapshots did not stream');
-  const session=app.sessions.get('test'),p1=session.actors.get(one.id),p2=session.actors.get(two.id),w=session.world,door=w.doors[0];
+  const session=app.sessions.get('test'),p1=session.actors.get(one.id),p2=session.actors.get(two.id),w=session.world,door=w.doors.find(d=>{const approach={x:d.x+d.w/2,y:d.y-26.1,phase:'ground'};return !C.blocked(w,approach.x,d.y-55,26)&&C.interactionTarget(w,approach)?.object.id===d.id});assert(door,'No unobstructed door interaction fixture');
   Object.assign(p1,{x:door.x+door.w/2,y:door.y-55,phase:'ground'});Object.assign(p2,{x:p1.x+100,y:p1.y-10,phase:'ground'});
   let input1=0,input2=0,action1=0,action2=0;
   const send1=(data)=>post('input',{seq:++input1,dx:0,dy:0,aim:0,fire:false,slot:1,...data},one.token);

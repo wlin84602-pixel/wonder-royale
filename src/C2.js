@@ -373,12 +373,12 @@ function drawEnt(e){
     ctx.restore();return;
   }
   ctx.rotate(e.ang);
-  if(!air)drawPack(ctx,e.bp,e.r);
+  if(!air&&!e.so)drawPack(ctx,e.bp,e.r);
   const hi=held(e),gi=hi&&hi.type==='gun'?hi:null,g=gi?gi.s:null,rc=e.recoil*4,s=e.r/22;
   if(!air){
     if(gi){
       ctx.save();ctx.translate(e.r*.5-rc,0);drawWeapon(ctx,gi.w,gi.rar,s*WSC);
-      if(e.recoil>.55)drawFlash(ctx,g.len*s*WSC);
+      if(e.recoil>.55)drawFlash(ctx,g.len*s*WSC,gi.w===GOLDM4);
       ctx.restore();
     }else if(hi&&hi.type==='heal'){ctx.save();ctx.translate(e.r*1.0,e.r*.1);drawHeal(ctx,hi.id,s*.95);ctx.restore()}
   }
@@ -583,7 +583,7 @@ function drawLootTip(){
   for(const l of loot){const d=dist2(p,l);if(d<bd){bd=d;best=l}}
   if(!best)return;
   const l=best;let t1,t2,col;
-  if(l.type==='gun'){const s=statsOf(l.w,l.rar);t1=WEAP[l.w].name;col=RAR7C[l.rar];t2=RAR7N[l.rar]+' · '+(s.boom?'blast':s.dmg+(s.pellets>1?'x'+s.pellets:'')+' dmg')}
+  if(l.type==='gun'){const s=statsOf(l.w,l.rar);t1=WEAP[l.w].name;col=wcol(l.w,l.rar);t2=wrn(l.w,l.rar)+' · '+(s.boom?'blast':s.dmg+(s.pellets>1?'x'+s.pellets:'')+' dmg')}
   else if(l.type==='heal'){t1=HEALS[l.kind].name;col=HEALS[l.kind].col;t2=HEALS[l.kind].desc}
   else{t1=AMMOC[l.kind].name;col=AMMOC[l.kind].col;t2='+'+l.amt}
   const t3=S.autoPick?'':'['+actLabel('use')+']';
@@ -600,7 +600,7 @@ function drawLootTip(){
 function drawLootItem(l){
   const bob=Math.sin(l.b)*2.5;
   let col;
-  if(l.type==='gun')col=RAR7C[l.rar];else if(l.type==='heal')col=HEALS[l.kind].col;else col=AMMOC[l.kind].col;
+  if(l.type==='gun')col=wcol(l.w,l.rar);else if(l.type==='heal')col=HEALS[l.kind].col;else col=AMMOC[l.kind].col;
   ctx.fillStyle='rgba(0,0,0,.22)';ctx.beginPath();ctx.ellipse(l.x+3,l.y+16,24,9,0,0,TAU);ctx.fill();
   const hi=l.type==='gun'&&l.rar>=4,pu=Math.sin(l.b);
   /* soft glow in the rarity colour, then a solid tinted plate: no dark ring */
@@ -701,6 +701,7 @@ function draw(){
   ctx.lineCap='round';
   for(const b of bullets){
     if(b.pj){drawProjectile(ctx,b);continue}
+    if(b.k===GOLDM4){drawGoldBullet(ctx,b);continue}
     const big=b.dmg>=60,tl=big?.05:.03;
     ctx.strokeStyle=b.col;ctx.globalAlpha=.4;ctx.lineWidth=big?8:5;ctx.beginPath();ctx.moveTo(b.x-b.vx*tl,b.y-b.vy*tl);ctx.lineTo(b.x,b.y);ctx.stroke();
     ctx.globalAlpha=1;ctx.strokeStyle='#ffffff';ctx.lineWidth=big?3:2;ctx.beginPath();ctx.moveTo(b.x-b.vx*tl*.7,b.y-b.vy*tl*.7);ctx.lineTo(b.x,b.y);ctx.stroke();
@@ -805,7 +806,7 @@ function hud(dt){
   const hi=held(player);
   let gname='Fists',gsub='',gcol='',gkey='fists';
   if(hi&&hi.type==='melee'){const mm=MELEES[player.ml]||MELEES[0];gname=mm.name;gsub=mm.dmg+' dmg';gcol=RCOL[mm.rarity]||'';gkey='m'+player.ml}
-  else   if(hi&&hi.type==='gun'){gname=WEAP[hi.w].name;gsub=RAR7N[hi.rar]+' · '+(player.rl>0?'Reloading…':hi.mg+' / '+reserveOf(player,hi))+' ['+actLabel('reload')+']';gcol=RAR7C[hi.rar];gkey='g'+hi.w+'_'+hi.rar}
+  else   if(hi&&hi.type==='gun'){gname=WEAP[hi.w].name;gsub=wrn(hi.w,hi.rar)+' · '+(player.rl>0?'Reloading…':hi.mg+' / '+reserveOf(player,hi))+' ['+actLabel('reload')+']';gcol=wcol(hi.w,hi.rar);gkey='g'+hi.w+'_'+hi.rar}
   else if(hi){gname=HEALS[hi.id].name+' x'+hi.n;gsub=HEALS[hi.id].desc;gcol=HEALS[hi.id].col;gkey='h'+hi.id}
   el.gun.textContent=gname;el.gun.style.color=gcol;el.ammo.textContent=gsub;
   if(lastGun!==gkey){lastGun=gkey;const c=el.gi.getContext('2d');if(c){c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,120,40);if(hi&&hi.type==='melee'){c.translate(40,20);drawMelee(c,player.ml,1.6)}else if(hi&&hi.type==='gun')drawGunIcon(c,hi.w,hi.rar,120,40);else if(hi){c.translate(60,22);drawHeal(c,hi.id,1.6)}}}
@@ -915,7 +916,7 @@ function updHotbar(){
     if(key===h.key)continue;
     h.key=key;
     h.b.classList.toggle('sel',sel);
-    h.b.style.borderColor=it?(it.type==='melee'?'#ffffff88':it.type==='gun'?RAR7C[it.rar]:HEALS[it.id].col):'';
+    h.b.style.borderColor=it?(it.type==='melee'?'#ffffff88':it.type==='gun'?wcol(it.w,it.rar):HEALS[it.id].col):'';
     h.n.textContent=it?(it.type==='melee'?'':it.type==='gun'?String(it.mg):'x'+it.n):'';
     const c=h.cv.getContext('2d');if(!c)continue;
     c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,88,52);
@@ -1015,6 +1016,7 @@ function buildAdmin(){
     for(const k of AMMOL)pl.pouch[k]=POUCHCAP(k);
     pl.hp=100;pl.sh=100;pl.sel=1;pl.use=null;pl.rl=0;
   });
+  add('Golden M4',()=>{const pl=player;if(!pl)return;const g=mkGun(GOLDM4,6,0);g.ammo=gunMax(g);g.mg=g.s.mag;admGive(g,1);pl.pouch.medium=POUCHCAP('medium')});
   add('Best kit',()=>{admGive(mkGun(WEAP.findIndex(w=>w.name==='Rail Gun'),6,0),1);admGive(mkGun(WEAP.findIndex(w=>w.name==='RPG'),6,0),1);admGive(mkGun(WEAP.findIndex(w=>w.name==='Auto Shotgun'),6,0),1);for(let i=0;i<HEALS.length;i++)admGive(mkHeal(i,5))});
   a.appendChild(q);
   a.appendChild(mk('div','agrp','Airdrop (exotic gun + heals)'));

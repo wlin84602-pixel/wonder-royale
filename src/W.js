@@ -23,8 +23,12 @@ const WEAP=[
   {name:'RPG',cls:'rocket',dmg:0,rate:1.6,spd:640,spread:.01,pellets:1,mag:2,rng:1100,len:67,x0:-14,f:70,wt:3,pj:'rocket',boom:{r:135,d:95},slow:.9,tag:'Rocket'},
   {name:'Grenade Launcher',cls:'rocket',dmg:0,rate:1.0,spd:540,spread:.03,pellets:1,mag:4,rng:700,len:44,x0:-8,f:100,wt:3,pj:'grenade',boom:{r:105,d:62},slow:.95,tag:'Grenades'},
   {name:'Longshot',cls:'sniper',dmg:85,rate:1.5,spd:2400,spread:0,pellets:1,mag:4,rng:2100,len:73,x0:-14,f:95,wt:2,slow:.9,fix:1,view:.74,tag:'85 dmg, wide view'},
-  {name:'Wonder Sniper',cls:'sniper',dmg:90,rate:1.3,spd:2800,spread:0,pellets:1,mag:5,rng:2600,len:78,x0:-14,f:80,wt:0,slow:.92,fix:1,view:.56,tag:'90 dmg, huge view'}
+  {name:'Wonder Sniper',cls:'sniper',dmg:90,rate:1.3,spd:2800,spread:0,pellets:1,mag:5,rng:2600,len:78,x0:-14,f:80,wt:0,slow:.92,fix:1,view:.56,tag:'90 dmg, huge view'},
+  {name:'Midas M4',cls:'rifle',dmg:44,rate:.115,spd:3000,spread:.004,pellets:1,mag:40,rng:2000,len:66,x0:-14,f:420,wt:0,fix:1,view:.7,gold:1,tag:'Ultimate rifle'}
 ];
+const GOLDM4=17,GOLDC='#ffc93a';
+const wcol=(w,r)=>w===GOLDM4?GOLDC:RAR7C[r];
+const wrn=(w,r)=>w===GOLDM4?'Ultimate':RAR7N[r];
 const WCLS={pistol:'Pistol',smg:'SMG',shotgun:'Shotgun',rifle:'Rifle',sniper:'Sniper',rocket:'Explosive'};
 const HEALS=[
   {name:'Small Pot',t:1,max:6,drop:2,col:'#5cc8ff',wt:40,sf:520,desc:'+25 shield',full:'Shield is already full',need:e=>e.sh<100,apply:e=>{e.sh=Math.min(100,e.sh+25)}},
@@ -43,7 +47,7 @@ WEAP.forEach(b=>{b.mag*=10});
 function statsOf(id,rar){
   const b=WEAP[id],k=rar;
   return{id,name:b.name,cls:b.cls,view:b.view||0,dmg:b.fix?b.dmg:Math.round(b.dmg*(1+.07*k)*10)/10,rate:b.cls==='sniper'||b.cls==='shotgun'?1:Math.min(b.cls==='rocket'?.22:.12,b.rate*(1-.022*k)*.72),spd:b.spd*(1+.02*k),spread:b.spread*(1-.07*k),pellets:b.pellets,mag:b.mag,rng:b.rng*(1+.02*k),
-    len:b.len,x0:b.x0,f:b.f,burst:b.burst||0,gap:b.gap||.06,pierce:!!b.pierce,pj:b.pj||'',boom:b.boom?{r:b.boom.r*(1+.03*k),d:b.boom.d*(1+.07*k)}:null,slow:b.slow||1,col:RAR7C[rar]};
+    len:b.len,x0:b.x0,f:b.f,burst:b.burst||0,gap:b.gap||.06,pierce:!!b.pierce,pj:b.pj||'',boom:b.boom?{r:b.boom.r*(1+.03*k),d:b.boom.d*(1+.07*k)}:null,slow:b.slow||1,col:b.gold?GOLDC:RAR7C[rar]};
 }
 const mkGun=(w,rar,ammo)=>{const a=ammo==null?Math.round(WEAP[w].mag*3):ammo;return{type:'gun',w,rar,ammo:a,mg:Math.min(WEAP[w].mag,a),s:statsOf(w,rar)}};
 const mkHeal=(id,n)=>({type:'heal',id,n});
@@ -365,7 +369,7 @@ function breakCrate(c,local){
   const R=mulberry(c.seed),wr=c.gold?RW_GOLD:RW_CRATE,plan=c.air?['air','h2','h1','h3','am','am2']:c.gold?['gun','gun','heal','am2','am2']:['gun','am2','am2'];
   plan.forEach((pref,k)=>{
     let d;
-    if(pref==='air'){const w=Math.floor(R()*WEAP.length),rar=6;d={type:'gun',w,rar,kind:w,amt:Math.round(WEAP[w].mag*3*(1+.04*rar))}}
+    if(pref==='air'){const w=R()<.34?GOLDM4:Math.floor(R()*GOLDM4),rar=6;d={type:'gun',w,rar,kind:w,amt:Math.round(WEAP[w].mag*3*(1+.04*rar))}}
     else if(pref==='h2')d={type:'heal',kind:2,amt:2}
     else if(pref==='h1')d={type:'heal',kind:1,amt:2}
     else if(pref==='h3')d={type:'heal',kind:3,amt:2}
@@ -380,7 +384,7 @@ function breakCrate(c,local){
 
 /* ---------- drawing: weapons ---------- */
 function drawWeapon(c,id,rar,s){
-  const A=RAR7C[rar]||'#aaa';
+  const A=(id===GOLDM4?GOLDC:RAR7C[rar])||'#aaa';
   c.save();c.scale(s,s);c.lineWidth=1.5;c.strokeStyle='rgba(0,0,0,.6)';c.lineJoin='round';
   if(rar>=5){c.shadowColor=A;c.shadowBlur=9}
   const D='#1b2326',M='#4a5b62',Wd='#7a5a3c',G='#4d5a43',L='#8ee9ff';
@@ -427,6 +431,16 @@ function drawWeapon(c,id,rar,s){
       {const g=c.createLinearGradient(36,0,76,0);g.addColorStop(0,'#ff5d8f');g.addColorStop(.35,'#ffd166');g.addColorStop(.7,'#48f0ff');g.addColorStop(1,'#b07cff');c.fillStyle=g;c.fillRect(36,-2.4,40,4.8);c.strokeRect(36,-2.4,40,4.8)}
       bx(14,-14,34,9,'#1d1432');ci(20,-9.5,4.8,'#ff9ad0');ci(42,-9.5,4.8,'#8ee9ff');c.fillStyle='#fff';c.beginPath();c.arc(20,-9.5,1.6,0,TAU);c.arc(42,-9.5,1.6,0,TAU);c.fill();
       bx(22,-4,14,3,A);pg([12,8,14,12,18,12,15,15,17,19,12,16,7,19,9,15,6,12,10,12],'#ffd166');bx(72,-5,6,10,'#ff5d8f');break;
+    case 17:{/* Midas M4: black carbine trimmed in gold */
+      const K='#14110c',K2='#272217',Y='#e0a526',Y2='#ffd75e';
+      c.shadowColor=Y;c.shadowBlur=4;
+      pg([-14,-5,0,-4.5,3,4,-9,7,-14,5],K2);bx(-14,-5,2.6,10,Y);c.strokeStyle='rgba(0,0,0,.6)';
+      bx(0,-5.5,24,11,K);bx(2,-3.6,19,1.5,Y);bx(5,0,12,1.2,Y2);
+      bx(24,-4.6,22,9.2,K2);c.fillStyle=Y;for(let x=26;x<44;x+=3.2)c.fillRect(x,-5.6,1.7,1.2);for(let x=27;x<43;x+=4.5){c.fillStyle='#050403';c.fillRect(x,-1.4,2.6,2.8)}
+      bx(46,-2.2,14,4.4,'#2a251b');bx(58,-3.4,8,6.8,Y);c.fillStyle=Y2;c.fillRect(60,-1,5,2);
+      pg([40,-4.6,44,-4.6,44,-11,41,-11],K);pg([4,-5.5,22,-5.5,20,-10.5,6,-10.5],K);bx(8,-9.4,8,1.6,Y);
+      pg([8,5.5,17,5.5,20,19,11,19],K2);c.fillStyle=Y;c.fillRect(11,8,5,1.2);
+      pg([0,5.5,7,5.5,5,16,-3,16],K);bx(3.5,5.5,1.8,3,Y);break}
     default:bx(0,-4,24,8,D);
   }
   c.restore();

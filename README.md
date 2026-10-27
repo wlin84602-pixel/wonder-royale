@@ -54,3 +54,9 @@ Protocol: `room:create|solo|join|rejoin|leave|start|opts|ctl` and `admin:auth` (
 
 ## Tests
 `npm test` (33 room/match checks + 22 lobby/admin checks, in-memory Socket.IO stand-in) and `PLAYWRIGHT_PATH=… node server/test/browser.js` (38 checks, two real Chromium pages).
+
+
+## Skin only, bigger characters, Midas M4
+- **Skin only** toggle (Home and Locker): hides the melee weapon and backpack in matches (fists only); other players see it too.
+- Characters are slightly bigger (radius 22 -> 25).
+- **Midas M4** (black and gold, 44 dmg, very fast, wide view, gold/black animated bullets): found in about a third of airdrops, or from the admin panel (Golden M4 button / weapon list).

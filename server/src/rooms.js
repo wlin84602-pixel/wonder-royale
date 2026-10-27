@@ -88,7 +88,7 @@ class RoomManager {
     const L = this.limits;
     return {
       name: cleanName(d.name), skin: int(d.skin, 0, L.skins - 1, 0), sub: d.sub ? 1 : 0,
-      ml: int(d.ml, 0, L.melees - 1, 0), bp: int(d.bp, 0, L.packs - 1, 0), cp: int(d.cp, 0, L.paras - 1, 0)
+      ml: int(d.ml, 0, L.melees - 1, 0), bp: int(d.bp, 0, L.packs - 1, 0), cp: int(d.cp, 0, L.paras - 1, 0), so: d.so ? 1 : 0
     };
   }
   addPlayer(room, socket, d) {
@@ -249,7 +249,7 @@ class RoomManager {
   cfgOf(room) { const o = room.opts; return [o.map, o.storm, o.loot, MIN_PLAYERS, COUNTDOWN_S, 1, 1, 1, 0, 1]; }
   startMatch(room, force) {
     const roster = [...room.players.values()].filter((p) => p.connected).slice(0, MAX_PLAYERS)
-      .map((p) => ({ id: p.id, name: p.name, skin: p.skin, sub: p.sub, ml: p.ml, bp: p.bp, cp: p.cp }));
+      .map((p) => ({ id: p.id, name: p.name, skin: p.skin, sub: p.sub, ml: p.ml, bp: p.bp, cp: p.cp, so: p.so }));
     if (roster.length < (force ? 1 : MIN_PLAYERS)) { room.phase = 'lobby'; room.cd = 0; this.pushLobby(room); return; }
     for (const p of [...room.players.values()]) if (!roster.some((r) => r.id === p.id)) { this.byToken.delete(p.token); room.players.delete(p.id); }
     for (const p of room.players.values()) { delete p.lx; delete p.ly; delete p.la; delete p.lt; p.ac = 0; p.ag = 0; }

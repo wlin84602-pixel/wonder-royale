@@ -13,7 +13,7 @@ const cloneBinds=()=>{const o={};for(const k in DEF_BINDS)o[k]=DEF_BINDS[k].slic
 const BV=7;
 const BIND_OK=/^(K:[A-Za-z0-9]{1,20}|M:[0-7]|W:(up|down))$/;
 const defStats=()=>({matches:0,wins:0,kills:0,top3:0,shots:0,hits:0,dmg:0,time:0,bestKills:0,bestPlace:0});
-const newProfile=()=>({g:null,gcid:'',payUrl:'',name:'',skin:0,melee:0,pack:0,chute:0,emotes:[0,1,2,3,-1,-1],xp:0,coins:200,own:[],ownE:[],ownM:[],ownP:[],ownC:[],claimF:[],claimP:[],prem:0,sub:0,dev:0,set:Object.assign({},DEF_SET),binds:cloneBinds(),bindsV:BV,setV:1,st:defStats(),hist:[]});
+const newProfile=()=>({g:null,gcid:'',payUrl:'',name:'',so:0,skin:0,melee:0,pack:0,chute:0,emotes:[0,1,2,3,-1,-1],xp:0,coins:200,own:[],ownE:[],ownM:[],ownP:[],ownC:[],claimF:[],claimP:[],prem:0,sub:0,dev:0,set:Object.assign({},DEF_SET),binds:cloneBinds(),bindsV:BV,setV:1,st:defStats(),hist:[]});
 let P=newProfile();
 const ITEMS={skin:SKINS,emote:EMOTES,melee:MELEES,pack:PACKS,chute:PARAS},OWNK={skin:'own',emote:'ownE',melee:'ownM',pack:'ownP',chute:'ownC'};
 const CATN={skin:'Skins',emote:'Emotes',melee:'Melee',pack:'Backpacks',chute:'Parachutes'},CATS1={skin:'skin',emote:'emote',melee:'melee weapon',pack:'backpack',chute:'parachute'};
@@ -32,7 +32,7 @@ function loadProfile(){
         if(typeof o.payUrl==='string'&&payHostOK(o.payUrl))P.payUrl=o.payUrl.trim().slice(0,500);
         P.xp=Math.max(0,num(o.xp,0));P.coins=Math.max(0,num(o.coins,200));
         P.own=numArr(o.own,99);P.ownE=numArr(o.ownE,EMOTES.length-1);P.ownM=numArr(o.ownM,MELEES.length-1);P.ownP=numArr(o.ownP,PACKS.length-1);P.ownC=numArr(o.ownC,PARAS.length-1);P.chute=clamp(num(o.chute,0)|0,0,PARAS.length-1);P.claimF=numArr(o.claimF,MAXTIER);P.claimP=numArr(o.claimP,MAXTIER);
-        P.prem=o.prem?1:0;P.sub=o.sub?1:0;P.dev=o.dev?1:0;P.skin=clamp(num(o.skin,0)|0,0,99);P.melee=clamp(num(o.melee,0)|0,0,MELEES.length-1);P.pack=clamp(num(o.pack,0)|0,0,PACKS.length-1);
+        P.prem=o.prem?1:0;P.sub=o.sub?1:0;P.dev=o.dev?1:0;P.so=o.so?1:0;P.skin=clamp(num(o.skin,0)|0,0,99);P.melee=clamp(num(o.melee,0)|0,0,MELEES.length-1);P.pack=clamp(num(o.pack,0)|0,0,PACKS.length-1);
         if(Array.isArray(o.emotes)&&o.emotes.length===6)P.emotes=o.emotes.map(x=>Number.isInteger(x)&&x>=-1&&x<EMOTES.length?x:-1);
         if(o.set)for(const k in DEF_SET){const r=SET_RANGE[k];P.set[k]=clamp(Math.round(num(o.set[k],DEF_SET[k])),r[0],r[1])}
         if(o.bindsV===BV&&o.binds&&typeof o.binds==='object')for(const k in DEF_BINDS){const v=o.binds[k];if(Array.isArray(v))P.binds[k]=v.filter(x=>typeof x==='string'&&BIND_OK.test(x)).slice(0,2)}
@@ -228,7 +228,8 @@ function tabHome(){
   stage.appendChild(h('div','sname2',SKINS[P.skin].name));
   stage.appendChild(h('div','srar',RNAME[SKINS[P.skin].rarity]+' skin'));
   const sc=stage.lastChild;sc.style.color=RCOL[SKINS[P.skin].rarity];
-  stage.appendChild(h('div','best',MELEES[P.melee].name+' · '+PACKS[P.pack].name+' · '+PARAS[P.chute].name+' chute'));
+  stage.appendChild(h('div','best',(P.so?'No melee, no backpack · ':MELEES[P.melee].name+' · '+PACKS[P.pack].name+' · ')+PARAS[P.chute].name+' chute'));
+  stage.appendChild(soToggle());
   stage.appendChild(btn('Open locker','go alt sm',()=>{tab='locker';lockCat='skin';lockSelC.skin=P.skin;showHub()}));
   wrap.appendChild(stage);
   const right=h('div','play');
@@ -338,11 +339,17 @@ function lockInfo(cat,it){
   return{why:'Shop',price:priceOf(cat,it)};
 }
 function equipped(cat,id){return cat==='emote'?P.emotes.indexOf(id)>=0:curOf(cat)===id}
+/* skin only: no melee weapon and no backpack on the character, just the skin */
+function soToggle(){
+  const b=btn(P.so?'Skin only: ON':'Skin only: OFF','chip2 big'+(P.so?' on':''),()=>{P.so=P.so?0:1;saveProfile();showHub()});
+  b.title='Hide the melee weapon and the backpack in matches';b.style.margin='6px 0';return b;
+}
 function tabLocker(){
   const cat=lockCat,list=ITEMS[cat];
   const cats=h('div','filters cats');
   Object.keys(ITEMS).forEach(k=>cats.appendChild(btn(CATN[k],'chip2 big'+(k===cat?' on':''),()=>{lockCat=k;lockFilter='all';lockMsg='';showHub()})));
   view.appendChild(cats);
+  view.appendChild(soToggle());
   if(lockSelC[cat]<0)lockSelC[cat]=cat==='emote'?0:curOf(cat);
   const sel=list[lockSelC[cat]],info=lockInfo(cat,sel);
   const det=h('div','panel detail');

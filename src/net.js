@@ -70,7 +70,7 @@ function netAct(t,v){
   if(t==='sel')selLock=performance.now()+300;
   if(sock&&sock.connected&&inRoom)sock.emit('act',v===undefined?{t}:{t,v});
 }
-const myProfile=()=>({name:cleanName(P.name),skin:P.skin|0,sub:isSub()?1:0,ml:P.melee|0,bp:P.pack|0,cp:P.chute|0});
+const myProfile=()=>({name:cleanName(P.name),skin:P.skin|0,sub:isSub()?1:0,ml:P.so?0:P.melee|0,bp:P.pack|0,cp:P.chute|0,so:P.so?1:0});
 
 function wireSocket(s){
   s.on('connect',()=>{
@@ -425,7 +425,7 @@ function drawArena(){
 /* ---------- match entry and exit ---------- */
 function mkNetEnt(r){
   const e=mkEnt(CX,CY,false,cleanName(r.name),clamp(r.skin|0,0,99));
-  e.sub=r.sub?1:0;e.ml=clamp(r.ml|0,0,MELEES.length-1);e.bp=clamp(r.bp|0,0,PACKS.length-1);e.cp=clamp(r.cp|0,0,PARAS.length-1);
+  e.sub=r.sub?1:0;e.so=r.so?1:0;e.ml=clamp(r.ml|0,0,MELEES.length-1);e.bp=clamp(r.bp|0,0,PACKS.length-1);e.cp=clamp(r.cp|0,0,PARAS.length-1);
   e.pid=r.id;e.st=0;e.mcSeen=0;e.ecSeen=0;e.rhk='';
   return e;
 }

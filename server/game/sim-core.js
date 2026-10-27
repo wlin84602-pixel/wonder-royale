@@ -340,7 +340,7 @@ function updZone(dt){
 
 /* ---------- entities ---------- */
 function mkEnt(x,y,bot,name,skin){
-  return{x,y,vx:0,vy:0,r:22,hp:100,sh:0,inv:(()=>{const a=new Array(NSLOT).fill(null);a[0]=MELEE_ITEM;return a})(),sel:0,pouch:{light:0,shell:0,medium:0,heavy:0,rocket:0},rh:null,use:null,regenT:0,bq:0,bt:0,cd:0,ang:rand(0,TAU),bot,name,skin:skin|0,sub:0,kills:0,alive:true,hit:0,recoil:0,place:0,
+  return{x,y,vx:0,vy:0,r:25,hp:100,sh:0,inv:(()=>{const a=new Array(NSLOT).fill(null);a[0]=MELEE_ITEM;return a})(),sel:0,pouch:{light:0,shell:0,medium:0,heavy:0,rocket:0},rh:null,use:null,regenT:0,bq:0,bt:0,cd:0,ang:rand(0,TAU),bot,name,skin:skin|0,sub:0,kills:0,alive:true,hit:0,recoil:0,place:0,
     st:3,z:0,cut:false,dropAt:0,land:null,ml:0,bp:0,cp:0,swing:0,swA:0,mcd:0,ecd:0,emo:null,mc:0,ec:0,eg:-1,
     tgt:null,think:rand(0,.3),react:0,goal:null,wx:x,wy:y,strafe:1,st2:0,lx:x,ly:y,stk:0,stkT:0,acc:rand(.04,.12),off:rand(0,TAU),offd:rand(0,160)};
 }
@@ -350,7 +350,7 @@ function setupMatch(){
   setMap(S.map,S.storm,S.loot);setCfg(cfgOfS());booms.length=0;
   genWorld();bullets=[];parts=[];feed=[];ents=[];time=0;shake=0;dmgFlash=0;hitmark=0;endT=0;result=null;resetSess();
   makePlane(Math.floor(Math.random()*1e9));
-  player=mkEnt(CX,CY,false,'You',P.skin);player.sub=isSub()?1:0;player.ml=P.melee;player.bp=P.pack;player.cp=P.chute;player.st=0;giveStart(player);ents.push(player);
+  player=mkEnt(CX,CY,false,'You',P.skin);player.sub=isSub()?1:0;player.ml=P.so?0:P.melee;player.bp=P.pack;player.so=P.so?1:0;player.cp=P.chute;player.st=0;giveStart(player);ents.push(player);
   const nb=BOTN[clamp(S.bots|0,0,2)];
   for(let i=0;i<nb;i++){
     const b=mkEnt(CX,CY,true,NAMES[i%NAMES.length],Math.floor(Math.random()*100));
@@ -443,6 +443,7 @@ function stormHurt(e,dt){
 /* Online rule: each player's own client decides hits on that player, so a bullet only hurts the local player. */
 function bulletHit(b,e){
   if(e.st!==3)return false;
+  if(b.k===GOLDM4&&NETMODE!=='server'){burst(b.x,b.y,'#ffc93a',6,160,.35);burst(b.x,b.y,'#0b0906',6,160,.35)}
   if(NETMODE==='client'){burst(b.x,b.y,'#ffffff',4,120,.25);return true}
   if(!mp){damage(e,b.dmg,b.o);return true}
   if(e===player){if(b.o!==player){damage(e,b.dmg,b.o);return true}return false}
@@ -455,8 +456,9 @@ function updBullets(dt){
     let dead=false;
     for(let s=0;s<steps&&!dead;s++){
       b.x+=b.vx*sdt;b.y+=b.vy*sdt;
+      if(b.k===GOLDM4&&NETMODE!=='server'&&s===0&&Math.random()<.7){const q=Math.random()<.5;parts.push({x:b.x,y:b.y,vx:rand(-45,45),vy:rand(-45,45),life:.35,max:.35,col:q?'#ffc93a':'#0b0906',r:rand(1.6,3.2)})}
       const ob=bulletObs(b.x,b.y);
-      if(ob){if(b.pj)explode(b.x,b.y,b.boom,b.o);else{burst(b.x,b.y,b.col,3,90,.25);if(ob.k==='tree'||ob.k==='rock')hurtTree(ob,b.dmg)}dead=true;break}
+      if(ob){if(b.pj)explode(b.x,b.y,b.boom,b.o);else{burst(b.x,b.y,b.col,3,90,.25);if(b.k===GOLDM4)burst(b.x,b.y,'#0b0906',4,110,.3);if(ob.k==='tree'||ob.k==='rock')hurtTree(ob,b.dmg)}dead=true;break}
       for(const e of ents){
         if(!e.alive||e===b.o||e.st!==3&&!b.pj)continue;
         if(b.hs&&b.hs.has(e))continue;
@@ -708,7 +710,30 @@ function drawRopes(c,R,r,sk){
 }
 
 /* weapons: drawn pointing along +x from the hand position */
-function drawFlash(c,len){
+function drawGoldBullet(c,b){
+  const sp=Math.hypot(b.vx,b.vy)||1,ux=b.vx/sp,uy=b.vy/sp,L=120,tx=b.x-ux*L,ty=b.y-uy*L,t=performance.now()/1000;
+  c.save();c.lineCap='round';
+  /* black sleeve with a glowing gold core */
+  c.globalAlpha=.8;c.strokeStyle='#0b0906';c.lineWidth=9;c.beginPath();c.moveTo(tx,ty);c.lineTo(b.x,b.y);c.stroke();
+  const g=c.createLinearGradient(tx,ty,b.x,b.y);g.addColorStop(0,'rgba(255,201,58,0)');g.addColorStop(1,'rgba(255,214,90,1)');
+  c.globalAlpha=1;c.strokeStyle=g;c.lineWidth=4.5;c.beginPath();c.moveTo(tx,ty);c.lineTo(b.x,b.y);c.stroke();
+  /* gold and black dashes race along the trail */
+  c.setLineDash([9,9]);c.lineDashOffset=-t*420;c.strokeStyle='#ffe28a';c.lineWidth=2.2;c.beginPath();c.moveTo(tx,ty);c.lineTo(b.x,b.y);c.stroke();
+  c.lineDashOffset=-t*420+9;c.strokeStyle='#0b0906';c.lineWidth=2.2;c.beginPath();c.moveTo(tx,ty);c.lineTo(b.x,b.y);c.stroke();
+  c.setLineDash([]);
+  /* head: gold bead in a black ring, flipping between the two colours */
+  const fl=Math.floor(t*30+b.x*.01)%2===0;
+  c.fillStyle=fl?'#0b0906':'#ffc93a';c.beginPath();c.arc(b.x,b.y,6,0,Math.PI*2);c.fill();
+  c.fillStyle=fl?'#ffc93a':'#0b0906';c.beginPath();c.arc(b.x,b.y,3.6,0,Math.PI*2);c.fill();
+  c.fillStyle='#fff6d0';c.beginPath();c.arc(b.x,b.y,1.4,0,Math.PI*2);c.fill();
+  c.restore();
+}
+function drawFlash(c,len,gold){
+  if(gold){
+    c.fillStyle='rgba(12,10,6,.95)';c.beginPath();c.moveTo(len-2,0);c.lineTo(len+12,-9);c.lineTo(len+34,0);c.lineTo(len+12,9);c.closePath();c.fill();
+    c.fillStyle='rgba(255,201,58,.95)';c.beginPath();c.moveTo(len,0);c.lineTo(len+10,-5);c.lineTo(len+26,0);c.lineTo(len+10,5);c.closePath();c.fill();
+    c.fillStyle='rgba(255,246,208,.95)';c.beginPath();c.moveTo(len+2,0);c.lineTo(len+8,-2);c.lineTo(len+14,0);c.lineTo(len+8,2);c.closePath();c.fill();return;
+  }
   c.fillStyle='rgba(255,226,130,.95)';c.beginPath();c.moveTo(len-2,0);c.lineTo(len+10,-7);c.lineTo(len+28,0);c.lineTo(len+10,7);c.closePath();c.fill();
   c.fillStyle='rgba(255,255,255,.9)';c.beginPath();c.moveTo(len,0);c.lineTo(len+8,-3);c.lineTo(len+16,0);c.lineTo(len+8,3);c.closePath();c.fill();
 }
@@ -906,8 +931,12 @@ const WEAP=[
   {name:'RPG',cls:'rocket',dmg:0,rate:1.6,spd:640,spread:.01,pellets:1,mag:2,rng:1100,len:67,x0:-14,f:70,wt:3,pj:'rocket',boom:{r:135,d:95},slow:.9,tag:'Rocket'},
   {name:'Grenade Launcher',cls:'rocket',dmg:0,rate:1.0,spd:540,spread:.03,pellets:1,mag:4,rng:700,len:44,x0:-8,f:100,wt:3,pj:'grenade',boom:{r:105,d:62},slow:.95,tag:'Grenades'},
   {name:'Longshot',cls:'sniper',dmg:85,rate:1.5,spd:2400,spread:0,pellets:1,mag:4,rng:2100,len:73,x0:-14,f:95,wt:2,slow:.9,fix:1,view:.74,tag:'85 dmg, wide view'},
-  {name:'Wonder Sniper',cls:'sniper',dmg:90,rate:1.3,spd:2800,spread:0,pellets:1,mag:5,rng:2600,len:78,x0:-14,f:80,wt:0,slow:.92,fix:1,view:.56,tag:'90 dmg, huge view'}
+  {name:'Wonder Sniper',cls:'sniper',dmg:90,rate:1.3,spd:2800,spread:0,pellets:1,mag:5,rng:2600,len:78,x0:-14,f:80,wt:0,slow:.92,fix:1,view:.56,tag:'90 dmg, huge view'},
+  {name:'Midas M4',cls:'rifle',dmg:44,rate:.115,spd:3000,spread:.004,pellets:1,mag:40,rng:2000,len:66,x0:-14,f:420,wt:0,fix:1,view:.7,gold:1,tag:'Ultimate rifle'}
 ];
+const GOLDM4=17,GOLDC='#ffc93a';
+const wcol=(w,r)=>w===GOLDM4?GOLDC:RAR7C[r];
+const wrn=(w,r)=>w===GOLDM4?'Ultimate':RAR7N[r];
 const WCLS={pistol:'Pistol',smg:'SMG',shotgun:'Shotgun',rifle:'Rifle',sniper:'Sniper',rocket:'Explosive'};
 const HEALS=[
   {name:'Small Pot',t:1,max:6,drop:2,col:'#5cc8ff',wt:40,sf:520,desc:'+25 shield',full:'Shield is already full',need:e=>e.sh<100,apply:e=>{e.sh=Math.min(100,e.sh+25)}},
@@ -926,7 +955,7 @@ WEAP.forEach(b=>{b.mag*=10});
 function statsOf(id,rar){
   const b=WEAP[id],k=rar;
   return{id,name:b.name,cls:b.cls,view:b.view||0,dmg:b.fix?b.dmg:Math.round(b.dmg*(1+.07*k)*10)/10,rate:b.cls==='sniper'||b.cls==='shotgun'?1:Math.min(b.cls==='rocket'?.22:.12,b.rate*(1-.022*k)*.72),spd:b.spd*(1+.02*k),spread:b.spread*(1-.07*k),pellets:b.pellets,mag:b.mag,rng:b.rng*(1+.02*k),
-    len:b.len,x0:b.x0,f:b.f,burst:b.burst||0,gap:b.gap||.06,pierce:!!b.pierce,pj:b.pj||'',boom:b.boom?{r:b.boom.r*(1+.03*k),d:b.boom.d*(1+.07*k)}:null,slow:b.slow||1,col:RAR7C[rar]};
+    len:b.len,x0:b.x0,f:b.f,burst:b.burst||0,gap:b.gap||.06,pierce:!!b.pierce,pj:b.pj||'',boom:b.boom?{r:b.boom.r*(1+.03*k),d:b.boom.d*(1+.07*k)}:null,slow:b.slow||1,col:b.gold?GOLDC:RAR7C[rar]};
 }
 const mkGun=(w,rar,ammo)=>{const a=ammo==null?Math.round(WEAP[w].mag*3):ammo;return{type:'gun',w,rar,ammo:a,mg:Math.min(WEAP[w].mag,a),s:statsOf(w,rar)}};
 const mkHeal=(id,n)=>({type:'heal',id,n});
@@ -1248,7 +1277,7 @@ function breakCrate(c,local){
   const R=mulberry(c.seed),wr=c.gold?RW_GOLD:RW_CRATE,plan=c.air?['air','h2','h1','h3','am','am2']:c.gold?['gun','gun','heal','am2','am2']:['gun','am2','am2'];
   plan.forEach((pref,k)=>{
     let d;
-    if(pref==='air'){const w=Math.floor(R()*WEAP.length),rar=6;d={type:'gun',w,rar,kind:w,amt:Math.round(WEAP[w].mag*3*(1+.04*rar))}}
+    if(pref==='air'){const w=R()<.34?GOLDM4:Math.floor(R()*GOLDM4),rar=6;d={type:'gun',w,rar,kind:w,amt:Math.round(WEAP[w].mag*3*(1+.04*rar))}}
     else if(pref==='h2')d={type:'heal',kind:2,amt:2}
     else if(pref==='h1')d={type:'heal',kind:1,amt:2}
     else if(pref==='h3')d={type:'heal',kind:3,amt:2}
@@ -1263,7 +1292,7 @@ function breakCrate(c,local){
 
 /* ---------- drawing: weapons ---------- */
 function drawWeapon(c,id,rar,s){
-  const A=RAR7C[rar]||'#aaa';
+  const A=(id===GOLDM4?GOLDC:RAR7C[rar])||'#aaa';
   c.save();c.scale(s,s);c.lineWidth=1.5;c.strokeStyle='rgba(0,0,0,.6)';c.lineJoin='round';
   if(rar>=5){c.shadowColor=A;c.shadowBlur=9}
   const D='#1b2326',M='#4a5b62',Wd='#7a5a3c',G='#4d5a43',L='#8ee9ff';
@@ -1310,6 +1339,16 @@ function drawWeapon(c,id,rar,s){
       {const g=c.createLinearGradient(36,0,76,0);g.addColorStop(0,'#ff5d8f');g.addColorStop(.35,'#ffd166');g.addColorStop(.7,'#48f0ff');g.addColorStop(1,'#b07cff');c.fillStyle=g;c.fillRect(36,-2.4,40,4.8);c.strokeRect(36,-2.4,40,4.8)}
       bx(14,-14,34,9,'#1d1432');ci(20,-9.5,4.8,'#ff9ad0');ci(42,-9.5,4.8,'#8ee9ff');c.fillStyle='#fff';c.beginPath();c.arc(20,-9.5,1.6,0,TAU);c.arc(42,-9.5,1.6,0,TAU);c.fill();
       bx(22,-4,14,3,A);pg([12,8,14,12,18,12,15,15,17,19,12,16,7,19,9,15,6,12,10,12],'#ffd166');bx(72,-5,6,10,'#ff5d8f');break;
+    case 17:{/* Midas M4: black carbine trimmed in gold */
+      const K='#14110c',K2='#272217',Y='#e0a526',Y2='#ffd75e';
+      c.shadowColor=Y;c.shadowBlur=4;
+      pg([-14,-5,0,-4.5,3,4,-9,7,-14,5],K2);bx(-14,-5,2.6,10,Y);c.strokeStyle='rgba(0,0,0,.6)';
+      bx(0,-5.5,24,11,K);bx(2,-3.6,19,1.5,Y);bx(5,0,12,1.2,Y2);
+      bx(24,-4.6,22,9.2,K2);c.fillStyle=Y;for(let x=26;x<44;x+=3.2)c.fillRect(x,-5.6,1.7,1.2);for(let x=27;x<43;x+=4.5){c.fillStyle='#050403';c.fillRect(x,-1.4,2.6,2.8)}
+      bx(46,-2.2,14,4.4,'#2a251b');bx(58,-3.4,8,6.8,Y);c.fillStyle=Y2;c.fillRect(60,-1,5,2);
+      pg([40,-4.6,44,-4.6,44,-11,41,-11],K);pg([4,-5.5,22,-5.5,20,-10.5,6,-10.5],K);bx(8,-9.4,8,1.6,Y);
+      pg([8,5.5,17,5.5,20,19,11,19],K2);c.fillStyle=Y;c.fillRect(11,8,5,1.2);
+      pg([0,5.5,7,5.5,5,16,-3,16],K);bx(3.5,5.5,1.8,3,Y);break}
     default:bx(0,-4,24,8,D);
   }
   c.restore();
@@ -1766,12 +1805,12 @@ function drawEnt(e){
     ctx.restore();return;
   }
   ctx.rotate(e.ang);
-  if(!air)drawPack(ctx,e.bp,e.r);
+  if(!air&&!e.so)drawPack(ctx,e.bp,e.r);
   const hi=held(e),gi=hi&&hi.type==='gun'?hi:null,g=gi?gi.s:null,rc=e.recoil*4,s=e.r/22;
   if(!air){
     if(gi){
       ctx.save();ctx.translate(e.r*.5-rc,0);drawWeapon(ctx,gi.w,gi.rar,s*WSC);
-      if(e.recoil>.55)drawFlash(ctx,g.len*s*WSC);
+      if(e.recoil>.55)drawFlash(ctx,g.len*s*WSC,gi.w===GOLDM4);
       ctx.restore();
     }else if(hi&&hi.type==='heal'){ctx.save();ctx.translate(e.r*1.0,e.r*.1);drawHeal(ctx,hi.id,s*.95);ctx.restore()}
   }
@@ -1976,7 +2015,7 @@ function drawLootTip(){
   for(const l of loot){const d=dist2(p,l);if(d<bd){bd=d;best=l}}
   if(!best)return;
   const l=best;let t1,t2,col;
-  if(l.type==='gun'){const s=statsOf(l.w,l.rar);t1=WEAP[l.w].name;col=RAR7C[l.rar];t2=RAR7N[l.rar]+' · '+(s.boom?'blast':s.dmg+(s.pellets>1?'x'+s.pellets:'')+' dmg')}
+  if(l.type==='gun'){const s=statsOf(l.w,l.rar);t1=WEAP[l.w].name;col=wcol(l.w,l.rar);t2=wrn(l.w,l.rar)+' · '+(s.boom?'blast':s.dmg+(s.pellets>1?'x'+s.pellets:'')+' dmg')}
   else if(l.type==='heal'){t1=HEALS[l.kind].name;col=HEALS[l.kind].col;t2=HEALS[l.kind].desc}
   else{t1=AMMOC[l.kind].name;col=AMMOC[l.kind].col;t2='+'+l.amt}
   const t3=S.autoPick?'':'['+actLabel('use')+']';
@@ -1993,7 +2032,7 @@ function drawLootTip(){
 function drawLootItem(l){
   const bob=Math.sin(l.b)*2.5;
   let col;
-  if(l.type==='gun')col=RAR7C[l.rar];else if(l.type==='heal')col=HEALS[l.kind].col;else col=AMMOC[l.kind].col;
+  if(l.type==='gun')col=wcol(l.w,l.rar);else if(l.type==='heal')col=HEALS[l.kind].col;else col=AMMOC[l.kind].col;
   ctx.fillStyle='rgba(0,0,0,.22)';ctx.beginPath();ctx.ellipse(l.x+3,l.y+16,24,9,0,0,TAU);ctx.fill();
   const hi=l.type==='gun'&&l.rar>=4,pu=Math.sin(l.b);
   /* soft glow in the rarity colour, then a solid tinted plate: no dark ring */
@@ -2094,6 +2133,7 @@ function draw(){
   ctx.lineCap='round';
   for(const b of bullets){
     if(b.pj){drawProjectile(ctx,b);continue}
+    if(b.k===GOLDM4){drawGoldBullet(ctx,b);continue}
     const big=b.dmg>=60,tl=big?.05:.03;
     ctx.strokeStyle=b.col;ctx.globalAlpha=.4;ctx.lineWidth=big?8:5;ctx.beginPath();ctx.moveTo(b.x-b.vx*tl,b.y-b.vy*tl);ctx.lineTo(b.x,b.y);ctx.stroke();
     ctx.globalAlpha=1;ctx.strokeStyle='#ffffff';ctx.lineWidth=big?3:2;ctx.beginPath();ctx.moveTo(b.x-b.vx*tl*.7,b.y-b.vy*tl*.7);ctx.lineTo(b.x,b.y);ctx.stroke();
@@ -2198,7 +2238,7 @@ function hud(dt){
   const hi=held(player);
   let gname='Fists',gsub='',gcol='',gkey='fists';
   if(hi&&hi.type==='melee'){const mm=MELEES[player.ml]||MELEES[0];gname=mm.name;gsub=mm.dmg+' dmg';gcol=RCOL[mm.rarity]||'';gkey='m'+player.ml}
-  else   if(hi&&hi.type==='gun'){gname=WEAP[hi.w].name;gsub=RAR7N[hi.rar]+' · '+(player.rl>0?'Reloading…':hi.mg+' / '+reserveOf(player,hi))+' ['+actLabel('reload')+']';gcol=RAR7C[hi.rar];gkey='g'+hi.w+'_'+hi.rar}
+  else   if(hi&&hi.type==='gun'){gname=WEAP[hi.w].name;gsub=wrn(hi.w,hi.rar)+' · '+(player.rl>0?'Reloading…':hi.mg+' / '+reserveOf(player,hi))+' ['+actLabel('reload')+']';gcol=wcol(hi.w,hi.rar);gkey='g'+hi.w+'_'+hi.rar}
   else if(hi){gname=HEALS[hi.id].name+' x'+hi.n;gsub=HEALS[hi.id].desc;gcol=HEALS[hi.id].col;gkey='h'+hi.id}
   el.gun.textContent=gname;el.gun.style.color=gcol;el.ammo.textContent=gsub;
   if(lastGun!==gkey){lastGun=gkey;const c=el.gi.getContext('2d');if(c){c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,120,40);if(hi&&hi.type==='melee'){c.translate(40,20);drawMelee(c,player.ml,1.6)}else if(hi&&hi.type==='gun')drawGunIcon(c,hi.w,hi.rar,120,40);else if(hi){c.translate(60,22);drawHeal(c,hi.id,1.6)}}}
@@ -2308,7 +2348,7 @@ function updHotbar(){
     if(key===h.key)continue;
     h.key=key;
     h.b.classList.toggle('sel',sel);
-    h.b.style.borderColor=it?(it.type==='melee'?'#ffffff88':it.type==='gun'?RAR7C[it.rar]:HEALS[it.id].col):'';
+    h.b.style.borderColor=it?(it.type==='melee'?'#ffffff88':it.type==='gun'?wcol(it.w,it.rar):HEALS[it.id].col):'';
     h.n.textContent=it?(it.type==='melee'?'':it.type==='gun'?String(it.mg):'x'+it.n):'';
     const c=h.cv.getContext('2d');if(!c)continue;
     c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,88,52);
@@ -2408,6 +2448,7 @@ function buildAdmin(){
     for(const k of AMMOL)pl.pouch[k]=POUCHCAP(k);
     pl.hp=100;pl.sh=100;pl.sel=1;pl.use=null;pl.rl=0;
   });
+  add('Golden M4',()=>{const pl=player;if(!pl)return;const g=mkGun(GOLDM4,6,0);g.ammo=gunMax(g);g.mg=g.s.mag;admGive(g,1);pl.pouch.medium=POUCHCAP('medium')});
   add('Best kit',()=>{admGive(mkGun(WEAP.findIndex(w=>w.name==='Rail Gun'),6,0),1);admGive(mkGun(WEAP.findIndex(w=>w.name==='RPG'),6,0),1);admGive(mkGun(WEAP.findIndex(w=>w.name==='Auto Shotgun'),6,0),1);for(let i=0;i<HEALS.length;i++)admGive(mkHeal(i,5))});
   a.appendChild(q);
   a.appendChild(mk('div','agrp','Airdrop (exotic gun + heals)'));
@@ -2509,7 +2550,7 @@ var SRV=(function(){
       bullets=[];parts=[];feed=[];ents=[];time=0;initZone();
       for(const p of players){
         const e=mkEnt(CX,CY,false,p.name,p.skin);
-        e.sub=p.sub?1:0;e.ml=p.ml|0;e.bp=p.bp|0;e.cp=p.cp|0;e.st=0;e.pid=p.id;e.inp={ix:0,iy:0,fire:false,mel:false,ap:false};e.mvB=0;e.lastIn=0;e.corr=false;e.jumpReq=false;
+        e.sub=p.sub?1:0;e.so=p.so?1:0;e.ml=p.ml|0;e.bp=p.bp|0;e.cp=p.cp|0;e.st=0;e.pid=p.id;e.inp={ix:0,iy:0,fire:false,mel:false,ap:false};e.mvB=0;e.lastIn=0;e.corr=false;e.jumpReq=false;
         giveStart(e);ents.push(e);byId.set(p.id,e);
       }
       aliveCount=ents.length;

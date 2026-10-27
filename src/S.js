@@ -219,7 +219,30 @@ function drawRopes(c,R,r,sk){
 }
 
 /* weapons: drawn pointing along +x from the hand position */
-function drawFlash(c,len){
+function drawGoldBullet(c,b){
+  const sp=Math.hypot(b.vx,b.vy)||1,ux=b.vx/sp,uy=b.vy/sp,L=120,tx=b.x-ux*L,ty=b.y-uy*L,t=performance.now()/1000;
+  c.save();c.lineCap='round';
+  /* black sleeve with a glowing gold core */
+  c.globalAlpha=.8;c.strokeStyle='#0b0906';c.lineWidth=9;c.beginPath();c.moveTo(tx,ty);c.lineTo(b.x,b.y);c.stroke();
+  const g=c.createLinearGradient(tx,ty,b.x,b.y);g.addColorStop(0,'rgba(255,201,58,0)');g.addColorStop(1,'rgba(255,214,90,1)');
+  c.globalAlpha=1;c.strokeStyle=g;c.lineWidth=4.5;c.beginPath();c.moveTo(tx,ty);c.lineTo(b.x,b.y);c.stroke();
+  /* gold and black dashes race along the trail */
+  c.setLineDash([9,9]);c.lineDashOffset=-t*420;c.strokeStyle='#ffe28a';c.lineWidth=2.2;c.beginPath();c.moveTo(tx,ty);c.lineTo(b.x,b.y);c.stroke();
+  c.lineDashOffset=-t*420+9;c.strokeStyle='#0b0906';c.lineWidth=2.2;c.beginPath();c.moveTo(tx,ty);c.lineTo(b.x,b.y);c.stroke();
+  c.setLineDash([]);
+  /* head: gold bead in a black ring, flipping between the two colours */
+  const fl=Math.floor(t*30+b.x*.01)%2===0;
+  c.fillStyle=fl?'#0b0906':'#ffc93a';c.beginPath();c.arc(b.x,b.y,6,0,Math.PI*2);c.fill();
+  c.fillStyle=fl?'#ffc93a':'#0b0906';c.beginPath();c.arc(b.x,b.y,3.6,0,Math.PI*2);c.fill();
+  c.fillStyle='#fff6d0';c.beginPath();c.arc(b.x,b.y,1.4,0,Math.PI*2);c.fill();
+  c.restore();
+}
+function drawFlash(c,len,gold){
+  if(gold){
+    c.fillStyle='rgba(12,10,6,.95)';c.beginPath();c.moveTo(len-2,0);c.lineTo(len+12,-9);c.lineTo(len+34,0);c.lineTo(len+12,9);c.closePath();c.fill();
+    c.fillStyle='rgba(255,201,58,.95)';c.beginPath();c.moveTo(len,0);c.lineTo(len+10,-5);c.lineTo(len+26,0);c.lineTo(len+10,5);c.closePath();c.fill();
+    c.fillStyle='rgba(255,246,208,.95)';c.beginPath();c.moveTo(len+2,0);c.lineTo(len+8,-2);c.lineTo(len+14,0);c.lineTo(len+8,2);c.closePath();c.fill();return;
+  }
   c.fillStyle='rgba(255,226,130,.95)';c.beginPath();c.moveTo(len-2,0);c.lineTo(len+10,-7);c.lineTo(len+28,0);c.lineTo(len+10,7);c.closePath();c.fill();
   c.fillStyle='rgba(255,255,255,.9)';c.beginPath();c.moveTo(len,0);c.lineTo(len+8,-3);c.lineTo(len+16,0);c.lineTo(len+8,3);c.closePath();c.fill();
 }

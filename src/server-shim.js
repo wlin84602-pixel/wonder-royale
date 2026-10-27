@@ -50,7 +50,7 @@ var SRV=(function(){
       bullets=[];parts=[];feed=[];ents=[];time=0;initZone();
       for(const p of players){
         const e=mkEnt(CX,CY,false,p.name,p.skin);
-        e.sub=p.sub?1:0;e.ml=p.ml|0;e.bp=p.bp|0;e.cp=p.cp|0;e.st=0;e.pid=p.id;e.inp={ix:0,iy:0,fire:false,mel:false,ap:false};e.mvB=0;e.lastIn=0;e.corr=false;e.jumpReq=false;
+        e.sub=p.sub?1:0;e.so=p.so?1:0;e.ml=p.ml|0;e.bp=p.bp|0;e.cp=p.cp|0;e.st=0;e.pid=p.id;e.inp={ix:0,iy:0,fire:false,mel:false,ap:false};e.mvB=0;e.lastIn=0;e.corr=false;e.jumpReq=false;
         giveStart(e);ents.push(e);byId.set(p.id,e);
       }
       aliveCount=ents.length;

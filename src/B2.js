@@ -340,7 +340,7 @@ function updZone(dt){
 
 /* ---------- entities ---------- */
 function mkEnt(x,y,bot,name,skin){
-  return{x,y,vx:0,vy:0,r:22,hp:100,sh:0,inv:(()=>{const a=new Array(NSLOT).fill(null);a[0]=MELEE_ITEM;return a})(),sel:0,pouch:{light:0,shell:0,medium:0,heavy:0,rocket:0},rh:null,use:null,regenT:0,bq:0,bt:0,cd:0,ang:rand(0,TAU),bot,name,skin:skin|0,sub:0,kills:0,alive:true,hit:0,recoil:0,place:0,
+  return{x,y,vx:0,vy:0,r:25,hp:100,sh:0,inv:(()=>{const a=new Array(NSLOT).fill(null);a[0]=MELEE_ITEM;return a})(),sel:0,pouch:{light:0,shell:0,medium:0,heavy:0,rocket:0},rh:null,use:null,regenT:0,bq:0,bt:0,cd:0,ang:rand(0,TAU),bot,name,skin:skin|0,sub:0,kills:0,alive:true,hit:0,recoil:0,place:0,
     st:3,z:0,cut:false,dropAt:0,land:null,ml:0,bp:0,cp:0,swing:0,swA:0,mcd:0,ecd:0,emo:null,mc:0,ec:0,eg:-1,
     tgt:null,think:rand(0,.3),react:0,goal:null,wx:x,wy:y,strafe:1,st2:0,lx:x,ly:y,stk:0,stkT:0,acc:rand(.04,.12),off:rand(0,TAU),offd:rand(0,160)};
 }
@@ -350,7 +350,7 @@ function setupMatch(){
   setMap(S.map,S.storm,S.loot);setCfg(cfgOfS());booms.length=0;
   genWorld();bullets=[];parts=[];feed=[];ents=[];time=0;shake=0;dmgFlash=0;hitmark=0;endT=0;result=null;resetSess();
   makePlane(Math.floor(Math.random()*1e9));
-  player=mkEnt(CX,CY,false,'You',P.skin);player.sub=isSub()?1:0;player.ml=P.melee;player.bp=P.pack;player.cp=P.chute;player.st=0;giveStart(player);ents.push(player);
+  player=mkEnt(CX,CY,false,'You',P.skin);player.sub=isSub()?1:0;player.ml=P.so?0:P.melee;player.bp=P.pack;player.so=P.so?1:0;player.cp=P.chute;player.st=0;giveStart(player);ents.push(player);
   const nb=BOTN[clamp(S.bots|0,0,2)];
   for(let i=0;i<nb;i++){
     const b=mkEnt(CX,CY,true,NAMES[i%NAMES.length],Math.floor(Math.random()*100));
@@ -443,6 +443,7 @@ function stormHurt(e,dt){
 /* Online rule: each player's own client decides hits on that player, so a bullet only hurts the local player. */
 function bulletHit(b,e){
   if(e.st!==3)return false;
+  if(b.k===GOLDM4&&NETMODE!=='server'){burst(b.x,b.y,'#ffc93a',6,160,.35);burst(b.x,b.y,'#0b0906',6,160,.35)}
   if(NETMODE==='client'){burst(b.x,b.y,'#ffffff',4,120,.25);return true}
   if(!mp){damage(e,b.dmg,b.o);return true}
   if(e===player){if(b.o!==player){damage(e,b.dmg,b.o);return true}return false}
@@ -455,8 +456,9 @@ function updBullets(dt){
     let dead=false;
     for(let s=0;s<steps&&!dead;s++){
       b.x+=b.vx*sdt;b.y+=b.vy*sdt;
+      if(b.k===GOLDM4&&NETMODE!=='server'&&s===0&&Math.random()<.7){const q=Math.random()<.5;parts.push({x:b.x,y:b.y,vx:rand(-45,45),vy:rand(-45,45),life:.35,max:.35,col:q?'#ffc93a':'#0b0906',r:rand(1.6,3.2)})}
       const ob=bulletObs(b.x,b.y);
-      if(ob){if(b.pj)explode(b.x,b.y,b.boom,b.o);else{burst(b.x,b.y,b.col,3,90,.25);if(ob.k==='tree'||ob.k==='rock')hurtTree(ob,b.dmg)}dead=true;break}
+      if(ob){if(b.pj)explode(b.x,b.y,b.boom,b.o);else{burst(b.x,b.y,b.col,3,90,.25);if(b.k===GOLDM4)burst(b.x,b.y,'#0b0906',4,110,.3);if(ob.k==='tree'||ob.k==='rock')hurtTree(ob,b.dmg)}dead=true;break}
       for(const e of ents){
         if(!e.alive||e===b.o||e.st!==3&&!b.pj)continue;
         if(b.hs&&b.hs.has(e))continue;

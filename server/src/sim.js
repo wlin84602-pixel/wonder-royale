@@ -67,6 +67,7 @@ class Sim {
   init(seed, cfg, players) { this.srv.init(seed, cfg, players); this.cfg = cfg; }
   input(pid, d, now) { this.srv.input(pid, d, now); }
   act(pid, t, v) { this.srv.act(pid, t, v); }
+  admin(pid, d) { this.srv.admin(pid, d); }
   tick(dt) { this.srv.tick(dt); }
   snapshot() { return plain(this.srv.snapshot()); }
   clearCorr() { this.srv.clearCorr(); }

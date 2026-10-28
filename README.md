@@ -65,3 +65,4 @@ Protocol: `room:create|solo|join|rejoin|leave|start|opts|ctl` and `admin:auth` (
 - Polish 2: loading screen, victory screen with confetti and count-up, HP bar colour tiers, feed/gun animations, lobby slot and countdown animations, feed moved below the banner.
 - Buildings: per-type roofs (gable, hip, sawtooth, tent, dome, thatch, parapet), floor patterns, stone/plank walls, framed windows, chimney smoke, stone paths and lamps at doors (visual only).
 - Doors: 45 ms toggle cooldown, reach 74, client-side prediction in multiplayer (server confirms), eased 0.1 s swing, new sprites (painted wood, riveted iron, banded oak), jambs and a swing-area shadow.
+- Admin panel: available in practice and in every online match. Unlock it from the in-game Menu (or the admin key) with the passcode. Practice checks it on the device; online the server checks it (it is the ADMIN_KEY variable, set to the passcode) and runs the cheats, so they work for the admin only.

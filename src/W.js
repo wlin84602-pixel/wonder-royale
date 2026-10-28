@@ -158,7 +158,7 @@ function startUse(e){
   const it=held(e);if(!it||it.type!=='heal')return false;
   const H=HEALS[it.id];
   if(!H.need(e)){if(e===player&&bannerT<=0)banner(H.full,1.2);return false}
-  e.use={slot:e.sel,t:0,T:H.t*HEALMUL[CFG.heal]*(e===player&&admOn('fast')?.05:1)};
+  e.use={slot:e.sel,t:0,T:H.t*HEALMUL[CFG.heal]*(admE(e,'fast')?.05:1)};
   if(e===player)sfx(H.sf,.1,'sine',.04,1.3);
   return true;
 }
@@ -207,7 +207,7 @@ function fireBullets(e,adv){
       continue;
     }
     const bl2={x:sx,y:sy,vx:Math.cos(a)*g.spd,vy:Math.sin(a)*g.spd,
-      life:g.rng/g.spd-adv,dmg:g.dmg*(e===player&&admOn('one')?60:1),o:e,col:g.pj?'#ff9a52':g.col,k:g.id,pj:g.pj,boom:g.boom,pierce:g.pierce,hs:null};
+      life:g.rng/g.spd-adv,dmg:g.dmg*(admE(e,'one')?60:1),o:e,col:g.pj?'#ff9a52':g.col,k:g.id,pj:g.pj,boom:g.boom,pierce:g.pierce,hs:null};
     bullets.push(bl2);made.push(bl2);
   }
   if(NETHOOK)NETHOOK('shot',e,made);
@@ -222,7 +222,7 @@ function fireVolley(e){
       return false;
     }
   }else if(it.ammo<=0)return false;
-  if(!(e===player&&admOn('ammo'))){it.ammo--;if(!e.bot)it.mg--}
+  if(!admE(e,'ammo')){it.ammo--;if(!e.bot)it.mg--}
   if(e===player)SESS.shots++;
   if(mp&&e===player)shotCount++;
   fireBullets(e,0);e.recoil=1;
@@ -241,7 +241,7 @@ function shoot(e){
   if(it.type==='heal'){startUse(e);return}
   if(e.cd>0||e.bq>0)return;
   const g=it.s;
-  e.cd=g.rate*(e===player&&admOn('rapid')?.22:1);
+  e.cd=g.rate*(admE(e,'rapid')?.22:1);
   if(fireVolley(e)&&g.burst>1&&heldGun(e)===it){e.bq=g.burst-1;e.bt=g.gap}
 }
 function burstStep(e,dt){
@@ -310,7 +310,7 @@ function genAirs(A){
 function forceAirdrop(x,y){
   const lim=ISLAND-90,dx=x-CX,dy=y-CY,d=Math.hypot(dx,dy);
   if(d>lim){x=CX+dx/d*lim;y=CY+dy/d*lim}
-  airs.push({i:airs.length+50,t:planeClock(),x,y,seed:Math.floor(Math.random()*1e9),told:true,landed:false});
+  const na={i:airs.length+50,t:planeClock(),x,y,seed:Math.floor(Math.random()*1e9),told:true,landed:false};airs.push(na);if(NETHOOK)NETHOOK('air',na);
   feed.push({t:4,txt:'✈ Airdrop called - exotic gun + heals!'});sfx(520,.25,'triangle',.06,.7);
 }
 let airPick=false;

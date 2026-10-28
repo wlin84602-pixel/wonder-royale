@@ -45,7 +45,7 @@ const FAKE_IO = `
   const url = 'http://127.0.0.1:' + srv.address().port + '/';
 
   const io = new FakeIO();
-  const rm = new RoomManager(io, {});
+  const rm = new RoomManager(io, { adminKey: 'sesame' });
   const browser = await chromium.launch({ executablePath: process.env.CHROMIUM || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--no-sandbox'] });
   const errors = [];
 
@@ -197,6 +197,23 @@ const FAKE_IO = `
   await waitFor(B, () => typeof state !== 'undefined' && state === 'play' && playing === true && ents.length === 2, 10000, 'B restored after reload');
   ok(true, 'reloading the page rejoins the same room and match (session stored in the browser)');
   ok(Math.abs((await B.ev('player.hp')) - Math.ceil(srvB.hp)) <= 1 && await B.ev('player.pid') === bPid, 'same player, same health after reload');
+
+  console.log('admin panel online');
+  {
+    ok(!(await A.ev('admAuthed()')), 'online: the admin panel starts locked');
+    const bad = await A.ev("adminPass('wrong-pass').then(r => r.ok)");
+    ok(bad === false, 'online: a wrong passcode is refused by the server');
+    const good = await A.ev("adminPass('sesame').then(r => r.ok)");
+    ok(good === true && await A.ev('admAuthed()'), 'online: the right passcode unlocks it');
+    await A.ev("(function(){ADM.god=1;admPush('god');ADM.speed=1;admPush('speed');admRun('m4');admRun('give',{w:5,r:6})})()");
+    await sleep(400);
+    const eA = sim.eval('ents').find((e) => e.pid === aPid);
+    ok(eA.adm && eA.adm.god === 1 && eA.adm.speed === 1, 'online: cheat switches reach the server');
+    await waitFor(A, () => player.inv.some((i) => i && i.type === 'gun' && i.w === GOLDM4) && player.inv.some((i) => i && i.type === 'gun' && i.w === 5), 4000, 'items arrive');
+    ok(true, 'online: Golden M4 and a given weapon show up in the admin inventory');
+    await A.ev("(function(){ADM.god=0;admPush('god');ADM.speed=0;admPush('speed')})()");
+    ok(!(await B.ev('admAuthed()')), 'online: the other player stays locked');
+  }
 
   console.log('match end');
   sim.eval('(function(a,b){damage(a,9999,b)})')(srvB, srvA);

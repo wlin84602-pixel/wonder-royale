@@ -59,6 +59,7 @@ class RoomManager {
     socket.on('room:leave', (_d, ack) => { this.leave(socket, true); ackSafe(ack, { ok: true }); });
     socket.on('room:solo', (d, ack) => { if (!allow()) return; ackSafe(ack, this.solo(socket, d || {})); });
     socket.on('room:ctl', (d, ack) => { if (!allow()) return; ackSafe(ack, this.control(socket, d || {})); });
+    socket.on('admin:cmd', (d) => { if (allow()) this.adminCmd(socket, d); });
     socket.on('admin:auth', (d, ack) => { if (!allow()) return; ackSafe(ack, this.adminAuth(socket, d || {})); });
     socket.on('room:start', (_d, ack) => { if (!allow()) return; ackSafe(ack, this.start(socket)); });
     socket.on('room:opts', (d, ack) => { if (!allow()) return; ackSafe(ack, this.setOpts(socket, d || {})); });
@@ -303,6 +304,21 @@ class RoomManager {
     const { room, p } = c;
     if (room.phase !== 'play' || !room.sim) return;
     room.sim.input(p.id, { x: num(d.x, 0), y: num(d.y, 0), vx: num(d.vx, 0), vy: num(d.vy, 0), a: num(d.a, 0), ix: num(d.ix, 0), iy: num(d.iy, 0), f: d.f ? 1 : 0, m: d.m ? 1 : 0, bo: d.bo ? 1 : 0, ap: d.ap ? 1 : 0 }, Date.now());
+  }
+  /* admin cheats during a match: only for players who gave the passcode */
+  adminCmd(socket, d) {
+    const c = this.ctxOf(socket); if (!c || !d || typeof d !== 'object') return;
+    const { room, p } = c;
+    if (!p.admin || room.phase !== 'play' || !room.sim) return;
+    const o = { t: d.t === 'tog' ? 'tog' : 'do' };
+    if (o.t === 'tog') { o.k = String(d.k || '').slice(0, 10); o.v = d.v ? 1 : 0; }
+    else {
+      o.a = String(d.a || '').slice(0, 10);
+      const x = d.x;
+      if (x && typeof x === 'object') o.x = { w: num(x.w, -1), r: num(x.r, -1), x: num(x.x, 0), y: num(x.y, 0) };
+      else if (typeof x === 'number') o.x = Math.floor(num(x, -1));
+    }
+    room.sim.admin(p.id, o);
   }
   act(socket, d) {
     const c = this.ctxOf(socket); if (!c || !d || typeof d.t !== 'string') return;

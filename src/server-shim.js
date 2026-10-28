@@ -29,6 +29,7 @@ var SRV=(function(){
       case 'crate+':EV.push(['c+',a.id,r0(a.x),r0(a.y),a.gold?1:0,a.hp,a.max,a.r,a.seed,a.air?1:0]);break;
       case 'tree':EV.push(['t',circs.indexOf(a),r0(a.hp),a.dead?1:0]);break;
       case 'door':EV.push(['d',a.id,a.open?1:0,a.dir||1]);break;
+      case 'air':EV.push(['air',a.i,r0(a.x),r0(a.y),a.seed,r2(a.t)]);break;
     }
   };
 
@@ -64,7 +65,8 @@ var SRV=(function(){
       if(e.st===3){
         /* movement is predicted by the client; the server only accepts what a legitimate player could have done */
         const dtIn=e.lastIn?Math.min(.5,(nowMs-e.lastIn)/1000):.033;e.lastIn=nowMs;
-        e.mvB=Math.min(MAXV*.6,e.mvB+dtIn*MAXV);
+        const MV=MAXV*(e.adm&&e.adm.speed?1.9:1);
+        e.mvB=Math.min(MV*.6,e.mvB+dtIn*MV);
         const tx=num(d.x,e.x),ty=num(d.y,e.y),dx=tx-e.x,dy=ty-e.y,dd=Math.hypot(dx,dy);
         if(dd>0){
           const k=dd<=e.mvB?1:e.mvB/dd;
@@ -97,6 +99,12 @@ var SRV=(function(){
           }
           break}
       }
+    },
+    /* admin cheats for a player the room manager has already checked the passcode for */
+    admin(pid,d){
+      const e=find(pid);if(!e||!d)return;
+      if(d.t==='tog'){if(['god','ammo','rapid','one','speed','fast','nostorm'].indexOf(d.k)>=0){e.adm=e.adm||{};e.adm[d.k]=d.v?1:0}return}
+      if(d.t==='do'&&typeof d.a==='string')admDo(e,d.a.slice(0,10),d.x);
     },
     kill(e,from){
       if(!e.alive)return;

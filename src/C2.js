@@ -175,7 +175,7 @@ function fireAction(a){
   if(a==='next'&&player.alive)selSlot((player.sel+1)%NSLOT);
   if(a==='prev'&&player.alive)selSlot((player.sel+NSLOT-1)%NSLOT);
 }
-const ignoreTarget=t=>!!(t&&t.closest&&t.closest('button,input,select,textarea,a,#admin,#gmenu'));
+const ignoreTarget=t=>!!(t&&t.closest&&t.closest('button,input,select,textarea,a,#admin,#gmenu,#apass'));
 function pressed(code){for(const a of actionsOf(code)){latch[a]=true;fireAction(a)}}
 let kbSeen=false;
 const codeOf=ev=>ev.code||(ev.key===' '?'Space':(ev.key&&ev.key.length===1?(/[a-z]/i.test(ev.key)?'Key'+ev.key.toUpperCase():/\d/.test(ev.key)?'Digit'+ev.key:ev.key):ev.key||''));
@@ -204,7 +204,7 @@ window.addEventListener('mousedown',ev=>{
   if(airPick&&state==='play'&&!ignoreTarget(ev.target)){
     ev.preventDefault();airPick=false;cv.style.cursor='';
     $('banner').classList.remove('on');bannerT=0;
-    if(ev.button===0){const z=curZoom();forceAirdrop(cam.x+(ev.clientX-W/2)/z,cam.y+(ev.clientY-H/2)/z)}else banner('Airdrop cancelled',1.5);
+    if(ev.button===0){const z=curZoom();admRun('air',{x:cam.x+(ev.clientX-W/2)/z,y:cam.y+(ev.clientY-H/2)/z})}else banner('Airdrop cancelled',1.5);
     return;
   }
   if((state!=='play'&&state!=='arena')||ignoreTarget(ev.target))return;
@@ -982,15 +982,15 @@ function goHome(){
 }
 /* ---------- in-game menu (leave match) and admin cheat bar ---------- */
 let adminOpen=false;
-const adminOK=()=>state==='play'&&!!P.dev&&!mp;
+const adminOK=()=>state==='play'&&admAuthed();
 function toggleMenu(){if(state!=='play')return;menuOpen?closeMenu():openMenu()}
 function openMenu(){
   if(state!=='play')return;
   menuOpen=true;if(!mp)paused=true;
   $('gmenu').hidden=false;
   const ab=$('gmAdmin');
-  ab.textContent=mp?'Admin panel (solo only)':P.dev?(adminOpen?'Hide admin panel':'Admin panel'):'Turn on Owner mode + admin panel';
-  ab.disabled=mp;
+  ab.textContent=admAuthed()?(adminOpen?'Hide admin panel':'Admin panel'):'Admin panel (passcode)';
+  ab.disabled=false;
   $('gmNote').textContent='Leaving ends this match and returns to the main menu.'+(mp?' Others in the room play on.':'');
   $('gmResume').focus();
 }
@@ -1001,15 +1001,40 @@ function closeMenu(quiet){
 }
 function leaveMatch(){closeMenu(true);if(mp)leaveOnline(false);else goHome()}
 function toggleAdmin(){
-  if(state!=='play'||mp)return;
-  if(!P.dev){P.dev=1;fixEquipped();saveProfile()}
+  if(state!=='play')return;
+  if(!admAuthed()){askAdminPass();return}
   adminOpen=!adminOpen;buildAdmin();
 }
+/* passcode box */
+let apOpen=false;
+function askAdminPass(){
+  apOpen=true;if(!mp)paused=true;
+  $('apErr').textContent='';$('apIn').value='';$('apass').hidden=false;
+  setTimeout(()=>$('apIn').focus(),30);
+}
+function closeAdminPass(){
+  apOpen=false;$('apass').hidden=true;$('apIn').blur();
+  if(!menuOpen)paused=false;
+  for(const k in down)down[k]=false;setTimeout(focusGame,30);
+}
+async function submitAdminPass(){
+  const b=$('apOk');b.disabled=true;$('apErr').textContent='Checking…';
+  let r;try{r=await adminPass($('apIn').value)}catch(e){r={ok:false,error:'Could not check the passcode. Try again.'}}
+  b.disabled=false;
+  if(!r.ok){$('apErr').textContent=r.error||'Wrong passcode.';$('apIn').select();return}
+  closeAdminPass();adminOpen=true;buildAdmin();banner('Admin unlocked.',2.5);
+}
+$('apOk').addEventListener('click',submitAdminPass);
+$('apNo').addEventListener('click',closeAdminPass);
+$('apIn').addEventListener('keydown',ev=>{ev.stopPropagation();if(ev.key==='Enter'){ev.preventDefault();submitAdminPass()}else if(ev.key==='Escape'){ev.preventDefault();closeAdminPass()}});
 $('menuBtn').addEventListener('click',ev=>{ev.currentTarget.blur();toggleMenu()});
 $('gmResume').addEventListener('click',()=>closeMenu());
 $('gmLeave').addEventListener('click',leaveMatch);
 $('gmAdmin').addEventListener('click',()=>{toggleAdmin();closeMenu()});
 const ADM_T=[['god','God mode','HP and shield never drop'],['ammo','Infinite ammo','Never run dry'],['rapid','Rapid fire','Guns fire 4x faster'],['one','One-hit kills','Your bullets do huge damage'],['speed','Super speed','Run nearly twice as fast'],['fast','Instant heals','Heals finish at once'],['nostorm','Storm immunity',''],['esp','Radar','All players on the minimap'],['wide','Wide view','Zoom out'],['aim','Aimbot','Locks onto the nearest enemy in sight while you shoot'],['trig','Auto-fire','Shoots by itself when an enemy is in sight (needs Aimbot)']];
+/* online, the cheats that change the game itself run on the server */
+function admPush(k){if(mp&&typeof ADM_SRV_KEYS!=='undefined'&&ADM_SRV_KEYS.indexOf(k)>=0)sendAdmin({t:'tog',k,v:ADM[k]?1:0})}
+function admRun(a,x){if(!player||!player.alive)return;if(mp)sendAdmin({t:'do',a,x});else admDo(player,a,x)}
 function buildAdmin(){
   const a=$('admin');
   if(!adminOK()||!adminOpen){a.hidden=true;return}
@@ -1021,60 +1046,77 @@ function buildAdmin(){
   for(const [k,l,dsc] of ADM_T){
     const r=mk('div','arow');const sp=mk('span','',l);if(dsc)sp.title=dsc;r.appendChild(sp);
     const b=mk('button','sw'+(ADM[k]?' on':''));b.type='button';b.setAttribute('role','switch');b.setAttribute('aria-label',l);b.setAttribute('aria-checked',ADM[k]?'true':'false');b.appendChild(mk('i'));
-    b.addEventListener('click',act(()=>{ADM[k]=ADM[k]?0:1;b.classList.toggle('on',!!ADM[k]);b.setAttribute('aria-checked',ADM[k]?'true':'false')}));
+    b.addEventListener('click',act(()=>{ADM[k]=ADM[k]?0:1;b.classList.toggle('on',!!ADM[k]);b.setAttribute('aria-checked',ADM[k]?'true':'false');admPush(k)}));
     r.appendChild(b);a.appendChild(r);
   }
   const all=mk('div','brow2');
   const bOn=mk('button','abtn','All on'),bOff=mk('button','abtn','All off');bOn.type=bOff.type='button';
-  bOn.addEventListener('click',act(()=>{for(const k in ADM)ADM[k]=1;buildAdmin()}));bOff.addEventListener('click',act(()=>{for(const k in ADM)ADM[k]=0;buildAdmin()}));
+  bOn.addEventListener('click',act(()=>{for(const k in ADM){ADM[k]=1;admPush(k)}buildAdmin()}));bOff.addEventListener('click',act(()=>{for(const k in ADM){ADM[k]=0;admPush(k)}buildAdmin()}));
   all.appendChild(bOn);all.appendChild(bOff);a.appendChild(all);
   a.appendChild(mk('div','agrp','Instant actions'));
   const q=mk('div','brow2');
   const add=(t,fn)=>{const b=mk('button','abtn',t);b.type='button';b.addEventListener('click',act(()=>{if(player&&player.alive)fn()}));q.appendChild(b)};
-  add('Full HP + shield',()=>{player.hp=100;player.sh=100;player.regenT=0});
-  add('Refill ammo',()=>{for(const it of player.inv)if(it&&it.type==='gun'){it.ammo=gunMax(it);it.mg=it.s.mag}for(const k of AMMOL)player.pouch[k]=POUCHCAP(k)});
-  add('Land now',()=>{if(player.st<3){player.st=3;banner('Landed',1.5)}});
-  add('Kill all bots',()=>{for(const o of ents.slice())if(o!==player&&o.alive)damage(o,9999,player)});
-  add('Max heals',()=>{for(let i=0;i<HEALS.length;i++)admGive(mkHeal(i,5))});
-  add('Perfect layout',()=>{
-    const pl=player;if(!pl)return;
-    for(let i=1;i<NSLOT;i++)pl.inv[i]=null;
-    const g=n=>WEAP.findIndex(w=>w.name===n);
-    pl.inv[1]=mkGun(g('Buzz SMG'),6,0);pl.inv[2]=mkGun(g('Pump Shotgun'),6,0);pl.inv[3]=mkGun(g('Wonder Sniper'),6,0);
-    for(let i=1;i<=3;i++){pl.inv[i].ammo=gunMax(pl.inv[i]);pl.inv[i].mg=pl.inv[i].s.mag}
-    pl.inv[4]=mkHeal(2,3);pl.inv[5]=mkHeal(3,2);
-    for(const k of AMMOL)pl.pouch[k]=POUCHCAP(k);
-    pl.hp=100;pl.sh=100;pl.sel=1;pl.use=null;pl.rl=0;
-  });
-  add('Golden M4',()=>{const pl=player;if(!pl)return;const g=mkGun(GOLDM4,6,0);g.ammo=gunMax(g);g.mg=g.s.mag;admGive(g,1);pl.pouch.medium=POUCHCAP('medium')});
-  add('Best kit',()=>{admGive(mkGun(WEAP.findIndex(w=>w.name==='Rail Gun'),6,0),1);admGive(mkGun(WEAP.findIndex(w=>w.name==='RPG'),6,0),1);admGive(mkGun(WEAP.findIndex(w=>w.name==='Auto Shotgun'),6,0),1);for(let i=0;i<HEALS.length;i++)admGive(mkHeal(i,5))});
+  add('Full HP + shield',()=>admRun('hp'));
+  add('Refill ammo',()=>admRun('ammo'));
+  add('Land now',()=>admRun('land'));
+  if(!mp)add('Kill all bots',()=>admRun('kill'));
+  add('Max heals',()=>admRun('heals'));
+  add('Perfect layout',()=>admRun('layout'));
+  add('Golden M4',()=>admRun('m4'));
+  add('Best kit',()=>admRun('kit'));
   a.appendChild(q);
   a.appendChild(mk('div','agrp','Airdrop (exotic gun + heals)'));
   const ab=mk('div','brow2');
   const addA=(t,fn)=>{const b=mk('button','abtn',t);b.type='button';b.addEventListener('click',act(()=>{if(player&&player.alive)fn()}));ab.appendChild(b)};
-  addA('On me',()=>forceAirdrop(player.x,player.y));
+  addA('On me',()=>admRun('airme'));
   addA('Pick a spot',()=>{airPick=true;cv.style.cursor='crosshair';banner('Click where the airdrop should land (right-click cancels)',4)});
-  addA('Random spot',()=>{const p=rp(300);forceAirdrop(p.x,p.y)});
+  addA('Random spot',()=>admRun('airr'));
   a.appendChild(ab);
   a.appendChild(mk('div','agrp','Give a weapon'));
   const ws=mk('select');ws.setAttribute('aria-label','Weapon');WEAP.forEach((w,i)=>{const o=mk('option','',w.name);o.value=i;ws.appendChild(o)});
   const rs=mk('select');rs.setAttribute('aria-label','Rarity');RAR7N.forEach((n,i)=>{const o=mk('option','',n);o.value=i;rs.appendChild(o)});rs.value='6';
   ws.addEventListener('change',()=>ws.blur());rs.addEventListener('change',()=>rs.blur());
   a.appendChild(ws);a.appendChild(rs);
-  const gb=mk('button','abtn wide','Give weapon');gb.type='button';gb.addEventListener('click',act(()=>{if(player&&player.alive)admGive(mkGun(+ws.value,+rs.value,0),1)}));a.appendChild(gb);
+  const gb=mk('button','abtn wide','Give weapon');gb.type='button';gb.addEventListener('click',act(()=>{admRun('give',{w:+ws.value,r:+rs.value})}));a.appendChild(gb);
   a.appendChild(mk('div','agrp','Give a heal'));
   const hb=mk('div','brow2');
-  HEALS.forEach((H,i)=>{const b=mk('button','abtn','+3 '+H.name);b.type='button';b.addEventListener('click',act(()=>{if(player&&player.alive)admGive(mkHeal(i,3))}));hb.appendChild(b)});
+  HEALS.forEach((H,i)=>{const b=mk('button','abtn','+3 '+H.name);b.type='button';b.addEventListener('click',act(()=>admRun('heal',i)));hb.appendChild(b)});
   a.appendChild(hb);
-  a.appendChild(mk('div','gnote','Owner mode, solo play only. Hide or show with the Menu or '+actLabel('admin')+'.'));
+  a.appendChild(mk('div','gnote',(mp?'Online: your cheats run on the server. ':'')+'Hide or show with the Menu or '+actLabel('admin')+'.'));
 }
-function admGive(it,full){
-  const p=player;if(!p)return;
+function admGive(it,full,pl){
+  const p=pl||player;if(!p)return;
   if(it.type==='gun'){it.ammo=gunMax(it);it.mg=it.s.mag}
   else{const o=p.inv.find(x=>x&&x.type==='heal'&&x.id===it.id);if(o){o.n=Math.min(99,o.n+it.n);return}}
   let i=p.inv.indexOf(null);
   if(i<0)i=p.sel||1;
   p.inv[i]=it;p.sel=i;p.use=null;
+}
+/* the instant admin actions: run locally in solo, or on the server for the player who sent them */
+function admDo(p,a,x){
+  if(!p||!p.alive)return;
+  const gi=n=>WEAP.findIndex(w=>w.name===n);
+  switch(a){
+    case 'hp':p.hp=100;p.sh=100;p.regenT=0;break;
+    case 'ammo':for(const it of p.inv)if(it&&it.type==='gun'){it.ammo=gunMax(it);it.mg=it.s.mag}for(const k of AMMOL)p.pouch[k]=POUCHCAP(k);break;
+    case 'land':if(p.st<3){p.st=3;p.z=0;p.vx*=.2;p.vy*=.2;const d=Math.hypot(p.x-CX,p.y-CY),lim=ISLAND-120;if(d>lim){p.x=CX+(p.x-CX)/d*lim;p.y=CY+(p.y-CY)/d*lim}resolve(p);if(NETMODE!=='server')banner('Landed',1.5)}break;
+    case 'kill':if(!mp&&NETMODE!=='server')for(const o of ents.slice())if(o!==p&&o.alive)damage(o,9999,p);break;
+    case 'heals':for(let i=0;i<HEALS.length;i++)admGive(mkHeal(i,5),0,p);break;
+    case 'layout':{
+      for(let i=1;i<NSLOT;i++)p.inv[i]=null;
+      p.inv[1]=mkGun(gi('Buzz SMG'),6,0);p.inv[2]=mkGun(gi('Pump Shotgun'),6,0);p.inv[3]=mkGun(gi('Wonder Sniper'),6,0);
+      for(let i=1;i<=3;i++){p.inv[i].ammo=gunMax(p.inv[i]);p.inv[i].mg=p.inv[i].s.mag}
+      p.inv[4]=mkHeal(2,3);p.inv[5]=mkHeal(3,2);
+      for(const k of AMMOL)p.pouch[k]=POUCHCAP(k);
+      p.hp=100;p.sh=100;p.sel=1;p.use=null;p.rl=0;break}
+    case 'm4':{const g=mkGun(GOLDM4,6,0);g.ammo=gunMax(g);g.mg=g.s.mag;admGive(g,1,p);p.pouch.medium=POUCHCAP('medium');break}
+    case 'kit':admGive(mkGun(gi('Rail Gun'),6,0),1,p);admGive(mkGun(gi('RPG'),6,0),1,p);admGive(mkGun(gi('Auto Shotgun'),6,0),1,p);for(let i=0;i<HEALS.length;i++)admGive(mkHeal(i,5),0,p);break;
+    case 'give':{const w=x&&x.w|0,r=x&&x.r|0;if(w>=0&&w<WEAP.length&&r>=0&&r<=6)admGive(mkGun(w,r,0),1,p);break}
+    case 'heal':{const i=x|0;if(i>=0&&i<HEALS.length)admGive(mkHeal(i,3),0,p);break}
+    case 'airme':forceAirdrop(p.x,p.y);break;
+    case 'airr':{const q=rp(300);forceAirdrop(q.x,q.y);break}
+    case 'air':if(x&&isFinite(x.x)&&isFinite(x.y))forceAirdrop(+x.x,+x.y);break;
+  }
 }
 $('again').addEventListener('click',startGame);
 $('home').addEventListener('click',goHome);

@@ -1,3 +1,4 @@
+try{admLocal=sessionStorage.getItem('wr_adm')==='1'}catch(e){}
 /* ---------- profile: XP, coins, battle pass, skins, stats and switches (saved in this browser) ---------- */
 const PKEY='wonderRoyale.v3',XPT=150,MAXTIER=50,PREM_PRICE=1200;
 const DEF_SET={sound:1,shake:1,minimap:1,names:1,autoPick:0,aim:0,fps:0,map:1,storm:1,loot:1,minP:2,cd:1,bots:1,crate:1,gold:1,rarity:1,startGun:0,healSpd:1};

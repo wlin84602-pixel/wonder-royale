@@ -25,7 +25,11 @@ const ADM={god:0,ammo:0,rapid:0,one:0,speed:0,fast:0,nostorm:0,esp:0,wide:0};
 /* NETMODE: null = solo, 'server' = headless authority in Node, 'client' = renders what the server says.
    NETHOOK is set by the server so every change to shared state (loot, crates, doors, trees, shots) is reported as an event. */
 let NETMODE=(typeof __NET!=='undefined')?__NET:null,NETHOOK=null;
-const admOn=k=>!!(ADM[k]&&P&&P.dev&&!mp);
+/* admin: unlocked with the passcode. Solo checks it on this device; online the server checks it and runs the cheats */
+let admLocal=false,admSrv=false;
+const admAuthed=()=>NETMODE==='server'?false:(mp?admSrv:admLocal);
+const admOn=k=>!!(ADM[k]&&admAuthed());
+const admE=(e,k)=>NETMODE==='server'?!!(e.adm&&e.adm[k]):(e===player&&admOn(k));
 const BOTN=[8,17,27],MAPS=[2200,3700,5600],PLANE_TS=[22,28,36],STORMM=[1.4,1,.7],LOOTMS=[.6,1,1.6];
 const ROOF=['#7a4e45','#4f6577','#6d6a4a','#55565c','#7a5a2e','#4a6a58','#c68c5c','#b9473f','#6b4a32','#9cc3d6','#5d7a4c','#4a4036','#8b4f3a','#3d3b44','#a33b32','#dfe6ea'];
 const NAMES=['Pip','Moss','Dash','Juno','Rook','Fizz','Nova','Bolt','Echo','Tango','Wren','Kip','Zed','Mako','Lux','Otto','Vex','Cleo','Hex','Rusty','Sable','Fern','Gus'];
@@ -392,7 +396,7 @@ const dnums=[];
 function popDmg(x,y,d,col){if(NETMODE==='server'||!(d>=1))return;dnums.push({x:x+rand(-10,10),y:y-18,v:Math.round(d),t:performance.now(),col:col||'#ffffff'});if(dnums.length>40)dnums.shift()}
 function damage(e,d,from){
   if(!e.alive||NETMODE==='client')return;
-  if(e===player&&admOn('god'))return;
+  if(admE(e,'god'))return;
   e.hit=.1;let rem=d;
   if(e.sh>0){const a=Math.min(e.sh,rem);e.sh-=a;rem-=a}
   e.hp-=rem;burst(e.x,e.y,e.sh>0?COL.shield:'#ffffff',4,140,.35);
@@ -438,7 +442,7 @@ function kill(e,from){
 function finish(win){if(result)return;result={win,place:win?1:player.place,kills:player.kills,t:time};endT=win?1.2:1.6}
 function stormHurt(e,dt){
   if(NETMODE==='client')return;
-  if(e===player&&(admOn('god')||admOn('nostorm')))return;
+  if(admE(e,'god')||admE(e,'nostorm'))return;
   e.hp-=(2+zone.phase*2)*dt;e.hit=Math.max(e.hit,.05);
   if(e===player)dmgFlash=Math.max(dmgFlash,.12);
   if(e.hp<=0)kill(e,null);

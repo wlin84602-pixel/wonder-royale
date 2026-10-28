@@ -25,7 +25,11 @@ const ADM={god:0,ammo:0,rapid:0,one:0,speed:0,fast:0,nostorm:0,esp:0,wide:0};
 /* NETMODE: null = solo, 'server' = headless authority in Node, 'client' = renders what the server says.
    NETHOOK is set by the server so every change to shared state (loot, crates, doors, trees, shots) is reported as an event. */
 let NETMODE=(typeof __NET!=='undefined')?__NET:null,NETHOOK=null;
-const admOn=k=>!!(ADM[k]&&P&&P.dev&&!mp);
+/* admin: unlocked with the passcode. Solo checks it on this device; online the server checks it and runs the cheats */
+let admLocal=false,admSrv=false;
+const admAuthed=()=>NETMODE==='server'?false:(mp?admSrv:admLocal);
+const admOn=k=>!!(ADM[k]&&admAuthed());
+const admE=(e,k)=>NETMODE==='server'?!!(e.adm&&e.adm[k]):(e===player&&admOn(k));
 const BOTN=[8,17,27],MAPS=[2200,3700,5600],PLANE_TS=[22,28,36],STORMM=[1.4,1,.7],LOOTMS=[.6,1,1.6];
 const ROOF=['#7a4e45','#4f6577','#6d6a4a','#55565c','#7a5a2e','#4a6a58','#c68c5c','#b9473f','#6b4a32','#9cc3d6','#5d7a4c','#4a4036','#8b4f3a','#3d3b44','#a33b32','#dfe6ea'];
 const NAMES=['Pip','Moss','Dash','Juno','Rook','Fizz','Nova','Bolt','Echo','Tango','Wren','Kip','Zed','Mako','Lux','Otto','Vex','Cleo','Hex','Rusty','Sable','Fern','Gus'];
@@ -392,7 +396,7 @@ const dnums=[];
 function popDmg(x,y,d,col){if(NETMODE==='server'||!(d>=1))return;dnums.push({x:x+rand(-10,10),y:y-18,v:Math.round(d),t:performance.now(),col:col||'#ffffff'});if(dnums.length>40)dnums.shift()}
 function damage(e,d,from){
   if(!e.alive||NETMODE==='client')return;
-  if(e===player&&admOn('god'))return;
+  if(admE(e,'god'))return;
   e.hit=.1;let rem=d;
   if(e.sh>0){const a=Math.min(e.sh,rem);e.sh-=a;rem-=a}
   e.hp-=rem;burst(e.x,e.y,e.sh>0?COL.shield:'#ffffff',4,140,.35);
@@ -438,7 +442,7 @@ function kill(e,from){
 function finish(win){if(result)return;result={win,place:win?1:player.place,kills:player.kills,t:time};endT=win?1.2:1.6}
 function stormHurt(e,dt){
   if(NETMODE==='client')return;
-  if(e===player&&(admOn('god')||admOn('nostorm')))return;
+  if(admE(e,'god')||admE(e,'nostorm'))return;
   e.hp-=(2+zone.phase*2)*dt;e.hit=Math.max(e.hit,.05);
   if(e===player)dmgFlash=Math.max(dmgFlash,.12);
   if(e.hp<=0)kill(e,null);
@@ -1089,7 +1093,7 @@ function startUse(e){
   const it=held(e);if(!it||it.type!=='heal')return false;
   const H=HEALS[it.id];
   if(!H.need(e)){if(e===player&&bannerT<=0)banner(H.full,1.2);return false}
-  e.use={slot:e.sel,t:0,T:H.t*HEALMUL[CFG.heal]*(e===player&&admOn('fast')?.05:1)};
+  e.use={slot:e.sel,t:0,T:H.t*HEALMUL[CFG.heal]*(admE(e,'fast')?.05:1)};
   if(e===player)sfx(H.sf,.1,'sine',.04,1.3);
   return true;
 }
@@ -1138,7 +1142,7 @@ function fireBullets(e,adv){
       continue;
     }
     const bl2={x:sx,y:sy,vx:Math.cos(a)*g.spd,vy:Math.sin(a)*g.spd,
-      life:g.rng/g.spd-adv,dmg:g.dmg*(e===player&&admOn('one')?60:1),o:e,col:g.pj?'#ff9a52':g.col,k:g.id,pj:g.pj,boom:g.boom,pierce:g.pierce,hs:null};
+      life:g.rng/g.spd-adv,dmg:g.dmg*(admE(e,'one')?60:1),o:e,col:g.pj?'#ff9a52':g.col,k:g.id,pj:g.pj,boom:g.boom,pierce:g.pierce,hs:null};
     bullets.push(bl2);made.push(bl2);
   }
   if(NETHOOK)NETHOOK('shot',e,made);
@@ -1153,7 +1157,7 @@ function fireVolley(e){
       return false;
     }
   }else if(it.ammo<=0)return false;
-  if(!(e===player&&admOn('ammo'))){it.ammo--;if(!e.bot)it.mg--}
+  if(!admE(e,'ammo')){it.ammo--;if(!e.bot)it.mg--}
   if(e===player)SESS.shots++;
   if(mp&&e===player)shotCount++;
   fireBullets(e,0);e.recoil=1;
@@ -1172,7 +1176,7 @@ function shoot(e){
   if(it.type==='heal'){startUse(e);return}
   if(e.cd>0||e.bq>0)return;
   const g=it.s;
-  e.cd=g.rate*(e===player&&admOn('rapid')?.22:1);
+  e.cd=g.rate*(admE(e,'rapid')?.22:1);
   if(fireVolley(e)&&g.burst>1&&heldGun(e)===it){e.bq=g.burst-1;e.bt=g.gap}
 }
 function burstStep(e,dt){
@@ -1241,7 +1245,7 @@ function genAirs(A){
 function forceAirdrop(x,y){
   const lim=ISLAND-90,dx=x-CX,dy=y-CY,d=Math.hypot(dx,dy);
   if(d>lim){x=CX+dx/d*lim;y=CY+dy/d*lim}
-  airs.push({i:airs.length+50,t:planeClock(),x,y,seed:Math.floor(Math.random()*1e9),told:true,landed:false});
+  const na={i:airs.length+50,t:planeClock(),x,y,seed:Math.floor(Math.random()*1e9),told:true,landed:false};airs.push(na);if(NETHOOK)NETHOOK('air',na);
   feed.push({t:4,txt:'✈ Airdrop called - exotic gun + heals!'});sfx(520,.25,'triangle',.06,.7);
 }
 let airPick=false;
@@ -1659,7 +1663,7 @@ window.addEventListener('mousedown',ev=>{
   if(airPick&&state==='play'&&!ignoreTarget(ev.target)){
     ev.preventDefault();airPick=false;cv.style.cursor='';
     $('banner').classList.remove('on');bannerT=0;
-    if(ev.button===0){const z=curZoom();forceAirdrop(cam.x+(ev.clientX-W/2)/z,cam.y+(ev.clientY-H/2)/z)}else banner('Airdrop cancelled',1.5);
+    if(ev.button===0){const z=curZoom();admRun('air',{x:cam.x+(ev.clientX-W/2)/z,y:cam.y+(ev.clientY-H/2)/z})}else banner('Airdrop cancelled',1.5);
     return;
   }
   if((state!=='play'&&state!=='arena')||ignoreTarget(ev.target))return;
@@ -2437,15 +2441,15 @@ function goHome(){
 }
 /* ---------- in-game menu (leave match) and admin cheat bar ---------- */
 let adminOpen=false;
-const adminOK=()=>state==='play'&&!!P.dev&&!mp;
+const adminOK=()=>state==='play'&&admAuthed();
 function toggleMenu(){if(state!=='play')return;menuOpen?closeMenu():openMenu()}
 function openMenu(){
   if(state!=='play')return;
   menuOpen=true;if(!mp)paused=true;
   $('gmenu').hidden=false;
   const ab=$('gmAdmin');
-  ab.textContent=mp?'Admin panel (solo only)':P.dev?(adminOpen?'Hide admin panel':'Admin panel'):'Turn on Owner mode + admin panel';
-  ab.disabled=mp;
+  ab.textContent=admAuthed()?(adminOpen?'Hide admin panel':'Admin panel'):'Admin panel (passcode)';
+  ab.disabled=false;
   $('gmNote').textContent='Leaving ends this match and returns to the main menu.'+(mp?' Others in the room play on.':'');
   $('gmResume').focus();
 }
@@ -2456,15 +2460,40 @@ function closeMenu(quiet){
 }
 function leaveMatch(){closeMenu(true);if(mp)leaveOnline(false);else goHome()}
 function toggleAdmin(){
-  if(state!=='play'||mp)return;
-  if(!P.dev){P.dev=1;fixEquipped();saveProfile()}
+  if(state!=='play')return;
+  if(!admAuthed()){askAdminPass();return}
   adminOpen=!adminOpen;buildAdmin();
 }
+/* passcode box */
+let apOpen=false;
+function askAdminPass(){
+  apOpen=true;if(!mp)paused=true;
+  $('apErr').textContent='';$('apIn').value='';$('apass').hidden=false;
+  setTimeout(()=>$('apIn').focus(),30);
+}
+function closeAdminPass(){
+  apOpen=false;$('apass').hidden=true;$('apIn').blur();
+  if(!menuOpen)paused=false;
+  for(const k in down)down[k]=false;setTimeout(focusGame,30);
+}
+async function submitAdminPass(){
+  const b=$('apOk');b.disabled=true;$('apErr').textContent='Checking…';
+  let r;try{r=await adminPass($('apIn').value)}catch(e){r={ok:false,error:'Could not check the passcode. Try again.'}}
+  b.disabled=false;
+  if(!r.ok){$('apErr').textContent=r.error||'Wrong passcode.';$('apIn').select();return}
+  closeAdminPass();adminOpen=true;buildAdmin();banner('Admin unlocked.',2.5);
+}
+$('apOk').addEventListener('click',submitAdminPass);
+$('apNo').addEventListener('click',closeAdminPass);
+$('apIn').addEventListener('keydown',ev=>{ev.stopPropagation();if(ev.key==='Enter'){ev.preventDefault();submitAdminPass()}else if(ev.key==='Escape'){ev.preventDefault();closeAdminPass()}});
 $('menuBtn').addEventListener('click',ev=>{ev.currentTarget.blur();toggleMenu()});
 $('gmResume').addEventListener('click',()=>closeMenu());
 $('gmLeave').addEventListener('click',leaveMatch);
 $('gmAdmin').addEventListener('click',()=>{toggleAdmin();closeMenu()});
 const ADM_T=[['god','God mode','HP and shield never drop'],['ammo','Infinite ammo','Never run dry'],['rapid','Rapid fire','Guns fire 4x faster'],['one','One-hit kills','Your bullets do huge damage'],['speed','Super speed','Run nearly twice as fast'],['fast','Instant heals','Heals finish at once'],['nostorm','Storm immunity',''],['esp','Radar','All players on the minimap'],['wide','Wide view','Zoom out'],['aim','Aimbot','Locks onto the nearest enemy in sight while you shoot'],['trig','Auto-fire','Shoots by itself when an enemy is in sight (needs Aimbot)']];
+/* online, the cheats that change the game itself run on the server */
+function admPush(k){if(mp&&typeof ADM_SRV_KEYS!=='undefined'&&ADM_SRV_KEYS.indexOf(k)>=0)sendAdmin({t:'tog',k,v:ADM[k]?1:0})}
+function admRun(a,x){if(!player||!player.alive)return;if(mp)sendAdmin({t:'do',a,x});else admDo(player,a,x)}
 function buildAdmin(){
   const a=$('admin');
   if(!adminOK()||!adminOpen){a.hidden=true;return}
@@ -2476,60 +2505,77 @@ function buildAdmin(){
   for(const [k,l,dsc] of ADM_T){
     const r=mk('div','arow');const sp=mk('span','',l);if(dsc)sp.title=dsc;r.appendChild(sp);
     const b=mk('button','sw'+(ADM[k]?' on':''));b.type='button';b.setAttribute('role','switch');b.setAttribute('aria-label',l);b.setAttribute('aria-checked',ADM[k]?'true':'false');b.appendChild(mk('i'));
-    b.addEventListener('click',act(()=>{ADM[k]=ADM[k]?0:1;b.classList.toggle('on',!!ADM[k]);b.setAttribute('aria-checked',ADM[k]?'true':'false')}));
+    b.addEventListener('click',act(()=>{ADM[k]=ADM[k]?0:1;b.classList.toggle('on',!!ADM[k]);b.setAttribute('aria-checked',ADM[k]?'true':'false');admPush(k)}));
     r.appendChild(b);a.appendChild(r);
   }
   const all=mk('div','brow2');
   const bOn=mk('button','abtn','All on'),bOff=mk('button','abtn','All off');bOn.type=bOff.type='button';
-  bOn.addEventListener('click',act(()=>{for(const k in ADM)ADM[k]=1;buildAdmin()}));bOff.addEventListener('click',act(()=>{for(const k in ADM)ADM[k]=0;buildAdmin()}));
+  bOn.addEventListener('click',act(()=>{for(const k in ADM){ADM[k]=1;admPush(k)}buildAdmin()}));bOff.addEventListener('click',act(()=>{for(const k in ADM){ADM[k]=0;admPush(k)}buildAdmin()}));
   all.appendChild(bOn);all.appendChild(bOff);a.appendChild(all);
   a.appendChild(mk('div','agrp','Instant actions'));
   const q=mk('div','brow2');
   const add=(t,fn)=>{const b=mk('button','abtn',t);b.type='button';b.addEventListener('click',act(()=>{if(player&&player.alive)fn()}));q.appendChild(b)};
-  add('Full HP + shield',()=>{player.hp=100;player.sh=100;player.regenT=0});
-  add('Refill ammo',()=>{for(const it of player.inv)if(it&&it.type==='gun'){it.ammo=gunMax(it);it.mg=it.s.mag}for(const k of AMMOL)player.pouch[k]=POUCHCAP(k)});
-  add('Land now',()=>{if(player.st<3){player.st=3;banner('Landed',1.5)}});
-  add('Kill all bots',()=>{for(const o of ents.slice())if(o!==player&&o.alive)damage(o,9999,player)});
-  add('Max heals',()=>{for(let i=0;i<HEALS.length;i++)admGive(mkHeal(i,5))});
-  add('Perfect layout',()=>{
-    const pl=player;if(!pl)return;
-    for(let i=1;i<NSLOT;i++)pl.inv[i]=null;
-    const g=n=>WEAP.findIndex(w=>w.name===n);
-    pl.inv[1]=mkGun(g('Buzz SMG'),6,0);pl.inv[2]=mkGun(g('Pump Shotgun'),6,0);pl.inv[3]=mkGun(g('Wonder Sniper'),6,0);
-    for(let i=1;i<=3;i++){pl.inv[i].ammo=gunMax(pl.inv[i]);pl.inv[i].mg=pl.inv[i].s.mag}
-    pl.inv[4]=mkHeal(2,3);pl.inv[5]=mkHeal(3,2);
-    for(const k of AMMOL)pl.pouch[k]=POUCHCAP(k);
-    pl.hp=100;pl.sh=100;pl.sel=1;pl.use=null;pl.rl=0;
-  });
-  add('Golden M4',()=>{const pl=player;if(!pl)return;const g=mkGun(GOLDM4,6,0);g.ammo=gunMax(g);g.mg=g.s.mag;admGive(g,1);pl.pouch.medium=POUCHCAP('medium')});
-  add('Best kit',()=>{admGive(mkGun(WEAP.findIndex(w=>w.name==='Rail Gun'),6,0),1);admGive(mkGun(WEAP.findIndex(w=>w.name==='RPG'),6,0),1);admGive(mkGun(WEAP.findIndex(w=>w.name==='Auto Shotgun'),6,0),1);for(let i=0;i<HEALS.length;i++)admGive(mkHeal(i,5))});
+  add('Full HP + shield',()=>admRun('hp'));
+  add('Refill ammo',()=>admRun('ammo'));
+  add('Land now',()=>admRun('land'));
+  if(!mp)add('Kill all bots',()=>admRun('kill'));
+  add('Max heals',()=>admRun('heals'));
+  add('Perfect layout',()=>admRun('layout'));
+  add('Golden M4',()=>admRun('m4'));
+  add('Best kit',()=>admRun('kit'));
   a.appendChild(q);
   a.appendChild(mk('div','agrp','Airdrop (exotic gun + heals)'));
   const ab=mk('div','brow2');
   const addA=(t,fn)=>{const b=mk('button','abtn',t);b.type='button';b.addEventListener('click',act(()=>{if(player&&player.alive)fn()}));ab.appendChild(b)};
-  addA('On me',()=>forceAirdrop(player.x,player.y));
+  addA('On me',()=>admRun('airme'));
   addA('Pick a spot',()=>{airPick=true;cv.style.cursor='crosshair';banner('Click where the airdrop should land (right-click cancels)',4)});
-  addA('Random spot',()=>{const p=rp(300);forceAirdrop(p.x,p.y)});
+  addA('Random spot',()=>admRun('airr'));
   a.appendChild(ab);
   a.appendChild(mk('div','agrp','Give a weapon'));
   const ws=mk('select');ws.setAttribute('aria-label','Weapon');WEAP.forEach((w,i)=>{const o=mk('option','',w.name);o.value=i;ws.appendChild(o)});
   const rs=mk('select');rs.setAttribute('aria-label','Rarity');RAR7N.forEach((n,i)=>{const o=mk('option','',n);o.value=i;rs.appendChild(o)});rs.value='6';
   ws.addEventListener('change',()=>ws.blur());rs.addEventListener('change',()=>rs.blur());
   a.appendChild(ws);a.appendChild(rs);
-  const gb=mk('button','abtn wide','Give weapon');gb.type='button';gb.addEventListener('click',act(()=>{if(player&&player.alive)admGive(mkGun(+ws.value,+rs.value,0),1)}));a.appendChild(gb);
+  const gb=mk('button','abtn wide','Give weapon');gb.type='button';gb.addEventListener('click',act(()=>{admRun('give',{w:+ws.value,r:+rs.value})}));a.appendChild(gb);
   a.appendChild(mk('div','agrp','Give a heal'));
   const hb=mk('div','brow2');
-  HEALS.forEach((H,i)=>{const b=mk('button','abtn','+3 '+H.name);b.type='button';b.addEventListener('click',act(()=>{if(player&&player.alive)admGive(mkHeal(i,3))}));hb.appendChild(b)});
+  HEALS.forEach((H,i)=>{const b=mk('button','abtn','+3 '+H.name);b.type='button';b.addEventListener('click',act(()=>admRun('heal',i)));hb.appendChild(b)});
   a.appendChild(hb);
-  a.appendChild(mk('div','gnote','Owner mode, solo play only. Hide or show with the Menu or '+actLabel('admin')+'.'));
+  a.appendChild(mk('div','gnote',(mp?'Online: your cheats run on the server. ':'')+'Hide or show with the Menu or '+actLabel('admin')+'.'));
 }
-function admGive(it,full){
-  const p=player;if(!p)return;
+function admGive(it,full,pl){
+  const p=pl||player;if(!p)return;
   if(it.type==='gun'){it.ammo=gunMax(it);it.mg=it.s.mag}
   else{const o=p.inv.find(x=>x&&x.type==='heal'&&x.id===it.id);if(o){o.n=Math.min(99,o.n+it.n);return}}
   let i=p.inv.indexOf(null);
   if(i<0)i=p.sel||1;
   p.inv[i]=it;p.sel=i;p.use=null;
+}
+/* the instant admin actions: run locally in solo, or on the server for the player who sent them */
+function admDo(p,a,x){
+  if(!p||!p.alive)return;
+  const gi=n=>WEAP.findIndex(w=>w.name===n);
+  switch(a){
+    case 'hp':p.hp=100;p.sh=100;p.regenT=0;break;
+    case 'ammo':for(const it of p.inv)if(it&&it.type==='gun'){it.ammo=gunMax(it);it.mg=it.s.mag}for(const k of AMMOL)p.pouch[k]=POUCHCAP(k);break;
+    case 'land':if(p.st<3){p.st=3;p.z=0;p.vx*=.2;p.vy*=.2;const d=Math.hypot(p.x-CX,p.y-CY),lim=ISLAND-120;if(d>lim){p.x=CX+(p.x-CX)/d*lim;p.y=CY+(p.y-CY)/d*lim}resolve(p);if(NETMODE!=='server')banner('Landed',1.5)}break;
+    case 'kill':if(!mp&&NETMODE!=='server')for(const o of ents.slice())if(o!==p&&o.alive)damage(o,9999,p);break;
+    case 'heals':for(let i=0;i<HEALS.length;i++)admGive(mkHeal(i,5),0,p);break;
+    case 'layout':{
+      for(let i=1;i<NSLOT;i++)p.inv[i]=null;
+      p.inv[1]=mkGun(gi('Buzz SMG'),6,0);p.inv[2]=mkGun(gi('Pump Shotgun'),6,0);p.inv[3]=mkGun(gi('Wonder Sniper'),6,0);
+      for(let i=1;i<=3;i++){p.inv[i].ammo=gunMax(p.inv[i]);p.inv[i].mg=p.inv[i].s.mag}
+      p.inv[4]=mkHeal(2,3);p.inv[5]=mkHeal(3,2);
+      for(const k of AMMOL)p.pouch[k]=POUCHCAP(k);
+      p.hp=100;p.sh=100;p.sel=1;p.use=null;p.rl=0;break}
+    case 'm4':{const g=mkGun(GOLDM4,6,0);g.ammo=gunMax(g);g.mg=g.s.mag;admGive(g,1,p);p.pouch.medium=POUCHCAP('medium');break}
+    case 'kit':admGive(mkGun(gi('Rail Gun'),6,0),1,p);admGive(mkGun(gi('RPG'),6,0),1,p);admGive(mkGun(gi('Auto Shotgun'),6,0),1,p);for(let i=0;i<HEALS.length;i++)admGive(mkHeal(i,5),0,p);break;
+    case 'give':{const w=x&&x.w|0,r=x&&x.r|0;if(w>=0&&w<WEAP.length&&r>=0&&r<=6)admGive(mkGun(w,r,0),1,p);break}
+    case 'heal':{const i=x|0;if(i>=0&&i<HEALS.length)admGive(mkHeal(i,3),0,p);break}
+    case 'airme':forceAirdrop(p.x,p.y);break;
+    case 'airr':{const q=rp(300);forceAirdrop(q.x,q.y);break}
+    case 'air':if(x&&isFinite(x.x)&&isFinite(x.y))forceAirdrop(+x.x,+x.y);break;
+  }
 }
 $('again').addEventListener('click',startGame);
 $('home').addEventListener('click',goHome);
@@ -2822,12 +2868,30 @@ async function startSolo(){
 }
 /* ---------- admin (owner) login: the key is the ADMIN_KEY variable set on the server ---------- */
 const AKEY='wr_admin_key';
+const ADM_SRV_KEYS=['god','ammo','rapid','one','speed','fast','nostorm'];
+function sendAdmin(d){if(sock&&sock.connected&&inRoom)sock.emit('admin:cmd',d)}
+function syncAdmin(){if(!admSrv||!playing)return;for(const k of ADM_SRV_KEYS)sendAdmin({t:'tog',k,v:ADM[k]?1:0})}
+const ADM_HASH='05a6d3e0ba7d7e9da00c477c53c73d8cd48622c3a657eb832d4296f14d55fc3f';
+async function localPassOK(code){
+  try{const h=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(code));return Array.from(new Uint8Array(h)).map(b=>b.toString(16).padStart(2,'0')).join('')===ADM_HASH}catch(e){return false}
+}
+/* the in-game passcode: solo is checked on this device, online the server checks it */
+async function adminPass(code){
+  code=String(code||'').trim();if(!code)return{ok:false,error:'Enter the passcode.'};
+  if(mp&&sock&&sock.connected&&inRoom){
+    const r=await call('admin:auth',{key:code});
+    if(r&&r.ok){admSrv=true;try{localStorage.setItem(AKEY,code)}catch(e){}syncAdmin();return{ok:true}}
+    return{ok:false,error:(r&&r.error)||'Wrong passcode.'};
+  }
+  if(await localPassOK(code)){admLocal=true;try{sessionStorage.setItem('wr_adm','1');localStorage.setItem(AKEY,code)}catch(e){}return{ok:true}}
+  return{ok:false,error:'Wrong passcode.'};
+}
 async function authAdmin(ask){
   let k='';try{k=localStorage.getItem(AKEY)||''}catch(e){}
-  if(ask){k=(window.prompt('Admin key (the ADMIN_KEY set on your server):')||'').trim();if(!k)return false}
+  if(ask){k=(window.prompt('Admin passcode:')||'').trim();if(!k)return false}
   if(!k||!sock||!sock.connected)return false;
   const r=await call('admin:auth',{key:k});
-  if(r.ok){try{localStorage.setItem(AKEY,k)}catch(e){}return true}
+  if(r.ok){try{localStorage.setItem(AKEY,k)}catch(e){}admSrv=true;return true}
   if(ask)banner(r.error||'Wrong admin key.',4);
   else{try{localStorage.removeItem(AKEY)}catch(e){}}
   return false;
@@ -2883,7 +2947,7 @@ function leaveOnline(silent){
   if(was&&sock&&sock.connected){try{sock.emit('room:leave',{})}catch(e){}}
   arenaOn=false;$('lobby').classList.remove('arena');
   inRoom=false;rejoining=false;clearSession();myId='';myCode='';LOB=null;lobbyKey='';
-  playing=false;endShown=false;matchSeed=-1;NETMODE=null;mp=false;
+  playing=false;endShown=false;matchSeed=-1;NETMODE=null;mp=false;admSrv=false;
   remotes.clear();byPid.clear();
   $('mpbar').hidden=true;$('pchip').hidden=true;$('netbar').hidden=true;$('online').hidden=true;$('end').hidden=true;
   if(!silent)goHome();
@@ -2920,7 +2984,7 @@ function onLobby(d){
 }
 function renderLobby(){
   const d=LOB;if(!d)return;
-  const me=d.players.find(p=>p.id===myId)||{},isAdmin=!!me.ad,host=d.hostId===myId&&!d.pub,ctl=isAdmin||host,slots=$('slots').children;
+  const me=d.players.find(p=>p.id===myId)||{},isAdmin=!!me.ad;if(isAdmin)admSrv=true;const host=d.hostId===myId&&!d.pub,ctl=isAdmin||host,slots=$('slots').children;
   $('roomCode').textContent=d.code;$('roomCode').hidden=!!d.pub;$('roomLbl').hidden=!!d.pub;$('lobbyTag').hidden=!d.pub;
   for(let i=0;i<MAXSLOTS;i++){
     const p=d.players[i],s=slots[i];if(!s)continue;
@@ -3124,7 +3188,7 @@ function beginMatch(d,restore){
   arenaOn=false;$('lobby').classList.remove('arena');
   if(playing&&!restore&&d.seed===matchSeed)return;
   matchSeed=d.seed;roster=d.roster;cfgM=d.cfg;
-  NETMODE='client';mp=true;
+  NETMODE='client';mp=true;setTimeout(syncAdmin,400);
   setMap(cfgM[0],cfgM[1],cfgM[2]);setCfg(cfgM.slice(5));booms.length=0;
   genWorld(d.seed);makePlane(d.seed);zone={cx:CX,cy:CY,r:ISLAND+120,ncx:CX,ncy:CY,nr:ISLAND+120,phase:0,state:'wait',t:0};
   bullets=[];parts=[];feed=[];ents=[];remotes.clear();byPid.clear();resetSess();
@@ -3249,6 +3313,7 @@ function applyEvent(ev){
     case 't':{const c=circs[ev[1]];if(!c)return;c.hp=ev[2];c.hit=.14;if(ev[3]&&!c.dead)killTree(c,true);else burst(c.x,c.y,c.k==='rock'?'#a9b6b3':'#3a8a54',3,110,.35);break}
     case 'd':{const d=doors[ev[1]];if(!d)return;const o=!!ev[2];d.dir=ev[3]===-1?-1:1;d.ts=Date.now();d.pend=0;if(d.open!==o){d.open=o;if(Math.hypot(player.x-d.x,player.y-d.y)<900)sfx(o?300:210,.07,'square',.03,.8)}break}
     case 'f':{feed.push({t:ev[2],txt:ev[1]});break}
+    case 'air':{if(!airs.some(q=>q.i===ev[1]))airs.push({i:ev[1],t:ev[5],x:ev[2],y:ev[3],seed:ev[4],told:true,landed:false});break}
     case 'death':{
       const e=byPid.get(ev[1]);if(!e)return;
       e.alive=false;e.hp=0;e.place=ev[3];burst(ev[4],ev[5],'#ffffff',18,260,.7);
@@ -3329,6 +3394,7 @@ function showOverCard(d){
   ensureSocket().then(s=>{if(s.connected)tryRejoin(ses)}).catch(()=>{rejoining=false});
 })();
 
+try{admLocal=sessionStorage.getItem('wr_adm')==='1'}catch(e){}
 /* ---------- profile: XP, coins, battle pass, skins, stats and switches (saved in this browser) ---------- */
 const PKEY='wonderRoyale.v3',XPT=150,MAXTIER=50,PREM_PRICE=1200;
 const DEF_SET={sound:1,shake:1,minimap:1,names:1,autoPick:0,aim:0,fps:0,map:1,storm:1,loot:1,minP:2,cd:1,bots:1,crate:1,gold:1,rarity:1,startGun:0,healSpd:1};

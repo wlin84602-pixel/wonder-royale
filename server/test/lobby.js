@@ -85,6 +85,29 @@ let pass = 0; const ok = (c, m) => { assert.ok(c, m); pass++; console.log('  ok 
   r = await C.cCall('room:solo', prof('Cy'));
   ok(r.ok && r.code !== A.last.lobby.code, 'a running match is not joinable; the newcomer gets a fresh lobby');
 
+  console.log('admin cheats in a match');
+  {
+    const rr = rm.rooms.get(A.last.lobby.code), sim = rr.sim;
+    const pidOf = (sock) => { for (const [id, pl] of rr.players) if (pl.socketId === sock.id) return id; };
+    const aId = pidOf(A), bId = pidOf(B);
+    const ea = sim.eval('ents').find((e) => e.pid === aId), eb = sim.eval('ents').find((e) => e.pid === bId);
+    B.cEmit('admin:cmd', { t: 'tog', k: 'god', v: 1 }); B.cEmit('admin:cmd', { t: 'do', a: 'm4' }); await sleep(120);
+    ok(!eb.adm && !sim.mine(bId).inv.some((i) => i && i[0] === 0 && i[1] === 17), 'a player without the passcode cannot use admin commands');
+    A.cEmit('admin:cmd', { t: 'tog', k: 'god', v: 1 }); A.cEmit('admin:cmd', { t: 'tog', k: 'speed', v: 1 }); A.cEmit('admin:cmd', { t: 'tog', k: 'bogus', v: 1 }); await sleep(120);
+    ok(ea.adm && ea.adm.god === 1 && ea.adm.speed === 1 && ea.adm.bogus === undefined, 'the admin can switch cheats on (unknown cheats are ignored)');
+    A.cEmit('admin:cmd', { t: 'do', a: 'm4' }); A.cEmit('admin:cmd', { t: 'do', a: 'give', x: { w: 5, r: 6 } }); A.cEmit('admin:cmd', { t: 'do', a: 'heal', x: 3 }); await sleep(150);
+    const inv = sim.mine(aId).inv;
+    ok(inv.some((i) => i && i[0] === 0 && i[1] === 17), 'Golden M4 is added to the admin inventory on the server');
+    ok(inv.some((i) => i && i[0] === 0 && i[1] === 5 && i[2] === 6), 'Give weapon works (Pump Shotgun, Exotic)');
+    ok(inv.some((i) => i && i[0] === 1 && i[1] === 3), 'Give heal works');
+    const hp0 = ea.hp; sim.eval('(function(a){damage(a,60,null)})')(ea); ok(ea.hp === hp0, 'God mode: damage does nothing to the admin');
+    sim.eval('(function(a){damage(a,60,null)})')(eb); ok(eb.hp < 100, 'other players still take damage');
+    A.cEmit('admin:cmd', { t: 'do', a: 'air', x: { x: 100, y: 100 } }); await sleep(150);
+    ok(sim.eval('airs').some((q) => q.i >= 50), 'an admin airdrop is scheduled on the server');
+    A.cEmit('admin:cmd', { t: 'do', a: 'land' }); await sleep(100);
+    ok(ea.st === 3, 'Land now lands the admin');
+  }
+
   console.log('private rooms and solo test start');
   const D = mk(); r = await D.cCall('room:create', prof('Dee')); const dcode = r.code;
   ok(r.lobby.pub === false, 'friends rooms stay private');

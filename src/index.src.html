@@ -215,6 +215,10 @@ canvas.sk{display:block}
 #menuBtn{position:fixed;left:50%;transform:translateX(-50%);top:calc(10px + env(safe-area-inset-top,0px));pointer-events:auto;font-family:var(--body);font-weight:700;font-size:13px;letter-spacing:.06em;text-transform:uppercase;background:var(--panel);color:var(--fg);border:1px solid #ffffff44;border-radius:6px;padding:7px 14px;cursor:pointer;touch-action:manipulation;z-index:5}
 #gmenu{position:fixed;inset:0;z-index:30;display:grid;place-items:center;background:#0b1a1dc0;padding:16px}
 #gmenu[hidden]{display:none}
+#apass{position:fixed;inset:0;z-index:40;display:grid;place-items:center;background:#0b1a1dc0;padding:16px}
+#apass[hidden]{display:none}
+#apIn{font:inherit;font-size:16px;padding:12px;border-radius:8px;border:1px solid #ffffff44;background:var(--panel2);color:var(--fg);letter-spacing:.08em;user-select:text;-webkit-user-select:text}
+#apIn:focus{outline:2px solid var(--gold);outline-offset:1px}
 .gcard{background:var(--panel);border:1px solid #ffffff33;border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:10px;width:min(320px,100%)}
 .gtitle{font-family:var(--display);font-size:24px}
 .gnote{font-size:13px;color:var(--muted);min-height:1em}
@@ -363,6 +367,15 @@ button.go.big{font-size:clamp(30px,9vw,44px);padding:22px 14px;letter-spacing:.0
   <div id="emobar" hidden></div>
   <button id="menuBtn" type="button">Menu</button>
   <div id="admin" hidden></div>
+</div>
+<div id="apass" hidden>
+  <div class="gcard" role="dialog" aria-label="Admin passcode">
+    <div class="gtitle">Admin passcode</div>
+    <input id="apIn" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="40" placeholder="Passcode" aria-label="Admin passcode">
+    <div class="gnote" id="apErr" role="alert"></div>
+    <button class="go sm" id="apOk" type="button">Unlock</button>
+    <button class="go alt sm" id="apNo" type="button">Cancel</button>
+  </div>
 </div>
 <div id="gmenu" hidden>
   <div class="gcard" role="dialog" aria-label="Game menu">

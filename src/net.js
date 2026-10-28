@@ -131,12 +131,30 @@ async function startSolo(){
 }
 /* ---------- admin (owner) login: the key is the ADMIN_KEY variable set on the server ---------- */
 const AKEY='wr_admin_key';
+const ADM_SRV_KEYS=['god','ammo','rapid','one','speed','fast','nostorm'];
+function sendAdmin(d){if(sock&&sock.connected&&inRoom)sock.emit('admin:cmd',d)}
+function syncAdmin(){if(!admSrv||!playing)return;for(const k of ADM_SRV_KEYS)sendAdmin({t:'tog',k,v:ADM[k]?1:0})}
+const ADM_HASH='05a6d3e0ba7d7e9da00c477c53c73d8cd48622c3a657eb832d4296f14d55fc3f';
+async function localPassOK(code){
+  try{const h=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(code));return Array.from(new Uint8Array(h)).map(b=>b.toString(16).padStart(2,'0')).join('')===ADM_HASH}catch(e){return false}
+}
+/* the in-game passcode: solo is checked on this device, online the server checks it */
+async function adminPass(code){
+  code=String(code||'').trim();if(!code)return{ok:false,error:'Enter the passcode.'};
+  if(mp&&sock&&sock.connected&&inRoom){
+    const r=await call('admin:auth',{key:code});
+    if(r&&r.ok){admSrv=true;try{localStorage.setItem(AKEY,code)}catch(e){}syncAdmin();return{ok:true}}
+    return{ok:false,error:(r&&r.error)||'Wrong passcode.'};
+  }
+  if(await localPassOK(code)){admLocal=true;try{sessionStorage.setItem('wr_adm','1');localStorage.setItem(AKEY,code)}catch(e){}return{ok:true}}
+  return{ok:false,error:'Wrong passcode.'};
+}
 async function authAdmin(ask){
   let k='';try{k=localStorage.getItem(AKEY)||''}catch(e){}
-  if(ask){k=(window.prompt('Admin key (the ADMIN_KEY set on your server):')||'').trim();if(!k)return false}
+  if(ask){k=(window.prompt('Admin passcode:')||'').trim();if(!k)return false}
   if(!k||!sock||!sock.connected)return false;
   const r=await call('admin:auth',{key:k});
-  if(r.ok){try{localStorage.setItem(AKEY,k)}catch(e){}return true}
+  if(r.ok){try{localStorage.setItem(AKEY,k)}catch(e){}admSrv=true;return true}
   if(ask)banner(r.error||'Wrong admin key.',4);
   else{try{localStorage.removeItem(AKEY)}catch(e){}}
   return false;
@@ -192,7 +210,7 @@ function leaveOnline(silent){
   if(was&&sock&&sock.connected){try{sock.emit('room:leave',{})}catch(e){}}
   arenaOn=false;$('lobby').classList.remove('arena');
   inRoom=false;rejoining=false;clearSession();myId='';myCode='';LOB=null;lobbyKey='';
-  playing=false;endShown=false;matchSeed=-1;NETMODE=null;mp=false;
+  playing=false;endShown=false;matchSeed=-1;NETMODE=null;mp=false;admSrv=false;
   remotes.clear();byPid.clear();
   $('mpbar').hidden=true;$('pchip').hidden=true;$('netbar').hidden=true;$('online').hidden=true;$('end').hidden=true;
   if(!silent)goHome();
@@ -229,7 +247,7 @@ function onLobby(d){
 }
 function renderLobby(){
   const d=LOB;if(!d)return;
-  const me=d.players.find(p=>p.id===myId)||{},isAdmin=!!me.ad,host=d.hostId===myId&&!d.pub,ctl=isAdmin||host,slots=$('slots').children;
+  const me=d.players.find(p=>p.id===myId)||{},isAdmin=!!me.ad;if(isAdmin)admSrv=true;const host=d.hostId===myId&&!d.pub,ctl=isAdmin||host,slots=$('slots').children;
   $('roomCode').textContent=d.code;$('roomCode').hidden=!!d.pub;$('roomLbl').hidden=!!d.pub;$('lobbyTag').hidden=!d.pub;
   for(let i=0;i<MAXSLOTS;i++){
     const p=d.players[i],s=slots[i];if(!s)continue;
@@ -433,7 +451,7 @@ function beginMatch(d,restore){
   arenaOn=false;$('lobby').classList.remove('arena');
   if(playing&&!restore&&d.seed===matchSeed)return;
   matchSeed=d.seed;roster=d.roster;cfgM=d.cfg;
-  NETMODE='client';mp=true;
+  NETMODE='client';mp=true;setTimeout(syncAdmin,400);
   setMap(cfgM[0],cfgM[1],cfgM[2]);setCfg(cfgM.slice(5));booms.length=0;
   genWorld(d.seed);makePlane(d.seed);zone={cx:CX,cy:CY,r:ISLAND+120,ncx:CX,ncy:CY,nr:ISLAND+120,phase:0,state:'wait',t:0};
   bullets=[];parts=[];feed=[];ents=[];remotes.clear();byPid.clear();resetSess();
@@ -558,6 +576,7 @@ function applyEvent(ev){
     case 't':{const c=circs[ev[1]];if(!c)return;c.hp=ev[2];c.hit=.14;if(ev[3]&&!c.dead)killTree(c,true);else burst(c.x,c.y,c.k==='rock'?'#a9b6b3':'#3a8a54',3,110,.35);break}
     case 'd':{const d=doors[ev[1]];if(!d)return;const o=!!ev[2];d.dir=ev[3]===-1?-1:1;d.ts=Date.now();d.pend=0;if(d.open!==o){d.open=o;if(Math.hypot(player.x-d.x,player.y-d.y)<900)sfx(o?300:210,.07,'square',.03,.8)}break}
     case 'f':{feed.push({t:ev[2],txt:ev[1]});break}
+    case 'air':{if(!airs.some(q=>q.i===ev[1]))airs.push({i:ev[1],t:ev[5],x:ev[2],y:ev[3],seed:ev[4],told:true,landed:false});break}
     case 'death':{
       const e=byPid.get(ev[1]);if(!e)return;
       e.alive=false;e.hp=0;e.place=ev[3];burst(ev[4],ev[5],'#ffffff',18,260,.7);

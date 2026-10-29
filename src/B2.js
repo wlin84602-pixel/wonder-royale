@@ -31,7 +31,7 @@ const admAuthed=()=>NETMODE==='server'?false:(mp?admSrv:admLocal);
 const admOn=k=>!!(ADM[k]&&admAuthed());
 const admE=(e,k)=>NETMODE==='server'?!!(e.adm&&e.adm[k]):(e===player&&admOn(k));
 const BOTN=[8,17,27],MAPS=[2200,3700,5600],PLANE_TS=[22,28,36],STORMM=[1.4,1,.7],LOOTMS=[.6,1,1.6];
-const ROOF=['#7a4e45','#4f6577','#6d6a4a','#55565c','#7a5a2e','#4a6a58','#c68c5c','#b9473f','#6b4a32','#9cc3d6','#5d7a4c','#4a4036','#8b4f3a','#3d3b44','#a33b32','#dfe6ea'];
+const ROOF=['#7a4e45','#4f6577','#6d6a4a','#55565c','#7a5a2e','#4a6a58','#c68c5c','#b9473f','#6b4a32','#9cc3d6','#5d7a4c','#4a4036','#8b4f3a','#3d3b44','#a33b32','#dfe6ea','#4fc2ab'];
 const NAMES=['Pip','Moss','Dash','Juno','Rook','Fizz','Nova','Bolt','Echo','Tango','Wren','Kip','Zed','Mako','Lux','Otto','Vex','Cleo','Hex','Rusty','Sable','Fern','Gus'];
 const ZR=[1050,760,520,340,200,80],ZW=[20,18,16,14,12,10],ZS=[24,22,20,18,16,14];
 
@@ -202,8 +202,9 @@ function genWorld(seed){
     {n:'stilt',w:[260,340],h:[240,300],dw:104,nd:1,win:[2,2],furn:2,div:0,hue:10,T:16,bw:[0,0,0,4,0],fk:[0,3,5]},
     {n:'shack',w:[230,280],h:[220,250],dw:100,nd:1,win:[1,1],furn:1,div:0,hue:11,T:14,bw:[0,0,0,3,0],fk:[5,3]},
     {n:'fort',w:[520,640],h:[420,520],dw:150,nd:2,win:[0,0],furn:3,div:1,hue:12,T:34,bw:[0,0,0,0,3],fk:[5,5,2,4]},
-    {n:'mine',w:[300,400],h:[240,300],dw:120,nd:1,win:[0,0],furn:2,div:0,hue:13,T:28,bw:[0,0,0,0,2],fk:[5,5,2]}];
-  const FK=[['table',72,44,'#8a5f34'],['couch',96,38,'#5b4a7a'],['shelf',34,86,'#6b4a2b'],['bed',66,96,'#9a6b6b'],['counter',130,30,'#7a7f86'],['crate',44,44,'#a07a45']];
+    {n:'mine',w:[300,400],h:[240,300],dw:120,nd:1,win:[0,0],furn:2,div:0,hue:13,T:28,bw:[0,0,0,0,2],fk:[5,5,2]},
+    {n:'cottage',w:[420,520],h:[340,420],dw:130,nd:2,win:[2,3],furn:12,div:0,hue:16,T:22,bw:[4,1,2,2,1],fk:[3,1,6,7,8,0,5,6]}];
+  const FK=[['table',72,44,'#8a5f34'],['couch',96,38,'#5b4a7a'],['shelf',34,86,'#6b4a2b'],['bed',66,96,'#9a6b6b'],['counter',130,30,'#7a7f86'],['crate',44,44,'#a07a45'],['plant',44,44,'#3f8f3a'],['tv',100,34,'#2b2f36'],['rtable',66,66,'#6bbf6a']];
   doors=[];wins=[];doorOps.length=0;
   for(let i=0;i<nb*8&&houses.length<nb;i++){
     const p=rp(260),bm=biomeAt(p.x,p.y);
@@ -240,7 +241,7 @@ function genWorld(seed){
       if(!bad){const gap=rand(30,h-T*2-260);blocks.push({x:dx-7,y:hs.y+T,w:14,h:gap,hue,wall:1});blocks.push({x:dx-7,y:hs.y+T+gap+200,w:14,h:h-T*2-gap-200,hue,wall:1})}
     }
     for(let k=0;k<Math.ceil(ht.furn*.6);k++)for(let tr=0;tr<14;tr++){
-      const kk=FK[ht.fk[Math.floor(rnd()*ht.fk.length)]],rot=rnd()<.5,fw=rot?kk[2]:kk[1],fh=rot?kk[1]:kk[2];
+      const kk=FK[ht.fk[Math.floor(rnd()*ht.fk.length)]],rot=rnd()<.5,FS=ht.n==='cottage'?1.45:1,fw=Math.round((rot?kk[2]:kk[1])*FS),fh=Math.round((rot?kk[1]:kk[2])*FS);
       const fx=rand(hs.x+T+34,hs.x+w-T-34-fw),fy=rand(hs.y+T+34,hs.y+h-T-34-fh);
       if(hs.doors.some(d=>Math.hypot(d.x-(fx+fw/2),d.y-(fy+fh/2))<170))continue;
       if(blocks.some(b=>!b.door&&fx<b.x+b.w+40&&fx+fw+40>b.x&&fy<b.y+b.h+40&&fy+fh+40>b.y))continue;

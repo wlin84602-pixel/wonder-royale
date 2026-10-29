@@ -425,11 +425,11 @@ function drawEnt(e){
     if(S.names){ctx.font='700 12px "Chakra Petch",sans-serif';ctx.textAlign='center';ctx.fillStyle=e.sub?'#ffd166':'rgba(255,255,255,.88)';ctx.fillText(e.name,e.x,e.y-e.r-20)}
   }
 }
-const FLOORC=['#a98b5e','#9c8f6e','#7d8187','#5f666b','#b6a283','#8c7b68','#d9bd8c','#cdb07a','#a78560','#c9dbe4','#7a6a4c','#6b5e4a','#6e5144','#55525c','#b9a06a','#c8d3da'];
+const FLOORC=['#a98b5e','#9c8f6e','#7d8187','#5f666b','#b6a283','#8c7b68','#d9bd8c','#cdb07a','#a78560','#c9dbe4','#7a6a4c','#6b5e4a','#6e5144','#55525c','#b9a06a','#c8d3da','#a9dcb8'];
 let doorT=performance.now();
 /* door looks: painted wood per building, riveted iron for the hard buildings, banded oak for the fort */
-const DWOOD={0:['#a47244','#80522b','#5e3a1c'],1:['#8f6a44','#6e4b2b','#4e3320'],4:['#3e9a6a','#2c7a52','#1f5a3b'],5:['#2f9aa0','#237a80','#185a5f'],6:['#3aa9b0','#2a8a90','#1d6a70'],7:['#7a4aa8','#5d3585','#43255f'],8:['#6a4a30','#4e3320','#38241a'],9:['#cfe3f0','#a9c6d9','#86a5ba'],10:['#c9b46a','#a8934a','#826f34'],11:['#8a7a62','#6a5c48','#4c4232'],14:['#c84a3f','#a03228','#7a2119'],15:['#efe6d2','#d3c7aa','#b3a584']};
-const DHANDLE={15:'#d9b74a',9:'#7a8a96'};
+const DWOOD={0:['#a47244','#80522b','#5e3a1c'],1:['#8f6a44','#6e4b2b','#4e3320'],4:['#3e9a6a','#2c7a52','#1f5a3b'],5:['#2f9aa0','#237a80','#185a5f'],6:['#3aa9b0','#2a8a90','#1d6a70'],7:['#7a4aa8','#5d3585','#43255f'],8:['#6a4a30','#4e3320','#38241a'],9:['#cfe3f0','#a9c6d9','#86a5ba'],10:['#c9b46a','#a8934a','#826f34'],11:['#8a7a62','#6a5c48','#4c4232'],14:['#c84a3f','#a03228','#7a2119'],15:['#efe6d2','#d3c7aa','#b3a584'],16:['#ffc27a','#f19a45','#c9762a']};
+const DHANDLE={15:'#d9b74a',9:'#7a8a96',16:'#2a3a36'};
 function doorKind(h){return h===2||h===3||h===13?'iron':h===12?'fort':'wood'}
 function drawDoor(d,top){
   const now=performance.now();
@@ -527,6 +527,7 @@ function drawTreeBody(c){
   }
 }
 function drawFurn(b){
+  if(b.hue===16){drawToonFurn(b);return}
   const x=b.x,y=b.y,w=b.w,h=b.h;
   ctx.fillStyle='rgba(0,0,0,.25)';ctx.fillRect(x+4,y+5,w,h);
   ctx.fillStyle=b.col;rrect(ctx,x,y,w,h,5);ctx.fill();
@@ -541,6 +542,7 @@ function drawFurn(b){
 
 const RUGC=['#a33a3a','#3a6aa3','#3f8a5a','#8a5aa3','#c79a3a','#3a8f94'],MATC=['#6b3a2a','#394a6b','#2f5a3a','#6b6b2a','#5a2f5a'];
 function drawHouseFloorExtra(hs){
+  if(hs.type==='cottage'){drawToonFloor(hs);return}
   ctx.save();ctx.beginPath();ctx.rect(hs.x,hs.y,hs.w,hs.h);ctx.clip();
   if(hs.fv===1){ctx.strokeStyle='rgba(30,25,20,.22)';ctx.lineWidth=2;ctx.beginPath();for(let x=hs.x+36;x<hs.x+hs.w;x+=36){ctx.moveTo(x,hs.y);ctx.lineTo(x,hs.y+hs.h)}ctx.stroke()}
   else if(hs.fv===2){ctx.fillStyle='rgba(0,0,0,.09)';for(let i=0;i*56<hs.w;i++)for(let j=0;j*56<hs.h;j++)if((i+j)%2===0)ctx.fillRect(hs.x+i*56,hs.y+j*56,56,56)}
@@ -687,11 +689,13 @@ function draw(){
     if(hs.type==='farmhouse'||hs.type==='cabin'){ctx.fillStyle='rgba(120,50,50,.28)';ctx.fillRect(hs.x+hs.w*.3,hs.y+hs.h*.35,hs.w*.4,hs.h*.3)}
     drawHouseFloorExtra(hs);
     drawDoorYard(hs);
+    if(hs.type==='cottage')drawToonDoorFrames(hs);
   }
   for(const b of blocks){
     if(b.x>vx1||b.x+b.w<vx0||b.y>vy1||b.y+b.h<vy0)continue;
     if(b.door){drawDoor(b);continue}
     if(b.furn){drawFurn(b);continue}
+    if(b.hue===16&&(b.win||b.wall)){if(b.win)drawToonWindow(b);else drawToonWall(b);continue}
     if(b.win){drawWindowFace(b);continue}
     drawWallFace(b);
     ctx.strokeStyle='rgba(0,0,0,.5)';ctx.lineWidth=2;ctx.strokeRect(b.x,b.y,b.w,b.h);

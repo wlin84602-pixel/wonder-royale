@@ -66,3 +66,5 @@ Protocol: `room:create|solo|join|rejoin|leave|start|opts|ctl` and `admin:auth` (
 - Buildings: per-type roofs (gable, hip, sawtooth, tent, dome, thatch, parapet), floor patterns, stone/plank walls, framed windows, chimney smoke, stone paths and lamps at doors (visual only).
 - Doors: 45 ms toggle cooldown, reach 74, client-side prediction in multiplayer (server confirms), eased 0.1 s swing, new sprites (painted wood, riveted iron, banded oak), jambs and a swing-area shadow.
 - Admin panel: available in practice and in every online match. Unlock it from the in-game Menu (or the admin key) with the passcode. Practice checks it on the device; online the server checks it (it is the ADMIN_KEY variable, set to the passcode) and runs the cheats, so they work for the admin only.
+
+- **Cottage building:** original cartoon-style house (teal walls, plank floor, oval rugs, beds, couches, plants, TV, round tables, bump-out door frames, orange double doors). Drawn in `src/bld.js`; spawns in every biome, weighted toward Meadow.

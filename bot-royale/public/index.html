@@ -1325,7 +1325,7 @@ function islandHideMapUI(){islandMapOpen=false;for(const id of ['island-map-pane
 goHome=function(){islandDisconnect();islandHideMapUI();islandOriginal.goHome()};
 end=function(win){stayInMatch();islandHideMapUI();islandOriginal.end(win)};
 $('#start').onclick=newGame;$('#result-home').onclick=goHome;
-if(islandNetwork.enabled){$('#island-network-state').style.display='block';$('#island-network-state').textContent='ONLINE ROOM · PRESS SOLO TO JOIN'}
+if(islandNetwork.enabled){$('#island-network-state').style.display='block';$('#island-network-state').textContent='MULTIPLAYER · JOIN A LOBBY'}
 
 const islandPreviousSelectSlot=selectSlot,islandPreviousMouseUp=onmouseup,islandPreviousKeyUp=onkeyup;
 selectSlot=function(index){islandPreviousSelectSlot(index);if(islandNetwork.ready){islandNetwork.pendingSlot={slot,seq:islandNetwork.sequence+1};islandSendInput()}};

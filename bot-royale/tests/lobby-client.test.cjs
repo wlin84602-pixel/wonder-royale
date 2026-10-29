@@ -7,6 +7,7 @@ function createEnv(saved={},script=source){
  vm.createContext(context);vm.runInContext(script,context);return{context,elements,run:s=>vm.runInContext(s,context)};
 }
 
+assert(html.includes('<div class="home-controls"></div><div class="lobby-room-panel">'),'Room controls must be outside the rewritten hints container');
 const {LobbySession}=require('../island/lobby-session.cjs'),rules=require('../island/combat-rules.json'),env=createEnv(),{run,context,elements}=env;
 const s=new LobbySession(901,rules,{bots:2}),host=s.join('Host'),guest=s.join('<Guest>');
 run('newGame();initializeIsland(901);running=true;islandNetwork.enabled=true;islandNetwork.ready=true');context.snap=s.snapshot(host.id);run('islandApplySnapshot(snap)');

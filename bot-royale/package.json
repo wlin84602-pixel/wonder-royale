@@ -10,6 +10,6 @@
     "start": "node island-server.cjs",
     "test": "node tests/run-island-tests.cjs --skip-render",
     "test:cosmetics": "node tests/cosmetic-render.test.cjs",
-    "test:visual": "node tests/reference-buildings-render.test.cjs && node tests/island-render.test.cjs && node tests/melee-render.test.cjs && node tests/door-privacy-render.test.cjs && node tests/door-orientation-render.test.cjs && node tests/hinge-clearance-render.test.cjs && node tests/obstacle-crate-render.test.cjs && node tests/forest-crate-render.test.cjs && node tests/loadout-render.test.cjs"
+    "test:visual": "node tests/reference-buildings-render.test.cjs && node tests/island-render.test.cjs && node tests/melee-render.test.cjs && node tests/door-privacy-render.test.cjs && node tests/door-orientation-render.test.cjs && node tests/hinge-clearance-render.test.cjs && node tests/obstacle-crate-render.test.cjs && node tests/forest-crate-render.test.cjs && node tests/loadout-render.test.cjs && node tests/lobby-render.test.cjs"
   }
 }

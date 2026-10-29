@@ -32,7 +32,7 @@ const {createCanvas,Image}=require(canvasPath);
  function clear(){drawing.setTransform(1,0,0,1,0,0);drawing.clearRect(0,0,game.width,game.height)}
  for(let i=0;i<sets.length;i++){
   const s=sets[i];prepare(s);const skin=run('cosmeticSprite("skins",'+s.skin+')'),body=rig.body(skin,s.skin),pack=rig.pack(run('cosmeticSprite("backpacks",'+s.pack+')'),s.pack,body),blade=rig.melee(run('cosmeticSprite("melees",'+s.melee+')'),s.melee,body);
-  assert(pack.width<=80,'Backpack overwhelmed body');assert(Math.max(blade.width,blade.height)<=54);assert.equal(run('player.r'),26);
+  assert(pack.width<=80,'Backpack overwhelmed body');assert(Math.max(blade.width,blade.height)>=60&&Math.max(blade.width,blade.height)<=74);assert.equal(run('player.r'),26);
   assert(Math.abs(pack.width/pack.height-pack.b.w/pack.b.h)<1e-10);assert(Math.abs(blade.width/blade.height-blade.b.w/blade.b.h)<1e-10);
   for(const angle of [0,Math.PI/4,Math.PI/2,Math.PI,Math.PI*1.5,-Math.PI/2])for(const swing of [0,.09]){
    prepare(s,angle,230+i*3,180+i*2,swing);clear();run('drawCharacter(player)');const local=Buffer.from(drawing.getImageData(0,0,game.width,game.height).data);

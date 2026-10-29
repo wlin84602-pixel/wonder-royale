@@ -8,6 +8,9 @@ const context={document:{querySelector:el,addEventListener(k,v){documentHandlers
 context.performance={now:()=>context.testWallMs};
 vm.createContext(context);vm.runInContext(source,context);const run=s=>vm.runInContext(s,context);
 run("let testShots=[];const originalTestShoot=shoot;shoot=function(a,angle,enemy=false,atMs=combatInputTimeMs()){const result=originalTestShoot(a,angle,enemy,atMs);if(result&&!enemy)testShots.push({atMs,ammo:player.inventory[slot].ammo,profile:player.inventory[slot].fireProfile});return result}");
+// Combat assertions use a flat copy of one seeded world. Full map generation and
+// collision are tested separately; rebuilding 340 buildings per trigger adds no coverage.
+run('const combatWorldTemplate=IslandCore.buildWorld(901);IslandCore.buildWorld=function(){return {...combatWorldTemplate,time:0,zone:JSON.parse(JSON.stringify(combatWorldTemplate.zone)),objects:[],buildings:[],doors:[],bushes:[],containers:[],loot:[],water:[],index:new IslandCore.SpatialIndex(),random:IslandCore.rng(901)}}');
 function prepare(profile='M4 Assault Rifle',type=1){
  context.testWallMs=0;
  run('newGame();finishLanding();player.x=1500;player.y=1500;cameraX=1500;cameraY=1500;cameraZoom=1;mouse.x=2200;mouse.y=450;player.hp=100000;bots=[{x:100,y:100,hp:100000,r:26,skin:0,cd:100000,turn:100000,angle:0}];chests=[];loot=[];bullets=[];player.inventory=[null,gun('+type+',0,'+JSON.stringify(profile)+'),null,null,null,null];selectSlot(1);testShots=[];if(typeof islandState!=="undefined"&&islandState){islandState.objects=[];islandState.index=new IslandCore.SpatialIndex();islandState.water=[];islandState.buildings=[];islandState.bushes=[];islandState.containers=[];islandState.loot=[];chests=[];loot=[];}');

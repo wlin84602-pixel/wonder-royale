@@ -1,19 +1,20 @@
 'use strict';
 const http=require('http'),fs=require('fs'),path=require('path'),crypto=require('crypto');
-const {Session}=require('./island/session.cjs');
+const {Session}=require('./island/session.cjs'),{LobbySession}=require('./island/lobby-session.cjs');
 const ROOT=path.join(__dirname,'public'),RULES=JSON.parse(fs.readFileSync(path.join(__dirname,'island/combat-rules.json'),'utf8'));
 function createServer(options={}){
  const sessions=new Map(),clients=new Map(),connections=new Set();
- function getRoom(name){if(!sessions.has(name)&&sessions.size>=16)throw Error('Room limit reached');if(!sessions.has(name))sessions.set(name,new Session(crypto.randomBytes(4).readUInt32LE(),RULES,{bots:options.bots??24}));return sessions.get(name)}
+ function getRoom(name){if(!sessions.has(name)&&sessions.size>=16)throw Error('Room limit reached');if(!sessions.has(name))sessions.set(name,new (options.lobby===false?Session:LobbySession)(crypto.randomBytes(4).readUInt32LE(),RULES,{bots:options.bots??24,roomName:name}));return sessions.get(name)}
  function json(res,status,value){res.writeHead(status,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify(value))}
  async function body(req){let text='';for await(const chunk of req){text+=chunk;if(text.length>4096)throw Error('Request too large')}return JSON.parse(text||'{}')}
  const server=http.createServer(async(req,res)=>{
   const url=new URL(req.url,'http://localhost');
   try{
    if(req.method==='GET'&&url.pathname==='/health')return json(res,200,{ok:true,game:'Bot Royale'});
-   if(req.method==='GET'&&url.pathname==='/api/meta')return json(res,200,{online:true,tickRate:30,maxPlayers:25,version:1});
+   if(req.method==='GET'&&url.pathname==='/api/meta')return json(res,200,{online:true,tickRate:30,maxPlayers:25,version:2,lobby:true});
    if(req.method==='POST'&&url.pathname==='/api/join'){
-    const m=await body(req),room=String(m.room||'main');if(!/^[a-zA-Z0-9_-]{1,24}$/.test(room))return json(res,400,{error:'Invalid room'});
+    const m=await body(req);let room=String(m.room||'main');if(!/^[a-zA-Z0-9_-]{1,24}$/.test(room))return json(res,400,{error:'Invalid room'});
+    if(room==='main'&&(sessions.get(room)?.state==='playing'||sessions.get(room)?.actors.size>=25)){let n=2;while(sessions.get('main-'+n)?.state==='playing'||sessions.get('main-'+n)?.actors.size>=25)n++;room='main-'+n}
     const session=getRoom(room),actor=session.join(m.name,m.look||{}),token=crypto.randomBytes(24).toString('hex');clients.set(token,{room,id:actor.id,lastSeen:Date.now(),lastSecond:0,requests:0});
     return json(res,200,{token,id:actor.id,seed:session.world.seed,route:session.route,snapshot:session.snapshot(actor.id)});
    }

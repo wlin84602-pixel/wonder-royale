@@ -1,0 +1,11 @@
+'use strict';
+const fs=require('fs'),path=require('path'),vm=require('vm'),assert=require('assert');
+const C=require('../island/world.js'),{Session}=require('../island/session.cjs'),B=require('../island/buildings.js'),rules=require('../island/combat-rules.json');
+// Test the actual generated client with a deliberately delayed network response.
+const html=fs.readFileSync(path.join(__dirname,'../public/index.html'),'utf8'),script=html.match(/<script>([\s\S]*)<\/script>/)[1],elements={};
+const element=s=>elements[s]||={style:{},value:'',innerHTML:'',textContent:'',addEventListener(){},setAttribute(){},getContext(){return new Proxy({},{get:()=>()=>{}})}};
+let clock=10000,requests=[];
+const context={document:{querySelector:element,addEventListener(){},body:{classList:{toggle(){}}}},localStorage:{getItem(){return null},setItem(){}},Image:class{},Math,Date,console,devicePixelRatio:1,innerWidth:1920,innerHeight:1080,requestAnimationFrame(){},setTimeout(){},clearTimeout(){},performance:{now:()=>clock},fetch:async(url,options)=>({ok:true,json:()=>new Promise(resolve=>requests.push({body:JSON.parse(options.body),resolve}))})};
+vm.createContext(context);const run=s=>vm.runInContext(s,context),flush=()=>new Promise(resolve=>setImmediate(resolve));run(script);
+run("newGame();initializeIsland(901);finishLanding();running=true;const flightBot={id:'test-bot',x:1000,y:1000,hp:1000,r:26,phase:'plane',jumpAt:100000};bots=[flightBot];islandState.objects=[];islandState.index=new Island.SpatialIndex();islandState.water=[];islandState.bridges=[];islandState.buildings=[];islandState.doors=[];islandState.coast=[[0,0],[world,0],[world,world],[0,world]];Object.assign(player,{x:5000,y:5000,phase:'ground'});dropPhase='ground';keys[bindings.right]=true;update(1)");assert.equal(run('player.speed'),307.5);assert(Math.abs(run('player.x')-5307.5)<1e-6);assert.equal(run('DROP_SECONDS'),5);
+run("newGame();startParachuteDrop();Object.assign(player,{x:5000,y:5000});keys[bindings.right]=true;update(.25)");assert(Math.abs(run('player.x')-5123)<1e-6);assert.equal(run('dropRemaining'),4.75);run('dropRemaining=5;dropFast=true;update(2.5)');assert.equal(run('dropPhase'),'ground');console.log(JSON.stringify({status:'passed',clientGroundSpeed:307.5,clientParachuteSpeed:492,dropSeconds:5,boostSeconds:2.5}));

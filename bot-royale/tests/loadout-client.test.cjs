@@ -7,7 +7,7 @@ function createEnv(saved={},script=source){
  vm.createContext(context);vm.runInContext(script,context);return{context,elements,run:s=>vm.runInContext(s,context)};
 }
 
-const {run,context,elements}=createEnv();run('newGame();finishLanding();running=true;bots=[];player.slot=slot=1;player.inventory[2]=gun(2);updateHUD()');
+const {run,context,elements}=createEnv();run('newGame();finishLanding();running=true;bots=[];player.slot=slot=1;player.inventory[1]=gun(0);player.inventory[2]=gun(2);updateHUD()');
 assert.equal(run('player.med'),0);assert(elements['#weapon-slots'].innerHTML.includes('data-slot="5"'));assert(!elements['#weapon-slots'].innerHTML.includes('undefined'));
 function weaponTile(i){return {dataset:{slot:String(i)},innerHTML:'weapon',classList:{add(){},remove(){}},closest(){return this}}}
 function pointerDown(i,x=40,y=50){const target=weaponTile(i);elements['#weapon-slots'].handlers.pointerdown({target,button:0,clientX:x,clientY:y,pointerId:1})}

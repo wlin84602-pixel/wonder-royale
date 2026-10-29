@@ -6,7 +6,7 @@ for(const e of b.entryPoints){const d=s.doors.find(d=>d.id===e.door),tx=Math.cos
  for(const side of [-1,1]){
   const p={id:'hinge-player',x:d.hingeX-tx*30+nx*side*38,y:d.hingeY-ty*30+ny*side*38,hp:100,r:26,phase:'ground'};assert(C.hyp(p,{x:d.x+d.w/2,y:d.y+d.h/2})>100);assert(C.doorInteractionDistance(d,p,s.time)<80);assert.equal(C.interactionTarget(s,p)?.object.id,d.id);
   d.open=false;d.changedAt=-100;d.turnFrom=0;
-  for(let i=0;i<12;i++){const before=d.open;assert(C.interactDoor(s,d,p,[p]).ok);assert.notEqual(d.open,before);assert.deepEqual([d.hingeX,d.hingeY],hinge);s.time+=.065;assert.equal(Math.round(Math.abs(C.doorAngleAt(d,s.time))*180/Math.PI),d.open?90:0);toggles++}
+  for(let i=0;i<12;i++){const before=d.open;assert(C.interactDoor(s,d,p,[p]).ok);assert.notEqual(d.open,before);assert.deepEqual([d.hingeX,d.hingeY],hinge);s.time+=.1;assert.equal(Math.round(Math.abs(C.doorAngleAt(d,s.time))*180/Math.PI),d.open?90:0);toggles++}
  }
  // Reproduce the screenshot: body overlaps the frame beside an open hinge.
  for(const side of [-1,1]){

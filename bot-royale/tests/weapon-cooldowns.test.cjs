@@ -64,6 +64,8 @@ for(const [finishAt,expectedShotAt] of [[800,1000],[1500,1500]]){
 prepare('Pump Shotgun',2);press();tick(200);run('reload()');assert.equal(run('player.inventory[1].reloadEndsAtMs'),1350);
 tick(600);const reloadEnds=run('player.inventory[1].reloadEndsAtMs');run('reload();reload()');assert.equal(run('player.inventory[1].reloadEndsAtMs'),reloadEnds);
 assert.equal(run('player.inventory[1].nextFireAtMs'),1000);tick(1349.999);assert.equal(shots().length,1);tick(1350);approx(shots()[1].atMs,1350);
+// A new Fire press cancels reload; repeated Reload presses do not.
+prepare('Pump Shotgun',2);press();release();tick(200);run('reload()');const cancelAmmo=run('player.inventory[1].ammo'),cancelReserve=run('player.inventory[1].reserve');tick(400);press();assert.equal(run('player.inventory[1].reloading'),false);assert.equal(run('islandReloadProgress()'),null);assert.equal(run('player.inventory[1].ammo'),cancelAmmo);assert.equal(run('player.inventory[1].reserve'),cancelReserve);assert.equal(run('player.inventory[1].nextFireAtMs'),1000);assert.equal(shots().length,1);tick(1000);assert.equal(shots().length,2);approx(shots()[1].atMs,1000);
 // No new press is needed for held automatic fire after a reload.
 prepare();press();tick(200);run('reload()');tick(1349.999);assert.equal(shots().length,3);tick(1350);approx(shots().at(-1).atMs,1350);
 // Independent weapon instances, including copies of the same weapon.
@@ -83,10 +85,10 @@ assert.equal(shots().length,1);tick(100);press();assert.equal(shots().length,2);
 // Input between rendered frames starts a shot immediately with a real sub-frame timestamp.
 prepare();context.testWallMs=5;press();approx(shots()[0].atMs,5);release();
 tick(33);tick(66);tick(99);context.testWallMs=104;press();assert.equal(shots().length,1);release();context.testWallMs=105;press();assert.equal(shots().length,2);approx(shots()[1].atMs,105);
-// Semi-auto profiles consume a press during reloading and require another press afterwards.
+// A semi-auto press interrupts reload and fires once; holding never repeats.
 for(const [name,type]of [['Semi-Auto Sniper',3],['Desert Eagle',0]]){
  prepare(name,type);assert.equal(run('player.inventory[1].triggerMode'),'press');press();tick(1000);assert.equal(shots().length,1,'Semi-auto repeated while held');release();
- run('reload()');tick(1100);press();tick(2150);assert.equal(shots().length,1,'Reload buffered a semi-auto shot');release();press();assert.equal(shots().length,2);approx(shots()[1].atMs,2150);
+ run('reload()');tick(1100);press();assert.equal(run('player.inventory[1].reloading'),false);assert.equal(shots().length,2);approx(shots()[1].atMs,1100);tick(2150);assert.equal(shots().length,2,'Semi-auto repeated after reload cancellation');release();press();assert.equal(shots().length,3);approx(shots()[2].atMs,2150);
 }
 // Empty gun cannot fire, and reloading on last round never clears its cooldown.
 prepare('Pump Shotgun',2);run('player.inventory[1].ammo=1;player.inventory[1].reserve=0');press();tick(2000);assert.equal(shots().length,1);assert.equal(run('player.inventory[1].ammo'),0);assert.equal(run('reload()'),false);
@@ -112,3 +114,12 @@ assert.deepEqual(JSON.parse(run('JSON.stringify(types.map(t=>[t.clip,t.damage,t.
 const snapshot={status:'passed',frameRates:[30,60,120,144],timingToleranceMs:1e-6,cadence:fpsRows,reloadExamples:[{reloadCompletionMs:800,nextShotMs:1000},{reloadCompletionMs:1500,nextShotMs:1500},{reloadStartMs:200,productionReloadDurationMs:1150,nextShotMs:1350}],coverage:['immediate input','per-instance deadlines','held fire','semi-auto fresh presses','rapid clicks','direct-call guards','switch spam','holstered reload','repeat reload requests','empty ammunition','last-round auto reload','pause/resume','sub-frame timestamps','projectile timing','preserved weapon stats']};
 if(process.argv.includes('--report'))fs.writeFileSync(path.join(__dirname,'../weapon-cooldown-test-results.json'),JSON.stringify(snapshot,null,2)+'\n');
 console.table(fpsRows);console.log('PASS: all cooldown, reload-overlap, switching, trigger, input-response, ammo, projectile and pause tests.');
+
+for(let rarity=0;rarity<5;rarity++){
+ prepare('Pump Shotgun',2);run('player.x=5000;player.y=5000;player.inventory[1].rarity='+rarity+';bots=[{id:"pump-target",x:5100,y:5000,hp:500,shield:0,r:26,phase:"ground"}];player.angle=0;shoot(player,0,false,0)');
+ approx(run('bullets.reduce((sum,q)=>sum+q.damage,0)'),90+rarity*5,'Full pump damage');run('combatTimeMs=200;islandStepBullets(.2,0)');approx(run('500-bots[0].hp'),90+rarity*5,'Actual landed full pump');assert(run('bots[0].x>5150'),'Full pump did not knock back');
+ prepare('Pump Shotgun',2);run('player.x=5000;player.y=5000;player.inventory[1].rarity='+rarity+';bots=[{id:"partial-target",x:5100,y:5000,hp:500,shield:0,r:26,phase:"ground"}];shoot(player,0,false,0);bullets.pop();combatTimeMs=200;islandStepBullets(.2,0)');approx(run('500-bots[0].hp'),(90+rarity*5)*4/5,'Partial pump damage');approx(run('bots[0].x'),5100,'Partial hit incorrectly knocked back');
+}
+console.log('PASS full Pump damage 90/95/100/105/110, partial pellet damage, and head-on knockback in actual client.');
+
+prepare('Pump Shotgun',2);run('player.x=5000;player.y=5000;bots=[{id:"shield-target",x:5100,y:5000,hp:500,shield:10,r:26,phase:"ground"}];shoot(player,0,false,0);combatTimeMs=200;islandStepBullets(.2,0)');assert.equal(run('bots[0].shield'),0);approx(run('bots[0].hp'),420);assert.equal(run('islandDamageNumbers.length'),1);approx(run('islandDamageNumbers[0].hp'),80);approx(run('islandDamageNumbers[0].shield'),10);run('newGame()');assert(run('bots.every(b=>b.shield===10)'));console.log('PASS offline bots spawn with 10 shield, shield absorbs damage first, and pump pellets merge into accurate health/shield numbers.');

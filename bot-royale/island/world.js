@@ -1,6 +1,6 @@
 (function(root,factory){const api=factory(typeof module==="object"&&module.exports?require("./buildings.js"):root.IslandBuildings);if(typeof module==='object'&&module.exports)module.exports=api;else root.IslandCore=api})(typeof globalThis!=='undefined'?globalThis:this,function(Buildings){
 'use strict';
-const SIZE=6000,MAP_SCALE=Math.sqrt(10),PLAYER_RADIUS=26,CELL=160,PLAYER_SPEED=307.5,PARACHUTE_SPEED=492,DROP_SECONDS=5,GROUND_GUN_COUNT=16;
+const SIZE=6000,MAP_SCALE=Math.sqrt(10),PLAYER_RADIUS=26,CELL=160,PLAYER_SPEED=307.5,PARACHUTE_SPEED=492,DROP_SECONDS=10,GROUND_GUN_COUNT=16;
 const LOCATIONS=[
 {id:'verdant',name:'Verdant Village',x:1160,y:1220,kind:'residential',color:'#91ca78',risk:'medium'},
 {id:'copper',name:'Copper Yard',x:4540,y:1110,kind:'industrial',color:'#b2a087',risk:'high'},
@@ -186,6 +186,9 @@ function buildWorld(seed=1){
  if(groundGunCount!==GROUND_GUN_COUNT)throw Error('Not enough sparse ground-loot locations');
  s.zone=createZone(s,random);s.random=random;return s;
 }
+const PUMP_FULL_HIT_DAMAGE=Object.freeze([90,95,100,105,110]),pumpPelletGroups=new WeakMap();
+function configurePumpShot(pellets,rarity,angle){const group={count:pellets.length,hits:new Map(),dx:Math.cos(angle),dy:Math.sin(angle)};for(const pellet of pellets){pellet.damage=PUMP_FULL_HIT_DAMAGE[clamp(rarity||0,0,4)]/pellets.length;pumpPelletGroups.set(pellet,group)}}
+function applyPumpHit(s,pellet,target){const group=pumpPelletGroups.get(pellet);if(!group)return false;const count=(group.hits.get(target)||0)+1;group.hits.set(target,count);if(count!==group.count)return false;moveActor(s,target,group.dx,group.dy,.12,480);return true}
 function solidHit(o,x,y,r){return o.shape==='circle'?Math.hypot(x-o.x,y-o.y)<r+o.r-.001:o.shape==='segment'?pointSegment(x,y,o.ax,o.ay,o.bx,o.by)<r+o.r-.001:circleRect(x,y,r,o)}
 function segmentHitCapsule(ax,ay,bx,by,o,pad=0){
  const angle=Math.atan2(o.by-o.ay,o.bx-o.ax),c=Math.cos(angle),sn=Math.sin(angle),rot=(x,y)=>({x:(x-o.ax)*c+(y-o.ay)*sn,y:-(x-o.ax)*sn+(y-o.ay)*c}),a=rot(ax,ay),b=rot(bx,by),len=Math.hypot(o.bx-o.ax,o.by-o.ay),r=o.r+pad;
@@ -241,7 +244,8 @@ function moveActor(s,a,dx,dy,dt,speed=a.speed||205){
 function segmentHitRect(ax,ay,bx,by,o,pad=0){let lo=0,hi=1;for(const [p,d,min,max]of [[ax,bx-ax,o.x-pad,o.x+o.w+pad],[ay,by-ay,o.y-pad,o.y+o.h+pad]]){if(Math.abs(d)<1e-10){if(p<min||p>max)return null}else{let t1=(min-p)/d,t2=(max-p)/d;if(t1>t2)[t1,t2]=[t2,t1];lo=Math.max(lo,t1);hi=Math.min(hi,t2);if(lo>hi)return null}}return lo}
 function segmentHitCircle(ax,ay,bx,by,o,pad=0){const dx=bx-ax,dy=by-ay,fx=ax-o.x,fy=ay-o.y,r=o.r+pad,A=dx*dx+dy*dy,C=fx*fx+fy*fy-r*r;if(C<=0)return 0;if(A===0)return null;const B=2*(fx*dx+fy*dy),D=B*B-4*A*C;if(D<0)return null;const t=(-B-Math.sqrt(D))/(2*A);return t>=0&&t<=1?t:null}
 function raycast(s,ax,ay,bx,by,pad=1,ignore=null){let best=null;for(const o of s.index.query(Math.min(ax,bx)-pad,Math.min(ay,by)-pad,Math.abs(bx-ax)+pad*2,Math.abs(by-ay)+pad*2)){if(o.destroyed||!o.blocksShots||o.kind==='door'&&o.open||o.lootContainer&&o.open||ignore&&ignore(o))continue;const t=o.shape==='circle'?segmentHitCircle(ax,ay,bx,by,o,pad):o.shape==='segment'?segmentHitCapsule(ax,ay,bx,by,o,pad):segmentHitRect(ax,ay,bx,by,o,pad);if(t!==null&&(!best||t<best.t))best={object:o,t}}return best}
-function buildingAt(s,a){return s.buildings.find(b=>a.x>b.x+12&&a.x<b.x+b.w-12&&a.y>b.y+12&&a.y<b.y+b.h-12&&(!b.outline||pointPolygon(a.x,a.y,b.outline)))||null}
+const buildingLookups=new WeakMap();
+function buildingAt(s,a){if(!s.buildings.length)return null;let entry=buildingLookups.get(s);if(!entry||entry.list!==s.buildings||entry.count!==s.buildings.length){entry={list:s.buildings,count:s.buildings.length,index:new SpatialIndex(s.buildings)};buildingLookups.set(s,entry)}return entry.index.query(a.x,a.y,0,0).find(b=>a.x>b.x+12&&a.x<b.x+b.w-12&&a.y>b.y+12&&a.y<b.y+b.h-12&&(!b.outline||pointPolygon(a.x,a.y,b.outline)))||null}
 function bushAt(s,a){return s.index.query(a.x-1,a.y-1,2,2).find(b=>b.kind==='bush'&&Math.hypot(a.x-b.x,a.y-b.y)<(b.hideRadius??b.r*.83))||null}
 function apertureDistance(o,p){return o.shape==='segment'?pointSegment(p.x,p.y,o.ax,o.ay,o.bx,o.by):o.hingeX!==undefined?pointSegment(p.x,p.y,o.hingeX,o.hingeY,o.hingeX+Math.cos(o.closedAngle)*o.length,o.hingeY+Math.sin(o.closedAngle)*o.length):hyp(p,{x:o.x+o.w/2,y:o.y+o.h/2})}
 function canViewInterior(s,b,viewer){
@@ -254,7 +258,7 @@ function canViewInterior(s,b,viewer){
 // Signed distance from the closed panel determines the push direction on every orientation.
 function doorSwingAway(d,opener){const tx=Math.cos(d.closedAngle),ty=Math.sin(d.closedAngle),side=tx*(opener.y-d.hingeY)-ty*(opener.x-d.hingeX);return Math.abs(side)<1e-7?(d.swing||1):side>0?-1:1}
 function doorPose(d,time){const angle=d.closedAngle+doorAngleAt(d,time);return{hingeX:d.hingeX,hingeY:d.hingeY,angle,tipX:d.hingeX+Math.cos(angle)*d.length,tipY:d.hingeY+Math.sin(angle)*d.length}}
-function doorAngleAt(d,time){const target=d.open?(d.swing||1)*Math.PI/2:0,t=clamp((time-d.changedAt)/.015,0,1),f=t*t*(3-2*t);return(d.turnFrom??(d.open?0:(d.swing||1)*Math.PI/2))*(1-f)+target*f}
+function doorAngleAt(d,time){const target=d.open?(d.swing||1)*Math.PI/2:0,t=clamp((time-d.changedAt)/.09,0,1),f=t*t*(3-2*t);return(d.turnFrom??(d.open?0:(d.swing||1)*Math.PI/2))*(1-f)+target*f}
 function canSee(s,viewer,target){if(viewer===target||viewer.id&&viewer.id===target.id)return true;if(target.phase&&target.phase!=='ground')return true;const building=buildingAt(s,target);if(building&&!canViewInterior(s,building,viewer))return false;if(target.phase&&target.phase!=='ground')return true;if(hyp(viewer,target)>3200)return false;const bush=bushAt(s,target);if(bush&&s.time>=(target.revealedUntil||0)&&bushAt(s,viewer)?.id!==bush.id)return false;return !raycast(s,viewer.x,viewer.y,target.x,target.y,0,o=>o.kind==='window'||o.kind==='door'&&o.exterior&&building&&apertureDistance(o,viewer)<=52)}
 function doorInteractionDistance(door,a,time){
  if(door.hingeX===undefined)return apertureDistance(door,a);
@@ -324,7 +328,7 @@ function advanceZone(s,dt,actors=[]){
 function zoneCountdown(s){const z=s.zone;if(z.mode==='finished')return 0;const c=ZONE_PHASES[z.phase];return Math.max(0,Math.ceil((z.mode==='prepare'?c.prepare:c.shrink)-z.elapsed))}
 function planeRoute(seed){const r=rng(seed^0xabc143),edge=Math.floor(r()*4),offset=650+r()*4700,end=650+r()*4700,a=edge===0?{x:160,y:offset}:edge===1?{x:5840,y:offset}:edge===2?{x:offset,y:160}:{x:offset,y:5840},b=edge===0?{x:5840,y:end}:edge===1?{x:160,y:end}:edge===2?{x:end,y:5840}:{x:end,y:160};a.x*=MAP_SCALE;a.y*=MAP_SCALE;b.x*=MAP_SCALE;b.y*=MAP_SCALE;return{start:a,end:b,angle:Math.atan2(b.y-a.y,b.x-a.x),duration:hyp(a,b)/(220*MAP_SCALE)}}
 function planePosition(route,time){const f=clamp(time/route.duration,0,1);return{x:route.start.x+(route.end.x-route.start.x)*f,y:route.start.y+(route.end.y-route.start.y)*f}}
-return{SIZE:SIZE*MAP_SCALE,MAP_SCALE,PLAYER_RADIUS,PLAYER_SPEED,PARACHUTE_SPEED,DROP_SECONDS,GROUND_GUN_COUNT,solidHit,LOCATIONS:LOCATIONS.map(l=>({...l,x:l.x*MAP_SCALE,y:l.y*MAP_SCALE})),ZONE_PHASES,COAST:COAST.map(([x,y])=>[x*MAP_SCALE,y*MAP_SCALE]),SpatialIndex,rng,clamp,hyp,pointSegment,circleRect,buildWorld,playable,isWater,blocked,findValid,resolveActorOverlap,moveActor,raycast,segmentHitCircle,buildingAt,bushAt,apertureDistance,canViewInterior,doorSwingAway,doorPose,doorAngleAt,doorInteractionDistance,canSee,interactDoor,interactionTarget,openContainer,damageObject,advanceZone,zoneCountdown,planeRoute,planePosition,bounds};
+return{SIZE:SIZE*MAP_SCALE,MAP_SCALE,PLAYER_RADIUS,PLAYER_SPEED,PARACHUTE_SPEED,DROP_SECONDS,GROUND_GUN_COUNT,PUMP_FULL_HIT_DAMAGE,configurePumpShot,applyPumpHit,solidHit,LOCATIONS:LOCATIONS.map(l=>({...l,x:l.x*MAP_SCALE,y:l.y*MAP_SCALE})),ZONE_PHASES,COAST:COAST.map(([x,y])=>[x*MAP_SCALE,y*MAP_SCALE]),SpatialIndex,rng,clamp,hyp,pointSegment,circleRect,buildWorld,playable,isWater,blocked,findValid,resolveActorOverlap,moveActor,raycast,segmentHitCircle,buildingAt,bushAt,apertureDistance,canViewInterior,doorSwingAway,doorPose,doorAngleAt,doorInteractionDistance,canSee,interactDoor,interactionTarget,openContainer,damageObject,advanceZone,zoneCountdown,planeRoute,planePosition,bounds};
 });
 
 

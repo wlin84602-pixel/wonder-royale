@@ -79,9 +79,9 @@ async function until(fn,message,timeout=3500){const started=Date.now();while(!fn
  const deadline=gun.nextFireAtMs;p.slot=2;p.inventory[2]=session.gun(2);p.slot=1;assert.equal(gun.nextFireAtMs,deadline);assert(!session.fire(p,2151));
  // Server-owned deployment and diagonal speed normalization.
  const flight=new Session(55,rules,{bots:0}),jumper=flight.join('Drop test');assert.equal(jumper.phase,'plane');
- assert(flight.action(jumper.id,{kind:'jump',seq:0}).ok);assert.equal(jumper.phase,'parachute');assert(flight.action(jumper.id,{kind:'jump',seq:1}).ok);assert(jumper.dropFast);
+ assert(flight.action(jumper.id,{kind:'jump',seq:0}).ok);assert.equal(jumper.phase,'parachute');assert(flight.action(jumper.id,{kind:'jump',seq:1}).ok);assert(!jumper.dropFast);
  Object.assign(jumper,{x:3000,y:3000});flight.input(jumper.id,{seq:0,dx:1,dy:1,aim:0,fire:false,slot:0});flight.step(1);assert(Math.abs(Math.hypot(jumper.x-3000,jumper.y-3000)-C.PARACHUTE_SPEED)<1e-6);
- for(let i=0;i<4;i++)flight.step(1);assert.equal(jumper.phase,'ground');assert(!C.blocked(flight.world,jumper.x,jumper.y,26));assert(!C.buildingAt(flight.world,jumper));assert(!flight.action(jumper.id,{kind:'jump',seq:2}).ok);
+ for(let i=0;i<18;i++){flight.input(jumper.id,{seq:i+1,dx:0,dy:0,aim:0,fire:false,dive:true,slot:0});flight.step(.25)}assert.equal(jumper.phase,'ground');assert(!C.blocked(flight.world,jumper.x,jumper.y,26));assert(!C.buildingAt(flight.world,jumper));assert(!flight.action(jumper.id,{kind:'jump',seq:2}).ok);
  console.log('PASS: authoritative jump, fast descent, normalized gliding and valid landing.');
 
  console.log('PASS: server timestamps, separate reload/fire deadlines, and switching guards.');

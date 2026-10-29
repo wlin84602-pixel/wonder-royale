@@ -18,31 +18,31 @@
  // Grip anchors are measured in each cropped artwork, not in the atlas cell.
  // Diagonal legacy blades and upright energy weapons have different handles.
  const meleeProfiles=[
-  {length:51,grip:[0.76,0.78],angle:3.66,forward:10,side:30},
-  {length:54,grip:[0.84,0.65],angle:3.70,forward:9,side:30},
-  {length:63,grip:[0.79,0.8],angle:3.64,forward:7,side:31},
-  {length:60,grip:[0.85,0.75],angle:3.67,forward:9,side:30},
-  {length:51,grip:[0.77,0.8],angle:3.66,forward:10,side:30},
-  {length:61,grip:[0.78,0.8],angle:3.63,forward:7,side:31},
-  {length:57,grip:[0.85,0.75],angle:3.69,forward:9,side:30},
-  {length:59,grip:[0.85,0.64],supportGrip:[0.57,0.81],angle:3.65,forward:8,side:31},
-  {length:53,grip:[0.78,0.8],angle:3.67,forward:10,side:30},
-  {length:57,grip:[0.82,0.8],angle:3.67,forward:9,side:30},
-  {length:66,grip:[0.5,0.8],angle:2.70,forward:8,side:31},
-  {length:63,grip:[0.5,0.8],angle:2.73,forward:9,side:31},
-  {length:72,grip:[0.35,0.81],angle:2.77,forward:7,side:32},
-  {length:73,grip:[0.5,0.82],angle:2.68,forward:7,side:31},
-  {length:63,grip:[0.5,0.8],angle:2.74,forward:9,side:31},
-  {length:66,grip:[0.5,0.81],angle:2.69,forward:8,side:31},
-  {length:70,grip:[0.5,0.82],angle:2.67,forward:7,side:31},
-  {length:64,grip:[0.5,0.8],angle:2.76,forward:8,side:32},
-  {length:64,grip:[0.5,0.8],angle:2.74,forward:8,side:31},
-  {length:65,grip:[0.5,0.8],angle:2.72,forward:8,side:31},
-  {length:66,grip:[0.5,0.8],angle:2.71,forward:8,side:31},
-  {length:68,grip:[0.5,0.81],angle:2.76,forward:7,side:32}
+  {length:60,grip:[0.76,0.78],angle:3.66,forward:10,side:30},
+  {length:64,grip:[0.84,0.65],angle:3.70,forward:9,side:30},
+  {length:74,grip:[0.79,0.8],angle:3.64,forward:7,side:31},
+  {length:71,grip:[0.85,0.75],angle:3.67,forward:9,side:30},
+  {length:60,grip:[0.77,0.8],angle:3.66,forward:10,side:30},
+  {length:72,grip:[0.78,0.8],angle:3.63,forward:7,side:31},
+  {length:67,grip:[0.85,0.75],angle:3.69,forward:9,side:30},
+  {length:70,grip:[0.85,0.64],supportGrip:[0.57,0.81],angle:3.65,forward:8,side:31},
+  {length:63,grip:[0.78,0.8],angle:3.67,forward:10,side:30},
+  {length:67,grip:[0.82,0.8],angle:3.67,forward:9,side:30},
+  {length:78,grip:[0.5,0.8],angle:2.70,forward:8,side:31},
+  {length:74,grip:[0.5,0.8],angle:2.73,forward:9,side:31},
+  {length:85,grip:[0.35,0.81],angle:2.77,forward:7,side:32},
+  {length:86,grip:[0.5,0.82],angle:2.68,forward:7,side:31},
+  {length:74,grip:[0.5,0.8],angle:2.74,forward:9,side:31},
+  {length:78,grip:[0.5,0.81],angle:2.69,forward:8,side:31},
+  {length:83,grip:[0.5,0.82],angle:2.67,forward:7,side:31},
+  {length:76,grip:[0.5,0.8],angle:2.76,forward:8,side:32},
+  {length:76,grip:[0.5,0.8],angle:2.74,forward:8,side:31},
+  {length:77,grip:[0.5,0.8],angle:2.72,forward:8,side:31},
+  {length:78,grip:[0.5,0.8],angle:2.71,forward:8,side:31},
+  {length:80,grip:[0.5,0.81],angle:2.76,forward:7,side:32}
  ];
  // Some outfits already include ears, shoulder pods or fins. They remain one skin
- // layer; no extra body, arms, backpack or mirrored wing copies are synthesized.
+ // layer; the shared tan fists are rendered separately without duplicating outfit details.
  const bodyProfiles=[
   {rear:0,hand:0},{rear:1,hand:0},{rear:0,hand:0},{rear:0,hand:1},{rear:0,hand:0},
   {rear:1,hand:0},{rear:0,hand:0},{rear:0,hand:0},{rear:0,hand:1},
@@ -74,28 +74,43 @@
   const b=bounds(art);if(!b)return null;const p=packProfiles[index];if(!p)return null;
   return {art,b,width:p.width,height:b.h*p.width/b.w,angle:Math.PI/2,x:-p.rear-bodyInfo.profile.rear,y:p.side};
  }
+ const gripCache=new WeakMap();
+ function gripPair(art,b,p,index){
+  if(gripCache.has(art))return gripCache.get(art);let pixels;
+  try{pixels=art.getContext('2d').getImageData(0,0,art.width,art.height).data}catch{}
+  function visible(anchor){if(!pixels)return anchor;const cx=b.x+anchor[0]*b.w,cy=b.y+anchor[1]*b.h,r=Math.max(3,Math.ceil(Math.max(b.w,b.h)*.07));let best=Infinity,result=anchor;
+   for(let yy=Math.max(b.y,Math.floor(cy-r));yy<=Math.min(b.y+b.h-1,cy+r);yy++)for(let xx=Math.max(b.x,Math.floor(cx-r));xx<=Math.min(b.x+b.w-1,cx+r);xx++){const distance=(xx-cx)**2+(yy-cy)**2;if(pixels[(yy*art.width+xx)*4+3]>100&&distance<best){best=distance;result=[(xx-b.x)/b.w,(yy-b.y)/b.h]}}return result
+  }
+  const pair=p.supportGrip?{grip:p.grip,supportGrip:p.supportGrip}:index<10?{grip:visible([Math.min(.98,p.grip[0]+.08),Math.min(.97,p.grip[1]+.08)]),supportGrip:p.grip}:{grip:visible([p.grip[0],.94]),supportGrip:visible([p.grip[0],index===13||index===16?.76:.56])};gripCache.set(art,pair);return pair
+ }
  function melee(art,index,bodyInfo,swing=0){
   const b=bounds(art);if(!b)return null;const p=meleeProfiles[index];if(!p)return null;
-  const f=p.length/Math.max(b.w,b.h),arc=swing>0?-Math.sin(Math.min(1,Math.max(0,1-swing/.18))*Math.PI)*.8:0;
-  return {art,b,width:b.w*f,height:b.h*f,x:p.forward+bodyInfo.profile.hand,y:p.side,angle:p.angle+arc,grip:p.grip,supportGrip:p.supportGrip};
+  const grips=gripPair(art,b,p,index),f=p.length/Math.max(b.w,b.h),arc=swing>0?-Math.sin(Math.min(1,Math.max(0,1-swing/.18))*Math.PI)*.8:0;
+  return {art,b,width:b.w*f,height:b.h*f,x:(index===12?40:35)+bodyInfo.profile.hand,y:-16,angle:(index<10?3.93:Math.PI)+arc,grip:grips.grip,supportGrip:grips.supportGrip};
  }
  function sprite(ctx,info,anchor=[.5,.5]){
   const {art,b,width,height}=info;ctx.drawImage(art,b.x,b.y,b.w,b.h,-width*anchor[0],-height*anchor[1],width,height);
  }
  function drawPack(ctx,info){if(!info)return;ctx.save();ctx.translate(info.x,info.y);ctx.rotate(info.angle);sprite(ctx,info);ctx.restore()}
  function drawBody(ctx,info){if(!info.art||!info.b)return false;ctx.save();ctx.rotate(Math.PI/2);sprite(ctx,info);ctx.restore();return true}
- function drawMelee(ctx,info,color='#d7dfcb'){
+ const HAND_COLOR='#d4a463',HAND_OUTLINE='#30302e';
+ function fist(ctx,x,y,r=8){ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fillStyle=HAND_COLOR;ctx.strokeStyle=HAND_OUTLINE;ctx.lineWidth=3.5;ctx.fill();ctx.stroke()}
+ function drawFists(ctx,bodyInfo,swing=0){const punch=swing>0?Math.sin((1-swing/.18)*Math.PI)*9:0;ctx.save();fist(ctx,25+punch,-23,9);fist(ctx,25,23,9);ctx.restore()}
+ function drawGunHands(ctx,bodyInfo,type=0){const mouth=bodyInfo.mouth;ctx.save();if(type===2){fist(ctx,mouth+6,-7,8);fist(ctx,mouth+35,6,7.5)}else{fist(ctx,mouth+4,9,8);fist(ctx,mouth+(type===0?15:23),-7,7.5)}ctx.restore()}
+ function drawMelee(ctx,info){
   if(!info)return false;
-  const glove=color==='transparent'?'#bca255':color,hands=[{x:info.x,y:info.y}];
-  if(info.supportGrip){const dx=(info.supportGrip[0]-info.grip[0])*info.width,dy=(info.supportGrip[1]-info.grip[1])*info.height,c=Math.cos(info.angle),s=Math.sin(info.angle);hands.push({x:info.x+c*dx-s*dy,y:info.y+s*dx+c*dy})}
+  const c=Math.cos(info.angle),s=Math.sin(info.angle),dx=(info.supportGrip[0]-info.grip[0])*info.width,dy=(info.supportGrip[1]-info.grip[1])*info.height,sx=c*dx-s*dy,sy=s*dx+c*dy,length=Math.hypot(sx,sy)||1,nx=-sy/length,ny=sx/length;
+  const hands=[{x:info.x+nx*6.5,y:info.y+ny*6.5},{x:info.x+sx-nx*6.5,y:info.y+sy-ny*6.5}];
+  // Short, rounded forearms emerge from the body and remain connected to each grip
+  // while the weapon pivots through its attack arc. The handle artwork draws above them.
+  const bodyRadius=38;
   ctx.save();ctx.lineCap='round';
-  // Arm roots stay inside the near shoulder; hands meet the visible handles.
-  for(const hand of hands){ctx.strokeStyle='#243b35';ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(hand.x-4,hand.y-9);ctx.lineTo(hand.x,hand.y);ctx.stroke();ctx.strokeStyle=glove;ctx.lineWidth=2.8;ctx.stroke()}
-  // The actual handle is the pivot for the entire weapon throughout the swing.
+  for(const hand of hands){const d=Math.hypot(hand.x,hand.y);if(d>bodyRadius*.94){const start=bodyRadius*.94/d;ctx.beginPath();ctx.moveTo(hand.x*start,hand.y*start);ctx.lineTo(hand.x,hand.y);ctx.strokeStyle=HAND_OUTLINE;ctx.lineWidth=10;ctx.stroke();ctx.beginPath();ctx.moveTo(hand.x*start,hand.y*start);ctx.lineTo(hand.x,hand.y);ctx.strokeStyle=HAND_COLOR;ctx.lineWidth=6;ctx.stroke()}}
+  ctx.restore();
   ctx.save();ctx.translate(info.x,info.y);ctx.rotate(info.angle);sprite(ctx,info,info.grip);ctx.restore();
-  // Fingers wrap over the shaft; paired artwork has a grip for each handle.
-  for(const hand of hands){ctx.save();ctx.translate(hand.x,hand.y);ctx.rotate(info.angle);ctx.fillStyle=glove;ctx.strokeStyle='#243b35';ctx.lineWidth=1.1;ctx.beginPath();ctx.roundRect(-3.6,-2.5,7.2,5,2);ctx.fill();ctx.stroke();ctx.restore()}
-  ctx.restore();return true;
+  // Both round fists wrap opposite sides of the extended visual grip and remain
+  // anchored to the body by the forearms during movement and swings.
+  ctx.save();fist(ctx,hands[0].x,hands[0].y,8);fist(ctx,hands[1].x,hands[1].y,8);ctx.restore();return true
  }
- return Object.freeze({bounds,body,pack,melee,drawPack,drawBody,drawMelee,packProfiles,meleeProfiles,bodyProfiles});
+ return Object.freeze({bounds,body,pack,melee,drawPack,drawBody,drawMelee,drawFists,drawGunHands,HAND_COLOR,packProfiles,meleeProfiles,bodyProfiles});
 });

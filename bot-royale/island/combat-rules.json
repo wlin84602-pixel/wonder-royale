@@ -9,18 +9,18 @@
       "color": "#d4ded8"
     },
     {
-      "name": "ASSAULT RIFLE",
+      "name": "AK BURST",
       "clip": 30,
-      "damage": 18,
-      "rate": 0.12,
+      "damage": 13,
+      "rate": 0.065,
       "speed": 850,
       "color": "#76c6ff"
     },
     {
-      "name": "SHOTGUN",
+      "name": "Pump Shotgun",
       "clip": 5,
       "damage": 12,
-      "rate": 0.65,
+      "rate": 0.85,
       "speed": 630,
       "color": "#bb8bf3"
     },
@@ -34,7 +34,7 @@
     }
   ],
   "cooldowns": {
-    "Pump Shotgun": 1000,
+    "Pump Shotgun": 850,
     "Assault Shotgun": 333,
     "Bolt-Action Sniper": 1000,
     "Semi-Auto Sniper": 500,
@@ -49,7 +49,7 @@
   },
   "profiles": [
     "Pistol",
-    "M4 Assault Rifle",
+    "AK-Style Rifle",
     "Pump Shotgun",
     "Bolt-Action Sniper"
   ],

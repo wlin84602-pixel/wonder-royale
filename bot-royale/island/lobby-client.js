@@ -4,8 +4,9 @@ const previousApply=islandApplySnapshot,previousOnlineUpdate=islandOnlineUpdate,
 const lobbyHUD=$('#waiting-lobby'),roomInput=$('#lobby-room-input'),startButton=$('#lobby-start-match'),status=$('#lobby-status');
 const params=typeof URLSearchParams!=='undefined'?new URLSearchParams(typeof location!=='undefined'?location.search:''):{get(){return null}};
 roomInput.value=params.get('room')||'main';islandNetwork.room=roomInput.value;
-function setWaiting(on){document.body?.classList?.toggle('waiting-room',on);lobbyHUD.style.display=on?'block':'none'}
-function lobbyCamera(){const S=IslandLobby.SIZE;if(islandNetwork.lobbyOverview){cameraX=cameraY=S/2;cameraZoom=Math.min(innerWidth/(S+260),innerHeight/(S+260));return}cameraZoom=Math.max(innerWidth/(S+100),innerHeight/(S+100),innerWidth<700?.7:.85);const w=innerWidth/(2*cameraZoom),h=innerHeight/(2*cameraZoom);let fx=player.x,fy=player.y;const roomy=innerWidth/cameraZoom>=1150&&innerHeight/cameraZoom>=760;if(IslandLobby.inRange(player))fy-=170;else if(roomy&&player.x>2740&&player.x<3900&&player.y>2780&&player.y<3740){fx=3300;fy=3250}else if(roomy&&player.x>770&&player.x<1770&&player.y>800&&player.y<1770){fx=1260;fy=1290}cameraX=Island.clamp(fx,w,S-w);cameraY=Island.clamp(fy,h,S-h)}
+function setWaiting(on){if(!on)globalThis.islandCloseLobbyChat?.();document.body?.classList?.toggle('waiting-room',on);lobbyHUD.style.display=on?'block':'none'}
+function lobbyCamera(){const S=IslandLobby.SIZE;if(islandNetwork.lobbyOverview){cameraX=cameraY=S/2;cameraZoom=Math.min(innerWidth/(S+80),innerHeight/(S+80));return}cameraZoom=Math.max(innerWidth/(S+80),innerHeight/(S+80),innerWidth<700?.65:.8);const w=innerWidth/(2*cameraZoom),h=innerHeight/(2*cameraZoom);cameraX=innerWidth/cameraZoom>=S?S/2:Island.clamp(player.x,w,S-w);cameraY=innerHeight/cameraZoom>=S?S/2:Island.clamp(player.y,h,S-h)}
+
 function lobbyUI(snapshot){const host=snapshot.hostId===player.id,hostName=snapshot.roster.find(p=>p.id===snapshot.hostId)?.name||'Host';islandSetText('#lobby-room-title','ROOM · '+snapshot.room);islandSetText('#lobby-player-count',snapshot.alive+' / 25 PLAYERS');status.textContent=host?'You are the host. Start whenever you are ready.':'Waiting for '+hostName+' to start the match.';startButton.disabled=!host;startButton.textContent=host?'START MATCH →':'WAITING FOR HOST';const rosterKey=JSON.stringify(snapshot.roster)+'|'+snapshot.hostId+'|'+player.id;if(islandNetwork.rosterKey!==rosterKey){islandNetwork.rosterKey=rosterKey;$('#lobby-roster').innerHTML=snapshot.roster.map(p=>'<li><span>'+htmlText(p.name)+(p.id===player.id?' (you)':'')+'</span><b>'+(p.id===snapshot.hostId?'HOST':'READY')+'</b></li>').join('')}const u=new URL(typeof location!=='undefined'&&/^https?:/.test(location.protocol)?location.href:'https://bot-royale-production.up.railway.app/');u.search='';u.searchParams.set('room',snapshot.room);$('#lobby-invite-link').value=u.href}
 islandApplySnapshot=function(snapshot){if(snapshot?.matchState==='waiting'){
  const net=islandNetwork;if(net.last&&snapshot.tick<=net.last.tick)return;if(snapshot.seed!==islandState?.seed)initializeIsland(snapshot.seed);const first=!net.inLobby,before=player?{x:player.x,y:player.y}:null;net.inLobby=true;net.lobbyWorld=net.lobbyWorld||IslandLobby.create(snapshot.seed);net.last=snapshot;net.receivedAt=performance.now();Object.assign(net.lobbyWorld,snapshot.lobby);if(first)net.lobbyOverview=false;Object.assign(player,snapshot.self);bots=snapshot.actors;slot=0;selectedItem='weapon';dropPhase='lobby';bullets=[];time=0;kills=0;net.pendingDropCount=0;setWaiting(true);lobbyCamera();lobbyUI(snapshot);if(first)clearInput();return
@@ -18,26 +19,13 @@ draw=function(){
  const objects=s.index.query(view.x-100,view.y-100,view.w+200,view.h+200);for(const o of objects)if(o.kind!=='lobby-fixture')IslandDraw.object(x,o,s.time);
  for(const actor of [...bots,player]){if(actor.x<view.x-100||actor.x>view.x+view.w+100||actor.y<view.y-150||actor.y>view.y+view.h+100)continue;const remaining=Math.max(0,(actor.bounceUntil||0)-s.time),lift=remaining?Math.sin((1-remaining/1.1)*Math.PI)*110:0,dancing=(actor.dancingUntil||0)>s.time;
   if(dancing){x.strokeStyle=['#c595ed','#9fe1d0','#f5ce87'][Math.floor(s.time*3)%3];x.lineWidth=4;x.beginPath();x.arc(actor.x,actor.y,50+Math.sin(s.time*6)*5,0,7);x.stroke()}
-  x.save();x.translate(0,-lift);if(IslandLobby.inRange(actor))drawCharacter({...actor,slot:1,itemKind:'gun',weaponType:0});else if(dancing)drawCharacter({...actor,angle:(actor.angle||0)+Math.sin(s.time*7)*.35,slot:0});else drawCharacter(actor);x.restore();
-  x.font='bold 17px system-ui';x.textAlign='center';const name=(actor.id===islandNetwork.last.hostId?'★ ':'')+(actor.name||'Player');x.lineWidth=5;x.strokeStyle='#214941';x.strokeText(name,actor.x,actor.y+63-lift);x.fillStyle=actor===player?'#fff1b7':'#fff';x.fillText(name,actor.x,actor.y+63-lift);
+  x.save();x.translate(0,-lift);if(IslandLobby.inRange(actor))drawCharacter({...actor,slot:1,itemKind:'gun',weaponType:1});else if(dancing)drawCharacter({...actor,angle:(actor.angle||0)+Math.sin(s.time*7)*.35,slot:0});else drawCharacter(actor);x.restore();
+  x.font='bold 17px system-ui';x.textAlign='center';const name=(actor.id===islandNetwork.last.hostId?'★ ':'')+(actor.name||'Player');x.lineWidth=5;x.strokeStyle='#214941';x.strokeText(name,actor.x,actor.y+63-lift);x.fillStyle=actor===player?'#fff1b7':'#fff';x.fillText(name,actor.x,actor.y+63-lift);islandDrawLobbyBubble(x,actor,s.time,cameraZoom,lift);
  }IslandDraw.canopies(x,objects,player);x.restore();
  const mini=$('#lobby-island-map');if(mini.width!==180)mini.width=180;if(mini.height!==180)mini.height=180;IslandLobbyRender.mini(mini.getContext('2d'),s,[...bots,player].map(p=>({...p,local:p===player})),view);lobbyActivityUI();
 };
-function lobbyActivityUI(){
- const s=islandNetwork.lobbyWorld,key=keyLabel(bindings.interact);let hint='Walk around or choose an activity to travel there.',at=IslandLobby.nearest(player);
- if(IslandLobby.inRange(player))hint=keyLabel(bindings.fire)+' · Shoot targets · '+(player.arcadeHits||0)+((player.arcadeHits||0)===1?' hit':' hits');
- else if(Math.hypot(player.x-s.ball.x,player.y-s.ball.y)<95)hint=key+' · Kick the ball · Aim with your mouse';
- else if(at==='race')hint=key+' · Start / restart your timed lap';
- else if(at==='dance')hint=key+' · Dance for 8 seconds';
- else if(at==='bounce')hint=key+' · Bounce';
- else if(at==='fountain')hint=key+' · Fountain confetti';
- if(player.raceStart!=null)hint='LAP '+Math.max(0,s.time-player.raceStart).toFixed(1)+'s · Next checkpoint '+(player.raceNext===0?'FINISH':player.raceNext);
- islandSetText('#lobby-activity-hint',hint);
- islandSetText('#lobby-personal-stats','TARGETS '+(player.arcadeHits||0)+'  ·  BEST LAP '+(player.raceBest?player.raceBest.toFixed(1)+'s':'—'));
- islandSetText('#lobby-pitch-score','FOOTBALL  '+s.ball.blue+' : '+s.ball.orange);
- const nearest=IslandLobby.AREAS.reduce((a,b)=>Math.hypot(player.x-a.x,player.y-a.y)<Math.hypot(player.x-b.x,player.y-b.y)?a:b);
- islandSetText('#lobby-current-area',nearest.name);islandSetText('#lobby-map-toggle',islandNetwork.lobbyOverview?'FOLLOW PLAYER':'ISLAND OVERVIEW');
-}
+function lobbyActivityUI(){const s=islandNetwork.lobbyWorld,active=player.arcadeRoundEnd>s.time;islandSetText('#lobby-activity-hint',active?'Aim & fire · '+Math.ceil(player.arcadeRoundEnd-s.time)+'s remaining':IslandLobby.inRange(player)?keyLabel(bindings.interact)+' · Start a 30-second target round · Enter to chat':'Walk onto the arcade deck · Enter to chat');islandSetText('#lobby-personal-stats','SCORE '+(player.arcadeScore||0)+'  ·  BEST '+(player.arcadeBest||0));islandSetText('#lobby-current-area','Target Arcade');islandSetText('#lobby-map-toggle',islandNetwork.lobbyOverview?'FOLLOW PLAYER':'LOBBY OVERVIEW')}
+
 let lobbyLastShot=-100;
 function lobbyShot(){if(!islandNetwork.inLobby||matchMenuOpen||!IslandLobby.inRange(player)||performance.now()-lobbyLastShot<190)return;updatePlayerAim();lobbyLastShot=performance.now();islandSendAction('lobby-shot',{aim:player.angle})}
 function lobbyUse(){if(!islandNetwork.inLobby||matchMenuOpen)return;updatePlayerAim();islandSendAction('lobby-use',{aim:player.angle})}

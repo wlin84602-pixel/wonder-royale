@@ -95,7 +95,7 @@ function buildLegacyWorld(seed=1){
  state.index=new SpatialIndex(state.objects);
  for(const loc of state.locations){
   for(let i=0;i<16;i++){const spot=findValid(state,{x:loc.x-520+random()*1040,y:loc.y-480+random()*960},15);
-   state.loot.push({id:id('loot'),x:spot.x,y:spot.y,type:i%5===0?'med':i%5===1?'shield':i%5===2?'ammo':'gun',weapon:1+Math.floor(random()*3),rarity:Math.floor(random()*(loc.risk==='high'?5:4)),amount:30,taken:false});
+   state.loot.push({id:id('loot'),x:spot.x,y:spot.y,type:i%5===0?'med':i%5===1?'shield':i%5===2?'ammo':'gun',weapon:random()<.5?1:2,rarity:Math.floor(random()*(loc.risk==='high'?5:4)),amount:30,taken:false});
   }
   for(let i=0;i<4;i++){const spot=findValid(state,{x:loc.x-560+random()*1120,y:loc.y-500+random()*1000},24,true,true);state.containers.push({id:id('chest'),x:spot.x,y:spot.y,kind:i===0?'gold':i===1?'ammo':'basic',open:false,hp:60})}
  }
@@ -181,7 +181,7 @@ function buildWorld(seed=1){
   if(plots.query(x-100,y-100,200,200).some(b=>circleRect(x,y,100,b)))continue;
   if(s.index.query(x-140,y-140,280,280).some(o=>o.kind==='tree'&&hyp(o,{x,y})<o.canopy+50||o.kind==='bush'&&hyp(o,{x,y})<o.r+50))continue;
   if(s.loot.some(q=>hyp(q,{x,y})<(q.type==='gun'?1000:60)))continue;
-  s.loot.push({id:id('loot'),x,y,type:'gun',weapon:Math.floor(lootRandom()*4),rarity:groundGunCount%8===7?1:0,taken:false});groundGunCount++;
+  s.loot.push({id:id('loot'),x,y,type:'gun',weapon:lootRandom()<.5?1:2,rarity:groundGunCount%8===7?1:0,taken:false});groundGunCount++;
  }
  if(groundGunCount!==GROUND_GUN_COUNT)throw Error('Not enough sparse ground-loot locations');
  s.zone=createZone(s,random);s.random=random;return s;
@@ -302,7 +302,7 @@ function openContainer(s,c,a,weaponCount=4){
  for(let i=0;i<drops.length;i++){
   const p=findValid(s,{x:c.x+(i-(drops.length-1)/2)*46,y:c.y+(drops.length>1?42:0)},13),q={id:'loot-'+s.nextId++,...p,type:drops[i],amount:drops[i]==='ammo'?45:1,taken:false};
   if(q.type==='ammo')q.ammoFamily=['smg','shotgun','sniper','p90'][Math.floor(random()*4)];
-  if(q.type==='gun'){q.weapon=Math.floor(random()*Math.max(1,weaponCount));const roll=random();q.rarity=c.kind==='ultimate'?4:c.kind==='gold'?(roll<.6?2:roll<.9?3:4):(roll<.6?0:roll<.85?1:roll<.95?2:roll<.99?3:4)}
+  if(q.type==='gun'){q.weapon=random()<.5?1:2;const roll=random();q.rarity=c.kind==='ultimate'?4:c.kind==='gold'?(roll<.6?2:roll<.9?3:4):(roll<.6?0:roll<.85?1:roll<.95?2:roll<.99?3:4)}
   s.loot.push(q);out.push(q);
  }s.events.push({kind:'crate',x:c.x,y:c.y});return out;
 }

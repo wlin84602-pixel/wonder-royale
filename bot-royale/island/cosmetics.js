@@ -92,10 +92,10 @@
   const {art,b,width,height}=info;ctx.drawImage(art,b.x,b.y,b.w,b.h,-width*anchor[0],-height*anchor[1],width,height);
  }
  function drawPack(ctx,info){if(!info)return;ctx.save();ctx.translate(info.x,info.y);ctx.rotate(info.angle);sprite(ctx,info);ctx.restore()}
- function drawBody(ctx,info){if(!info.art||!info.b)return false;ctx.save();ctx.rotate(Math.PI/2);sprite(ctx,info);ctx.restore();return true}
+ function drawBody(ctx,info){if(!info.art||!info.b){ctx.save();const shade=ctx.createRadialGradient(-8,-9,2,0,0,29);shade.addColorStop(0,'#ffda8b');shade.addColorStop(1,'#ffcc73');ctx.beginPath();ctx.arc(0,0,26,0,Math.PI*2);ctx.fillStyle=shade;ctx.fill();ctx.strokeStyle='#2d2d2b';ctx.lineWidth=5;ctx.stroke();ctx.restore();return true;}ctx.save();ctx.rotate(Math.PI/2);sprite(ctx,info);ctx.restore();return true}
  const HAND_COLOR='#d4a463',HAND_OUTLINE='#30302e';
  function fist(ctx,x,y,r=8){ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fillStyle=HAND_COLOR;ctx.strokeStyle=HAND_OUTLINE;ctx.lineWidth=3.5;ctx.fill();ctx.stroke()}
- function drawFists(ctx,bodyInfo,swing=0){const punch=swing>0?Math.sin((1-swing/.18)*Math.PI)*9:0;ctx.save();fist(ctx,25+punch,-23,9);fist(ctx,25,23,9);ctx.restore()}
+ function drawFists(ctx,bodyInfo,swing=0){const punch=swing>0?Math.sin((1-swing/.18)*Math.PI)*9:0;const forward=bodyInfo.art?25:22,side=bodyInfo.art?23:16.5;ctx.save();fist(ctx,forward+(bodyInfo.punchHand===1?0:punch),-side,9);fist(ctx,forward+(bodyInfo.punchHand===1?punch:0),side,9);ctx.restore()}
  function drawGunHands(ctx,bodyInfo,type=0){const mouth=bodyInfo.mouth;ctx.save();if(type===2){fist(ctx,mouth+6,-7,8);fist(ctx,mouth+35,6,7.5)}else{fist(ctx,mouth+4,9,8);fist(ctx,mouth+(type===0?15:23),-7,7.5)}ctx.restore()}
  function drawMelee(ctx,info){
   if(!info)return false;

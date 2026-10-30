@@ -151,10 +151,10 @@ function islandDrawRemote(a){
 }
 draw=function(){
  if(!islandState||!player)return islandOriginal.draw();islandClampCamera();
- x.setTransform(scale,0,0,scale,0,0);x.fillStyle='#4b9bb4';x.fillRect(0,0,innerWidth,innerHeight);
+ x.setTransform(scale,0,0,scale,0,0);x.globalAlpha=1;x.globalCompositeOperation='source-over';x.setLineDash([]);x.fillStyle='#4b9bb4';x.fillRect(0,0,innerWidth,innerHeight);
  const view={x:cameraX-innerWidth/(2*cameraZoom)-120,y:cameraY-innerHeight/(2*cameraZoom)-120,w:innerWidth/cameraZoom+240,h:innerHeight/cameraZoom+240},visible=b=>b.x+b.w>=view.x&&b.x<=view.x+view.w&&b.y+b.h>=view.y&&b.y<=view.y+view.h;let objects=dropPhase==='plane'&&cameraZoom<.16&&IslandDraw.farScene?[]:islandState.index.query(view.x,view.y,view.w,view.h);
  islandRenderCount=objects.length;
- x.save();x.translate(innerWidth/2,innerHeight/2);x.scale(cameraZoom,cameraZoom);x.translate(-cameraX,-cameraY);
+ x.save();x.translate(innerWidth/2,innerHeight/2);x.scale(cameraZoom,cameraZoom);x.translate(-Math.round(cameraX*cameraZoom*scale)/(cameraZoom*scale),-Math.round(cameraY*cameraZoom*scale)/(cameraZoom*scale));
  const far=dropPhase==='plane'&&cameraZoom<.16&&IslandDraw.farScene&&IslandDraw.farScene(x,islandState,view);if(!far&&!objects.length)objects=islandState.index.query(view.x,view.y,view.w,view.h);islandRenderCount=objects.length;
  if(!far){IslandDraw.terrain(x,islandState,view);IslandDraw.floors(x,islandState,visible)}
  const opaque=new Map(islandState.buildings.filter(b=>visible(b)&&b.outline?.length===4&&!Island.canViewInterior(islandState,b,player)).map(b=>[b.id,b]));
@@ -220,7 +220,7 @@ function islandApplySnapshot(snapshot){
  const doorById=new Map(snapshot.doors.map(d=>[d.id,d]));for(const door of islandState.doors){const next=doorById.get(door.id);if(next){const pending=net.doorPredictions?.get(door.id);if(pending&&snapshot.actionSeq<pending.seq)continue;if(pending)net.doorPredictions.delete(door.id);if(door.open!==next.open&&dist(door,player)<500)islandDoorSound(next.open);Object.assign(door,next)}}
  islandSyncWorldSnapshot(islandState,snapshot);
  const keptLoadout=net.loadoutPending&&snapshot.actionSeq<net.loadoutPending.seq?{inventory:player.inventory,ammoWallet:player.ammoWallet,med:player.med,slot}:null;if(net.loadoutPending&&snapshot.actionSeq>=net.loadoutPending.seq)net.loadoutPending=null;
- const pendingSlot=net.pendingSlot&&snapshot.self.sequence<net.pendingSlot.seq?net.pendingSlot.slot:null;if(net.pendingSlot&&snapshot.self.sequence>=net.pendingSlot.seq)net.pendingSlot=null;Object.assign(player,snapshot.self);if(keptLoadout)Object.assign(player,keptLoadout);if(!first&&player.phase==='ground'&&Math.hypot(before.x-player.x,before.y-player.y)<100){player.x=before.x+(player.x-before.x)*.4;player.y=before.y+(player.y-before.y)*.4}
+ const pendingSlot=net.pendingSlot&&snapshot.self.sequence<net.pendingSlot.seq?net.pendingSlot.slot:null;if(net.pendingSlot&&snapshot.self.sequence>=net.pendingSlot.seq)net.pendingSlot=null;Object.assign(player,snapshot.self);if(keptLoadout)Object.assign(player,keptLoadout);
  if(selectedItem==='medkit'&&player.med===0){selectedItem='weapon';keys[bindings.fire]=false;mouse.down=false}player.r=26;dropPhase=player.phase;if(priorDropPhase!=='ground'&&dropPhase==='ground')clearDropActionInput();dropRemaining=player.dropRemaining||0;dropFast=dropPhase==='parachute'&&!!keys[' '];planeElapsed=snapshot.time;planeRoute=snapshot.plane.route;slot=keptLoadout?keptLoadout.slot:pendingSlot===null?player.slot:pendingSlot;selectedItem=IslandInventory.isMed(player.inventory[slot])?'medkit':'weapon';
  bots=snapshot.actors;bullets=snapshot.bullets;loot=snapshot.loot;islandState.loot=loot;kills=player.kills||0;time=snapshot.time;storm=snapshot.zone.current.r;
  if(first){cameraX=player.x;cameraY=player.y;cameraZoom=islandFlightZoom()}
@@ -229,7 +229,7 @@ function islandApplySnapshot(snapshot){
 }
 function islandOnlineUpdate(dt){
  const net=islandNetwork;if(!net.ready||!net.last){islandClampCamera();return}
- islandState.time=net.last.time+Math.min(.2,(performance.now()-net.receivedAt)/1000);player.phase=dropPhase;
+ islandState.time=Math.max(islandState.time,net.last.time+Math.min(.2,(performance.now()-net.receivedAt)/1000));player.phase=dropPhase;
  updatePlayerAim();const fresh=performance.now()-net.receivedAt<1000;if(!fresh){$('#island-network-state').textContent='CONNECTION LOST · RETRYING';return}
  const movement=islandMapOpen||matchMenuOpen?{dx:0,dy:0}:movementVector();
  if(dropPhase==='ground')Island.moveActor(islandState,player,movement.dx,movement.dy,dt,player.speed);
@@ -239,7 +239,7 @@ function islandOnlineUpdate(dt){
  if(net.previous){const f=Math.min(1,(performance.now()-net.receivedAt)/70);if(net._previousActorsFor!==net.previous){net._previousActorsFor=net.previous;net._previousActors=new Map(net.previous.actors.map(a=>[a.id,a]))}if(net._renderActorsFor!==net.last){net._renderActorsFor=net.last;net._renderActors=net.last.actors.map(a=>({...a}))}bots=net._renderActors;for(let i=0;i<bots.length;i++){const a=net.last.actors[i],old=net._previousActors.get(a.id);bots[i].x=old?old.x+(a.x-old.x)*f:a.x;bots[i].y=old?old.y+(a.y-old.y)*f:a.y}}
  if(net._renderBulletsFor!==net.last){net._renderBulletsFor=net.last;net._renderBullets=net.last.bullets.map(b=>({...b}))}bullets=net._renderBullets;const bulletAge=Math.min(.08,(performance.now()-net.receivedAt)/1000);for(let i=0;i<bullets.length;i++){const src=net.last.bullets[i];bullets[i].x=src.x+src.vx*bulletAge;bullets[i].y=src.y+src.vy*bulletAge}
  const targetZoom=islandFlightZoom(),smooth=Math.min(1,dt*10);
- cameraZoom+=(targetZoom-cameraZoom)*smooth;cameraX+=(player.x-cameraX)*smooth;cameraY+=(player.y-cameraY)*smooth;islandClampCamera();updateHUD();islandSetText('#alive',String(net.last.alive));
+ cameraZoom+=(targetZoom-cameraZoom)*smooth;cameraX+=(player.x+(net.visualOffset?.x||0)-cameraX)*smooth;cameraY+=(player.y+(net.visualOffset?.y||0)-cameraY)*smooth;islandClampCamera();updateHUD();islandSetText('#alive',String(net.last.alive));
 }
 function islandDisconnect(){
  const net=islandNetwork;net.generation++;if(net.timer)clearInterval(net.timer);net.timer=null;net.stream?.close();net.stream=null;

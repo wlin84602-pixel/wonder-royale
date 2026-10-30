@@ -1056,7 +1056,7 @@ return{stats,raw,MAX_BYTES,clear(){for(const q of cache.values())q.canvas.width=
 });
 
 
-const c=document.querySelector('canvas'),x=c.getContext('2d'),$=s=>document.querySelector(s);let W,H,scale;function resize(){scale=Math.min(2,devicePixelRatio||1);W=c.width=innerWidth*scale;H=c.height=innerHeight*scale}onresize=resize;resize();const world=IslandCore.SIZE,center=world/2,rnd=(a,b)=>a+Math.random()*(b-a),dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);let player,bots,bullets,trees,loot,chests,buildings,keys={},mouse={x:0,y:0,down:false},running=false,time=0,storm=1400,kills=0,last=0,slot=0;let dropPhase='ground',planeElapsed=0,dropRemaining=0,dropFast=false,cameraZoom=1,cameraX=1500,cameraY=1500;let planeRoute=null,planeVariant=0,planeSprites=[],matchMenuOpen=false;const types=[{name:'PISTOL',clip:12,damage:22,rate:.28,speed:700,color:'#d4ded8'},{name:'ASSAULT RIFLE',clip:30,damage:18,rate:.12,speed:850,color:'#76c6ff'},{name:'SHOTGUN',clip:5,damage:12,rate:.65,speed:630,color:'#bb8bf3'},{name:'SNIPER RIFLE',clip:5,damage:68,rate:1.1,speed:1100,color:'#f2c45e'}];
+const c=document.querySelector('canvas'),x=c.getContext('2d',{alpha:false}),$=s=>document.querySelector(s);let W,H,scale;function resize(){scale=Math.min(2,devicePixelRatio||1);W=Math.round(innerWidth*scale);H=Math.round(innerHeight*scale);if(c.width!==W)c.width=W;if(c.height!==H)c.height=H}onresize=resize;resize();const world=IslandCore.SIZE,center=world/2,rnd=(a,b)=>a+Math.random()*(b-a),dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);let player,bots,bullets,trees,loot,chests,buildings,keys={},mouse={x:0,y:0,down:false},running=false,time=0,storm=1400,kills=0,last=0,slot=0;let dropPhase='ground',planeElapsed=0,dropRemaining=0,dropFast=false,cameraZoom=1,cameraX=1500,cameraY=1500;let planeRoute=null,planeVariant=0,planeSprites=[],matchMenuOpen=false;const types=[{name:'PISTOL',clip:12,damage:22,rate:.28,speed:700,color:'#d4ded8'},{name:'ASSAULT RIFLE',clip:30,damage:18,rate:.12,speed:850,color:'#76c6ff'},{name:'SHOTGUN',clip:5,damage:12,rate:.65,speed:630,color:'#bb8bf3'},{name:'SNIPER RIFLE',clip:5,damage:68,rate:1.1,speed:1100,color:'#f2c45e'}];
 
 // Reference values supplied for this project; these are not official ZombsRoyale values.
 const WEAPON_FIRE_COOLDOWNS_MS=Object.freeze({
@@ -1463,10 +1463,10 @@ function islandDrawRemote(a){
 }
 draw=function(){
  if(!islandState||!player)return islandOriginal.draw();islandClampCamera();
- x.setTransform(scale,0,0,scale,0,0);x.fillStyle='#4b9bb4';x.fillRect(0,0,innerWidth,innerHeight);
+ x.setTransform(scale,0,0,scale,0,0);x.globalAlpha=1;x.globalCompositeOperation='source-over';x.setLineDash([]);x.fillStyle='#4b9bb4';x.fillRect(0,0,innerWidth,innerHeight);
  const view={x:cameraX-innerWidth/(2*cameraZoom)-120,y:cameraY-innerHeight/(2*cameraZoom)-120,w:innerWidth/cameraZoom+240,h:innerHeight/cameraZoom+240},visible=b=>b.x+b.w>=view.x&&b.x<=view.x+view.w&&b.y+b.h>=view.y&&b.y<=view.y+view.h;let objects=dropPhase==='plane'&&cameraZoom<.16&&IslandDraw.farScene?[]:islandState.index.query(view.x,view.y,view.w,view.h);
  islandRenderCount=objects.length;
- x.save();x.translate(innerWidth/2,innerHeight/2);x.scale(cameraZoom,cameraZoom);x.translate(-cameraX,-cameraY);
+ x.save();x.translate(innerWidth/2,innerHeight/2);x.scale(cameraZoom,cameraZoom);x.translate(-Math.round(cameraX*cameraZoom*scale)/(cameraZoom*scale),-Math.round(cameraY*cameraZoom*scale)/(cameraZoom*scale));
  const far=dropPhase==='plane'&&cameraZoom<.16&&IslandDraw.farScene&&IslandDraw.farScene(x,islandState,view);if(!far&&!objects.length)objects=islandState.index.query(view.x,view.y,view.w,view.h);islandRenderCount=objects.length;
  if(!far){IslandDraw.terrain(x,islandState,view);IslandDraw.floors(x,islandState,visible)}
  const opaque=new Map(islandState.buildings.filter(b=>visible(b)&&b.outline?.length===4&&!Island.canViewInterior(islandState,b,player)).map(b=>[b.id,b]));
@@ -1532,7 +1532,7 @@ function islandApplySnapshot(snapshot){
  const doorById=new Map(snapshot.doors.map(d=>[d.id,d]));for(const door of islandState.doors){const next=doorById.get(door.id);if(next){const pending=net.doorPredictions?.get(door.id);if(pending&&snapshot.actionSeq<pending.seq)continue;if(pending)net.doorPredictions.delete(door.id);if(door.open!==next.open&&dist(door,player)<500)islandDoorSound(next.open);Object.assign(door,next)}}
  islandSyncWorldSnapshot(islandState,snapshot);
  const keptLoadout=net.loadoutPending&&snapshot.actionSeq<net.loadoutPending.seq?{inventory:player.inventory,ammoWallet:player.ammoWallet,med:player.med,slot}:null;if(net.loadoutPending&&snapshot.actionSeq>=net.loadoutPending.seq)net.loadoutPending=null;
- const pendingSlot=net.pendingSlot&&snapshot.self.sequence<net.pendingSlot.seq?net.pendingSlot.slot:null;if(net.pendingSlot&&snapshot.self.sequence>=net.pendingSlot.seq)net.pendingSlot=null;Object.assign(player,snapshot.self);if(keptLoadout)Object.assign(player,keptLoadout);if(!first&&player.phase==='ground'&&Math.hypot(before.x-player.x,before.y-player.y)<100){player.x=before.x+(player.x-before.x)*.4;player.y=before.y+(player.y-before.y)*.4}
+ const pendingSlot=net.pendingSlot&&snapshot.self.sequence<net.pendingSlot.seq?net.pendingSlot.slot:null;if(net.pendingSlot&&snapshot.self.sequence>=net.pendingSlot.seq)net.pendingSlot=null;Object.assign(player,snapshot.self);if(keptLoadout)Object.assign(player,keptLoadout);
  if(selectedItem==='medkit'&&player.med===0){selectedItem='weapon';keys[bindings.fire]=false;mouse.down=false}player.r=26;dropPhase=player.phase;if(priorDropPhase!=='ground'&&dropPhase==='ground')clearDropActionInput();dropRemaining=player.dropRemaining||0;dropFast=dropPhase==='parachute'&&!!keys[' '];planeElapsed=snapshot.time;planeRoute=snapshot.plane.route;slot=keptLoadout?keptLoadout.slot:pendingSlot===null?player.slot:pendingSlot;selectedItem=IslandInventory.isMed(player.inventory[slot])?'medkit':'weapon';
  bots=snapshot.actors;bullets=snapshot.bullets;loot=snapshot.loot;islandState.loot=loot;kills=player.kills||0;time=snapshot.time;storm=snapshot.zone.current.r;
  if(first){cameraX=player.x;cameraY=player.y;cameraZoom=islandFlightZoom()}
@@ -1541,7 +1541,7 @@ function islandApplySnapshot(snapshot){
 }
 function islandOnlineUpdate(dt){
  const net=islandNetwork;if(!net.ready||!net.last){islandClampCamera();return}
- islandState.time=net.last.time+Math.min(.2,(performance.now()-net.receivedAt)/1000);player.phase=dropPhase;
+ islandState.time=Math.max(islandState.time,net.last.time+Math.min(.2,(performance.now()-net.receivedAt)/1000));player.phase=dropPhase;
  updatePlayerAim();const fresh=performance.now()-net.receivedAt<1000;if(!fresh){$('#island-network-state').textContent='CONNECTION LOST · RETRYING';return}
  const movement=islandMapOpen||matchMenuOpen?{dx:0,dy:0}:movementVector();
  if(dropPhase==='ground')Island.moveActor(islandState,player,movement.dx,movement.dy,dt,player.speed);
@@ -1551,7 +1551,7 @@ function islandOnlineUpdate(dt){
  if(net.previous){const f=Math.min(1,(performance.now()-net.receivedAt)/70);if(net._previousActorsFor!==net.previous){net._previousActorsFor=net.previous;net._previousActors=new Map(net.previous.actors.map(a=>[a.id,a]))}if(net._renderActorsFor!==net.last){net._renderActorsFor=net.last;net._renderActors=net.last.actors.map(a=>({...a}))}bots=net._renderActors;for(let i=0;i<bots.length;i++){const a=net.last.actors[i],old=net._previousActors.get(a.id);bots[i].x=old?old.x+(a.x-old.x)*f:a.x;bots[i].y=old?old.y+(a.y-old.y)*f:a.y}}
  if(net._renderBulletsFor!==net.last){net._renderBulletsFor=net.last;net._renderBullets=net.last.bullets.map(b=>({...b}))}bullets=net._renderBullets;const bulletAge=Math.min(.08,(performance.now()-net.receivedAt)/1000);for(let i=0;i<bullets.length;i++){const src=net.last.bullets[i];bullets[i].x=src.x+src.vx*bulletAge;bullets[i].y=src.y+src.vy*bulletAge}
  const targetZoom=islandFlightZoom(),smooth=Math.min(1,dt*10);
- cameraZoom+=(targetZoom-cameraZoom)*smooth;cameraX+=(player.x-cameraX)*smooth;cameraY+=(player.y-cameraY)*smooth;islandClampCamera();updateHUD();islandSetText('#alive',String(net.last.alive));
+ cameraZoom+=(targetZoom-cameraZoom)*smooth;cameraX+=(player.x+(net.visualOffset?.x||0)-cameraX)*smooth;cameraY+=(player.y+(net.visualOffset?.y||0)-cameraY)*smooth;islandClampCamera();updateHUD();islandSetText('#alive',String(net.last.alive));
 }
 function islandDisconnect(){
  const net=islandNetwork;net.generation++;if(net.timer)clearInterval(net.timer);net.timer=null;net.stream?.close();net.stream=null;
@@ -1630,7 +1630,7 @@ function setWaiting(on){document.body?.classList?.toggle('waiting-room',on);lobb
 function lobbyCamera(){const S=IslandLobby.SIZE;if(islandNetwork.lobbyOverview){cameraX=cameraY=S/2;cameraZoom=Math.min(innerWidth/(S+260),innerHeight/(S+260));return}cameraZoom=Math.max(innerWidth/(S+100),innerHeight/(S+100),innerWidth<700?.7:.85);const w=innerWidth/(2*cameraZoom),h=innerHeight/(2*cameraZoom);let fx=player.x,fy=player.y;const roomy=innerWidth/cameraZoom>=1150&&innerHeight/cameraZoom>=760;if(IslandLobby.inRange(player))fy-=170;else if(roomy&&player.x>2740&&player.x<3900&&player.y>2780&&player.y<3740){fx=3300;fy=3250}else if(roomy&&player.x>770&&player.x<1770&&player.y>800&&player.y<1770){fx=1260;fy=1290}cameraX=Island.clamp(fx,w,S-w);cameraY=Island.clamp(fy,h,S-h)}
 function lobbyUI(snapshot){const host=snapshot.hostId===player.id,hostName=snapshot.roster.find(p=>p.id===snapshot.hostId)?.name||'Host';islandSetText('#lobby-room-title','ROOM · '+snapshot.room);islandSetText('#lobby-player-count',snapshot.alive+' / 25 PLAYERS');status.textContent=host?'You are the host. Start whenever you are ready.':'Waiting for '+hostName+' to start the match.';startButton.disabled=!host;startButton.textContent=host?'START MATCH →':'WAITING FOR HOST';const rosterKey=JSON.stringify(snapshot.roster)+'|'+snapshot.hostId+'|'+player.id;if(islandNetwork.rosterKey!==rosterKey){islandNetwork.rosterKey=rosterKey;$('#lobby-roster').innerHTML=snapshot.roster.map(p=>'<li><span>'+htmlText(p.name)+(p.id===player.id?' (you)':'')+'</span><b>'+(p.id===snapshot.hostId?'HOST':'READY')+'</b></li>').join('')}const u=new URL(typeof location!=='undefined'&&/^https?:/.test(location.protocol)?location.href:'https://bot-royale-production.up.railway.app/');u.search='';u.searchParams.set('room',snapshot.room);$('#lobby-invite-link').value=u.href}
 islandApplySnapshot=function(snapshot){if(snapshot?.matchState==='waiting'){
- const net=islandNetwork;if(net.last&&snapshot.tick<=net.last.tick)return;if(snapshot.seed!==islandState?.seed)initializeIsland(snapshot.seed);const first=!net.inLobby,before=player?{x:player.x,y:player.y}:null;net.inLobby=true;net.lobbyWorld=net.lobbyWorld||IslandLobby.create(snapshot.seed);net.last=snapshot;net.receivedAt=performance.now();Object.assign(net.lobbyWorld,snapshot.lobby);if(first)net.lobbyOverview=false;Object.assign(player,snapshot.self);if(!first&&before&&Math.hypot(before.x-player.x,before.y-player.y)<100){player.x=before.x+(player.x-before.x)*.4;player.y=before.y+(player.y-before.y)*.4}bots=snapshot.actors;slot=0;selectedItem='weapon';dropPhase='lobby';bullets=[];time=0;kills=0;net.pendingDropCount=0;setWaiting(true);lobbyCamera();lobbyUI(snapshot);if(first)clearInput();return
+ const net=islandNetwork;if(net.last&&snapshot.tick<=net.last.tick)return;if(snapshot.seed!==islandState?.seed)initializeIsland(snapshot.seed);const first=!net.inLobby,before=player?{x:player.x,y:player.y}:null;net.inLobby=true;net.lobbyWorld=net.lobbyWorld||IslandLobby.create(snapshot.seed);net.last=snapshot;net.receivedAt=performance.now();Object.assign(net.lobbyWorld,snapshot.lobby);if(first)net.lobbyOverview=false;Object.assign(player,snapshot.self);bots=snapshot.actors;slot=0;selectedItem='weapon';dropPhase='lobby';bullets=[];time=0;kills=0;net.pendingDropCount=0;setWaiting(true);lobbyCamera();lobbyUI(snapshot);if(first)clearInput();return
  }if(islandNetwork.inLobby){islandNetwork.inLobby=false;islandNetwork.lobbyWorld=null;islandNetwork.last=null;setWaiting(false);clearInput()}return previousApply(snapshot)};
 islandOnlineUpdate=function(dt){if(!islandNetwork.inLobby)return previousOnlineUpdate(dt);lobbyCamera();updatePlayerAim();if(!matchMenuOpen&&performance.now()-islandNetwork.receivedAt<1000){const m=movementVector();Island.moveActor(islandNetwork.lobbyWorld,player,m.dx,m.dy,dt,player.speed)}islandNetwork.lobbyWorld.time=(islandNetwork.last.lobby.time||0)+Math.min(.3,Math.max(0,(performance.now()-islandNetwork.receivedAt)/1000));if(actionDown('fire'))lobbyShot();return};
 draw=function(){
@@ -1711,6 +1711,45 @@ function islandSyncWorldSnapshot(s,snapshot){
  };
  const previousMini=IslandLobbyRender.mini,miniFrames=new WeakMap();
  IslandLobbyRender.mini=function(ctx,s,players,camera){const now=typeof performance!=='undefined'?performance.now():Date.now(),local=players.find(p=>p.local),old=miniFrames.get(ctx);if(old&&now-old.time<80&&Math.hypot((local?.x||0)-old.x,(local?.y||0)-old.y)<100&&camera?.w===old.w&&camera?.h===old.h)return;miniFrames.set(ctx,{time:now,x:local?.x||0,y:local?.y||0,w:camera?.w,h:camera?.h});return previousMini(ctx,s,players,camera)};
+})();
+
+// Smooth presentation only; server snapshots and collision coordinates stay authoritative.
+(function(){
+ const apply=islandApplySnapshot,onlineUpdate=islandOnlineUpdate,paint=draw,aim=updatePlayerAim,disconnect=islandDisconnect;
+ const now=()=>performance.now(),clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+ islandApplySnapshot=function(snapshot){
+  const net=islandNetwork;if(!snapshot||net.last&&snapshot.seed===net.last.seed&&snapshot.tick<=net.last.tick)return;
+  const same=net.last&&net.last.seed===snapshot.seed&&net.last.matchState===snapshot.matchState&&player?.phase===snapshot.self.phase;
+  const offset=net.visualOffset||{x:0,y:0},before=player?{x:player.x+offset.x,y:player.y+offset.y}:null;
+  const actors=new Map((bots||[]).map(a=>[a.id,{x:a.x,y:a.y,angle:a.angle||0}]));
+  const shots=new Map((bullets||[]).map(b=>[b.id,{x:b.x,y:b.y}]));
+  const oldTime=net.inLobby?net.lobbyWorld?.time:islandState?.time,received=net.receivedAt;
+  apply(snapshot);
+  const dx=before?before.x-player.x:0,dy=before?before.y-player.y:0;
+  net.visualOffset=same&&player.phase!=='plane'&&Math.hypot(dx,dy)<200?{x:dx,y:dy}:{x:0,y:0};
+  net.poseDuration=same?clamp((net.receivedAt-received)/1000,.03,.15):.07;
+  net.remoteFrom=actors;net.projectileFrom=shots;
+  if(same&&Number.isFinite(oldTime)){if(net.inLobby)net.lobbyWorld.time=Math.max(oldTime,net.lobbyWorld.time);else islandState.time=Math.max(oldTime,islandState.time)}
+ };
+ islandOnlineUpdate=function(dt){
+  const net=islandNetwork,previousTime=net.inLobby?net.lobbyWorld?.time:islandState?.time;
+  if(net.visualOffset){const decay=Math.exp(-Math.max(0,dt)/.10);net.visualOffset.x*=decay;net.visualOffset.y*=decay}
+  onlineUpdate(dt);if(!net.ready||!net.last)return;
+  if(Number.isFinite(previousTime)){if(net.inLobby)net.lobbyWorld.time=Math.max(previousTime,net.lobbyWorld.time);else islandState.time=Math.max(previousTime,islandState.time)}
+  const age=Math.max(0,(now()-net.receivedAt)/1000),f=clamp(age/(net.poseDuration||.07),0,1);
+  if(net.smoothActorsFor!==net.last){net.smoothActorsFor=net.last;net.smoothActors=net.last.actors.map(a=>({...a}))}
+  bots=net.smoothActors;
+  for(let i=0;i<bots.length;i++){const target=net.last.actors[i],from=net.remoteFrom?.get(target.id),a=bots[i];if(!from)continue;
+   if(Math.hypot(target.x-from.x,target.y-from.y)>300){a.x=target.x;a.y=target.y;continue}
+   a.x=from.x+(target.x-from.x)*f;a.y=from.y+(target.y-from.y)*f;
+   const turn=Math.atan2(Math.sin((target.angle||0)-from.angle),Math.cos((target.angle||0)-from.angle));a.angle=from.angle+turn*f;
+  }
+  if(!net.inLobby)for(let i=0;i<bullets.length;i++){const target=net.last.bullets[i],from=net.projectileFrom?.get(target.id);if(!from)continue;const blend=Math.max(0,1-age/.05);bullets[i].x+=(from.x-target.x)*blend;bullets[i].y+=(from.y-target.y)*blend}
+ };
+ function withVisualPosition(fn,args){const net=islandNetwork,o=net.ready&&net.visualOffset;if(!o||!player)return fn(...args);const px=player.x,py=player.y;player.x+=o.x;player.y+=o.y;try{return fn(...args)}finally{player.x=px;player.y=py}}
+ draw=function(...args){return withVisualPosition(paint,args)};
+ updatePlayerAim=function(...args){return withVisualPosition(aim,args)};
+ islandDisconnect=function(...args){islandNetwork.visualOffset=null;islandNetwork.remoteFrom=null;islandNetwork.projectileFrom=null;islandNetwork.smoothActorsFor=null;return disconnect(...args)};
 })();
 
 // Supplied shotgun artwork: source pixels are retained; only connected backdrop is hidden at load time.

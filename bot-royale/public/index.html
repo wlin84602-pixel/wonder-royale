@@ -1349,6 +1349,15 @@ function islandClampCamera(){
  if(dropPhase==='plane'||dropPhase==='parachute')return;
  const hx=innerWidth/(cameraZoom*2),hy=innerHeight/(cameraZoom*2);cameraX=Island.clamp(cameraX,hx,world-hx);cameraY=Island.clamp(cameraY,hy,world-hy);
 }
+function islandSyncDoor(door,next){
+ if(!next)return;
+ const version=next.changedAt??0;if(version<(door.serverChangedAt??-Infinity))return;
+ door.serverChangedAt=version;
+ const same=door.open===next.open&&(!next.open||(door.swing||1)===(next.swing||1));
+ if(same){if(next.lastUse!==undefined)door.lastUse=next.lastUse;return}
+ const from=Island.doorAngleAt(door,islandState.time);
+ Object.assign(door,next);door.turnFrom=from;door.changedAt=islandState.time;
+}
 function islandNearestHint(){const target=Island.interactionTarget(islandState,player);if(!target||target.kind==='loot'){const bush=Island.bushAt(islandState,player);return bush?(islandState.time<(player.revealedUntil||0)?'REVEALED · WAIT TO HIDE':'HIDDEN IN BUSH'):''}const q=target.object;return keyLabel(bindings.interact)+' · '+(target.kind==='door'?(q.open?'Close door':'Open door'):target.kind==='container'?(q.kind==='ultimate'?'Open ultimate crate':q.kind==='gold'?'Open gold chest':q.kind==='ammo'?'Open ammo crate':'Open wooden crate'):'Pick up '+(q.type==='gun'?types[q.weapon].name:q.type))}
 interact=function(){
  if(!islandState||dropPhase!=='ground'||!running)return;
@@ -1362,7 +1371,7 @@ interact=function(){
    const pending={seq:net.actionSeq+1,before,moved:result.moved||[]};net.doorPredictions.set(d.id,pending);islandDoorSound(d.open);
    islandSendAction('interact',{doorId:d.id,open:d.open}).then(reply=>{
     if(net.doorPredictions.get(d.id)!==pending)return;
-    if(reply?.door)Object.assign(d,reply.door);else Object.assign(d,before);
+    if(reply?.superseded)return;if(reply?.door)islandSyncDoor(d,reply.door);else if(!reply?.ok){const from=Island.doorAngleAt(d,islandState.time);Object.assign(d,before);d.turnFrom=from;d.changedAt=islandState.time;}
     if(!reply?.ok){for(const move of pending.moved){const actor=islandCurrentActors().find(a=>a.id===move.id);if(actor&&dist(actor,move)<2){actor.x=move.fromX;actor.y=move.fromY}}net.doorPredictions.delete(d.id);}
    });return;
   }
@@ -1523,13 +1532,23 @@ function islandSendInput(){
  input.seq=++net.sequence;net.lastSentInput=input;net.inputInFlight=(net.inputInFlight||0)+1;const token=net.token,generation=net.generation;
  islandRequest('input',input).catch(()=>{if(net.token===token)$('#island-network-state').textContent='RECONNECTING'}).finally(()=>{if(net.token===token&&net.generation===generation)net.inputInFlight=Math.max(0,(net.inputInFlight||1)-1)});
 }
-function islandSendAction(kind,extra={}){const net=islandNetwork;if(!net.ready)return;const token=net.token,request={kind,seq:++net.actionSeq,...extra};net.actionQueue=(net.actionQueue||Promise.resolve()).catch(()=>{}).then(()=>{if(net.token===token)return islandRequest('action',request,token)}).catch(()=>{});return net.actionQueue}
+function islandSendAction(kind,extra={}){
+ const net=islandNetwork;if(!net.ready)return;
+ const token=net.token,request={kind,seq:++net.actionSeq,...extra},doorKey=kind==='interact'&&extra.doorId;
+ if(doorKey){net.queuedDoors||=new Map();net.queuedDoors.set(doorKey,request)}
+ net.actionQueue=(net.actionQueue||Promise.resolve()).catch(()=>{}).then(()=>{
+  if(net.token!==token)return;
+  if(doorKey){if(net.queuedDoors?.get(doorKey)!==request)return{ok:true,superseded:true};net.queuedDoors.delete(doorKey)}
+  return islandRequest('action',request,token);
+ }).catch(()=>{});return net.actionQueue;
+}
+
 function islandApplySnapshot(snapshot){
  const net=islandNetwork;if(!snapshot||net.last&&snapshot.tick<=net.last.tick)return;
  if(snapshot.seed!==islandState.seed)initializeIsland(snapshot.seed);
  const before={x:player.x,y:player.y},priorDropPhase=dropPhase,first=!net.last;net.previous=net.last;net.last=snapshot;net.receivedAt=performance.now();islandState.time=snapshot.time;islandState.zone=snapshot.zone;islandMarker=snapshot.marker;
  for(const e of snapshot.damageEvents||[])if(!islandSeenDamageEvents.has(e.id)){islandSeenDamageEvents.add(e.id);islandAddDamageNumber({id:e.target,x:e.x,y:e.y},e.hp,e.shield)}if(islandSeenDamageEvents.size>256){const ids=[...islandSeenDamageEvents];islandSeenDamageEvents=new Set(ids.slice(-128))}
- const doorById=new Map(snapshot.doors.map(d=>[d.id,d]));for(const door of islandState.doors){const next=doorById.get(door.id);if(next){const pending=net.doorPredictions?.get(door.id);if(pending&&snapshot.actionSeq<pending.seq)continue;if(pending)net.doorPredictions.delete(door.id);if(door.open!==next.open&&dist(door,player)<500)islandDoorSound(next.open);Object.assign(door,next)}}
+ const doorById=new Map(snapshot.doors.map(d=>[d.id,d]));for(const door of islandState.doors){const next=doorById.get(door.id);if(next){const pending=net.doorPredictions?.get(door.id);if(pending&&snapshot.actionSeq<pending.seq)continue;if(pending)net.doorPredictions.delete(door.id);if(door.open!==next.open&&dist(door,player)<500)islandDoorSound(next.open);islandSyncDoor(door,next)}}
  islandSyncWorldSnapshot(islandState,snapshot);
  const keptLoadout=net.loadoutPending&&snapshot.actionSeq<net.loadoutPending.seq?{inventory:player.inventory,ammoWallet:player.ammoWallet,med:player.med,slot}:null;if(net.loadoutPending&&snapshot.actionSeq>=net.loadoutPending.seq)net.loadoutPending=null;
  const pendingSlot=net.pendingSlot&&snapshot.self.sequence<net.pendingSlot.seq?net.pendingSlot.slot:null;if(net.pendingSlot&&snapshot.self.sequence>=net.pendingSlot.seq)net.pendingSlot=null;Object.assign(player,snapshot.self);if(keptLoadout)Object.assign(player,keptLoadout);
@@ -1555,7 +1574,7 @@ function islandOnlineUpdate(dt){
 }
 function islandDisconnect(){
  const net=islandNetwork;net.generation++;if(net.timer)clearInterval(net.timer);net.timer=null;net.stream?.close();net.stream=null;
- if(net.token)islandRequest('leave',{},net.token).catch(()=>{});net.token=null;net.inputInFlight=0;net.lastSentInput=null;net.ready=false;net.joining=false;net.last=null;net.loadoutPending=null;net.pendingSlot=null;net.doorPredictions?.clear();
+ if(net.token)islandRequest('leave',{},net.token).catch(()=>{});net.token=null;net.inputInFlight=0;net.lastSentInput=null;net.ready=false;net.joining=false;net.last=null;net.loadoutPending=null;net.pendingSlot=null;net.doorPredictions?.clear();net.queuedDoors?.clear();
 }
 function islandHideMapUI(){islandMapOpen=false;for(const id of ['island-map-panel','island-minimap','island-zone-hud','island-network-state'])$('#'+id).style.display='none';document.body?.classList?.toggle('island-match',false)}
 goHome=function(){islandDisconnect();islandHideMapUI();islandOriginal.goHome()};

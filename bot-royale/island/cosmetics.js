@@ -39,7 +39,20 @@
   {length:76,grip:[0.5,0.8],angle:2.74,forward:8,side:31},
   {length:77,grip:[0.5,0.8],angle:2.72,forward:8,side:31},
   {length:78,grip:[0.5,0.8],angle:2.71,forward:8,side:31},
-  {length:80,grip:[0.5,0.81],angle:2.76,forward:7,side:32}
+  {length:80,grip:[0.5,0.81],angle:2.76,forward:7,side:32},
+  // Supplied Halloween relics (atlas indices 22–33), including their full handles.
+  {length:82,grip:[.16,.88],supportGrip:[.26,.72]},
+  {length:82,grip:[.20,.91],supportGrip:[.33,.72]},
+  {length:86,grip:[.17,.90],supportGrip:[.32,.71]},
+  {length:84,grip:[.19,.87],supportGrip:[.34,.70]},
+  {length:78,grip:[.20,.88],supportGrip:[.34,.70]},
+  {length:82,grip:[.18,.87],supportGrip:[.32,.70]},
+  {length:80,grip:[.17,.89],supportGrip:[.32,.71]},
+  {length:82,grip:[.17,.88],supportGrip:[.31,.71]},
+  {length:86,grip:[.29,.90],supportGrip:[.39,.73]},
+  {length:88,grip:[.18,.91],supportGrip:[.33,.72]},
+  {length:86,grip:[.18,.91],supportGrip:[.32,.73]},
+  {length:88,grip:[.18,.91],supportGrip:[.33,.72]}
  ];
  // Some outfits already include ears, shoulder pods or fins. They remain one skin
  // layer; the shared tan fists are rendered separately without duplicating outfit details.
@@ -84,7 +97,7 @@
   const pair=p.supportGrip?{grip:p.grip,supportGrip:p.supportGrip}:index<10?{grip:visible([Math.min(.98,p.grip[0]+.08),Math.min(.97,p.grip[1]+.08)]),supportGrip:p.grip}:{grip:visible([p.grip[0],.94]),supportGrip:visible([p.grip[0],index===13||index===16?.76:.56])};gripCache.set(art,pair);return pair
  }
  function melee(art,index,bodyInfo,swing=0){
-  const b=bounds(art);if(!b)return null;const p=meleeProfiles[index];if(!p)return null;
+  const b=bounds(art);if(!b)return null;const p=meleeProfiles[index]||{length:78,grip:[.5,.9],supportGrip:[.5,.7]};
   const grips=gripPair(art,b,p,index),f=p.length/Math.max(b.w,b.h),arc=swing>0?-Math.sin(Math.min(1,Math.max(0,1-swing/.18))*Math.PI)*.8:0;
   return {art,b,width:b.w*f,height:b.h*f,x:(index===12?40:35)+bodyInfo.profile.hand,y:-16,angle:(index<10?3.93:Math.PI)+arc,grip:grips.grip,supportGrip:grips.supportGrip};
  }

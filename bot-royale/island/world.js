@@ -1,6 +1,6 @@
-(function(root,factory){const api=factory(typeof module==="object"&&module.exports?require("./buildings.js"):root.IslandBuildings);if(typeof module==='object'&&module.exports)module.exports=api;else root.IslandCore=api})(typeof globalThis!=='undefined'?globalThis:this,function(Buildings){
+(function(root,factory){const api=factory(typeof module==="object"&&module.exports?require("./buildings.js"):root.IslandBuildings,typeof module==="object"&&module.exports?require("./weapon-rules.js"):root.IslandWeaponStats);if(typeof module==='object'&&module.exports)module.exports=api;else root.IslandCore=api})(typeof globalThis!=='undefined'?globalThis:this,function(Buildings,WeaponStats){
 'use strict';
-const SIZE=6000,MAP_SCALE=Math.sqrt(10),PLAYER_RADIUS=26,CELL=160,PLAYER_SPEED=307.5,PARACHUTE_SPEED=492,DROP_SECONDS=10,GROUND_GUN_COUNT=16;
+const SIZE=6000,MAP_SCALE=Math.sqrt(10),PLAYER_RADIUS=26,CELL=160,PLAYER_SPEED=338.25,PARACHUTE_SPEED=492,DROP_SECONDS=10,GROUND_GUN_COUNT=16;
 const LOCATIONS=[
 {id:'verdant',name:'Verdant Village',x:1160,y:1220,kind:'residential',color:'#91ca78',risk:'medium'},
 {id:'copper',name:'Copper Yard',x:4540,y:1110,kind:'industrial',color:'#b2a087',risk:'high'},
@@ -186,9 +186,18 @@ function buildWorld(seed=1){
  if(groundGunCount!==GROUND_GUN_COUNT)throw Error('Not enough sparse ground-loot locations');
  s.zone=createZone(s,random);s.random=random;return s;
 }
-const PUMP_FULL_HIT_DAMAGE=Object.freeze([90,95,100,105,110]),pumpPelletGroups=new WeakMap();
-function configurePumpShot(pellets,rarity,angle){const group={count:pellets.length,hits:new Map(),dx:Math.cos(angle),dy:Math.sin(angle)};for(const pellet of pellets){pellet.damage=PUMP_FULL_HIT_DAMAGE[clamp(rarity||0,0,4)]/pellets.length;pumpPelletGroups.set(pellet,group)}}
-function applyPumpHit(s,pellet,target){const group=pumpPelletGroups.get(pellet);if(!group)return false;const count=(group.hits.get(target)||0)+1;group.hits.set(target,count);if(count!==group.count)return false;moveActor(s,target,group.dx,group.dy,.12,480);return true}
+const PUMP_FULL_HIT_DAMAGE=Object.freeze([...WeaponStats.data.projectiles.pump.damageByRarity]),pumpPelletGroups=new WeakMap(),remotePumpHits=new WeakMap();
+function configurePumpShot(pellets,rarity,angle,metadata={}){const group={shotId:metadata.shotId||pellets[0]?.shotId||'',attackerId:metadata.attackerId||'',attackerX:metadata.attackerX,attackerY:metadata.attackerY,applied:new WeakSet()};const perPellet=PUMP_FULL_HIT_DAMAGE[clamp(rarity||0,0,4)]/Math.max(1,pellets.length);for(const pellet of pellets){pellet.damage=perPellet;pumpPelletGroups.set(pellet,group)}}
+function applyPumpHit(s,pellet,target,attacker){
+ if(pellet?.kind!==2||!target)return false;const group=pumpPelletGroups.get(pellet);
+ if(group){if(group.applied.has(target))return false;group.applied.add(target)}
+ else if(pellet.shotId){let hits=remotePumpHits.get(s);if(!hits){hits=new Map();remotePumpHits.set(s,hits)}const key=pellet.shotId+':'+(target.id??'target');if(hits.has(key))return false;hits.set(key,true);if(hits.size>2048)hits.delete(hits.keys().next().value)}
+ const source=attacker||(group&&{id:group.attackerId,x:group.attackerX,y:group.attackerY});if(!source||!Number.isFinite(source.x)||!Number.isFinite(source.y))return false;
+ const dx=target.x-source.x,dy=target.y-source.y,distance=Math.hypot(dx,dy);if(distance<1e-6)return false;
+ const cfg=WeaponStats.data.projectiles.pump.knockback,scale=clamp(1-distance/cfg.range,cfg.minimumScale,1),duration=cfg.durationMs/1000;
+ target.knockbackImpulse={dx:dx/distance,dy:dy/distance,speed:cfg.speed*scale,duration,elapsed:0};return true;
+}
+function stepKnockback(s,target,dt){const k=target.knockbackImpulse;if(!k||dt<=0)return false;const from=Math.min(k.elapsed,k.duration),to=Math.min(k.duration,from+dt),travel=Math.max(0,(to-from)-(to*to-from*from)/(2*k.duration));if(travel>0)moveActor(s,target,k.dx,k.dy,travel,k.speed);k.elapsed=to;if(to>=k.duration-1e-9)delete target.knockbackImpulse;return true}
 // Analytic air drag gives identical travel at every frame rate.
 const PROJECTILE_DRAG=.18;
 function projectileMotion(b,seconds){const dt=Math.max(0,seconds),decay=Math.exp(-PROJECTILE_DRAG*dt),travel=-Math.expm1(-PROJECTILE_DRAG*dt)/PROJECTILE_DRAG;return{x:b.x+b.vx*travel,y:b.y+b.vy*travel,vx:b.vx*decay,vy:b.vy*decay}}
@@ -334,7 +343,7 @@ function advanceZone(s,dt,actors=[]){
 function zoneCountdown(s){const z=s.zone;if(z.mode==='finished')return 0;const c=ZONE_PHASES[z.phase];return Math.max(0,Math.ceil((z.mode==='prepare'?c.prepare:c.shrink)-z.elapsed))}
 function planeRoute(seed){const r=rng(seed^0xabc143),edge=Math.floor(r()*4),offset=650+r()*4700,end=650+r()*4700,a=edge===0?{x:160,y:offset}:edge===1?{x:5840,y:offset}:edge===2?{x:offset,y:160}:{x:offset,y:5840},b=edge===0?{x:5840,y:end}:edge===1?{x:160,y:end}:edge===2?{x:end,y:5840}:{x:end,y:160};a.x*=MAP_SCALE;a.y*=MAP_SCALE;b.x*=MAP_SCALE;b.y*=MAP_SCALE;return{start:a,end:b,angle:Math.atan2(b.y-a.y,b.x-a.x),duration:hyp(a,b)/(220*MAP_SCALE)}}
 function planePosition(route,time){const f=clamp(time/route.duration,0,1);return{x:route.start.x+(route.end.x-route.start.x)*f,y:route.start.y+(route.end.y-route.start.y)*f}}
-return{PROJECTILE_DRAG,projectileMotion,SIZE:SIZE*MAP_SCALE,MAP_SCALE,PLAYER_RADIUS,PLAYER_SPEED,PARACHUTE_SPEED,DROP_SECONDS,GROUND_GUN_COUNT,PUMP_FULL_HIT_DAMAGE,configurePumpShot,applyPumpHit,solidHit,LOCATIONS:LOCATIONS.map(l=>({...l,x:l.x*MAP_SCALE,y:l.y*MAP_SCALE})),ZONE_PHASES,COAST:COAST.map(([x,y])=>[x*MAP_SCALE,y*MAP_SCALE]),SpatialIndex,rng,clamp,hyp,pointSegment,circleRect,buildWorld,playable,isWater,blocked,findValid,resolveActorOverlap,moveActor,raycast,segmentHitCircle,buildingAt,bushAt,apertureDistance,canViewInterior,doorSwingAway,doorPose,doorAngleAt,doorInteractionDistance,canSee,interactDoor,interactionTarget,openContainer,damageObject,advanceZone,zoneCountdown,planeRoute,planePosition,bounds};
+return{PROJECTILE_DRAG,projectileMotion,SIZE:SIZE*MAP_SCALE,MAP_SCALE,PLAYER_RADIUS,PLAYER_SPEED,PARACHUTE_SPEED,DROP_SECONDS,GROUND_GUN_COUNT,PUMP_FULL_HIT_DAMAGE,configurePumpShot,applyPumpHit,stepKnockback,solidHit,LOCATIONS:LOCATIONS.map(l=>({...l,x:l.x*MAP_SCALE,y:l.y*MAP_SCALE})),ZONE_PHASES,COAST:COAST.map(([x,y])=>[x*MAP_SCALE,y*MAP_SCALE]),SpatialIndex,rng,clamp,hyp,pointSegment,circleRect,buildWorld,playable,isWater,blocked,findValid,resolveActorOverlap,moveActor,raycast,segmentHitCircle,buildingAt,bushAt,apertureDistance,canViewInterior,doorSwingAway,doorPose,doorAngleAt,doorInteractionDistance,canSee,interactDoor,interactionTarget,openContainer,damageObject,advanceZone,zoneCountdown,planeRoute,planePosition,bounds};
 });
 
 

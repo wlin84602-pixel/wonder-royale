@@ -1,10 +1,10 @@
 // Island integration. Existing weapon artwork, rates, reload functions and menus remain the source of truth.
 let islandState=null,islandMarker=null,islandMapOpen=false,islandRenderCount=0,islandLastDt=.016,islandSound=null,islandInteractionNote='',islandNoteUntil=0;
-const Island=IslandCore,IslandDraw=IslandRender,ISLAND_GROUND_ZOOM=1/Math.sqrt(5);
+const Island=IslandCore,IslandDraw=IslandRender,ISLAND_GROUND_ZOOM=2.25/Math.sqrt(5),ISLAND_PARACHUTE_ZOOM=1/Math.sqrt(5);
 const islandOriginal={newGame,goHome,end,update,draw,shoot,reload,swingMelee,interact,finishLanding,createPlaneRoute,useSelectedMedkit,onkeydown,onmousedown,oncontextmenu};
 let islandNetwork={enabled:typeof location!=='undefined'&&/^https?:/.test(location.protocol)&&new URLSearchParams(location.search).get('online')==='1',ready:false,token:null,id:null,last:null,receivedAt:0,sequence:0,actionSeq:0,timer:null,stream:null,joining:false,generation:0,error:'',snapshots:[]};
-// Selected cameras: plane Wide (C), parachute Close (A), matching ground gameplay.
-function islandFlightZoom(phase=dropPhase){const fit=Math.max(innerWidth/world,innerHeight/world),plane=Math.max(fit,Math.sqrt(6*innerWidth*innerHeight)/world)*3/1.5;return phase==='plane'?plane:ISLAND_GROUND_ZOOM}
+// Selected cameras: ground Extra-close (D), plane Wide (C), parachute Close (A).
+function islandFlightZoom(phase=dropPhase){const fit=Math.max(innerWidth/world,innerHeight/world),plane=Math.max(fit,Math.sqrt(6*innerWidth*innerHeight)/world)*3/1.5;return phase==='plane'?plane:phase==='parachute'?ISLAND_PARACHUTE_ZOOM:ISLAND_GROUND_ZOOM}
 function islandFollowFlight(dt){const smooth=Math.min(1,dt*10);cameraZoom+=(islandFlightZoom()-cameraZoom)*smooth;cameraX+=(player.x-cameraX)*smooth;cameraY+=(player.y-cameraY)*smooth;if(dropPhase==='plane'){cameraX=player.x;cameraY=player.y}islandClampCamera()}
 updateDrop=function(dt){
  if(dropPhase==='plane'){planeElapsed+=dt;Object.assign(player,Island.planePosition(planeRoute,planeElapsed));if(planeElapsed>=planeRoute.duration)startParachuteDrop()}
@@ -68,12 +68,12 @@ interact=function(){
  const target=Island.interactionTarget(islandState,player);if(!target)return;
  if(target.kind==='door'){const door=target.object,result=Island.interactDoor(islandState,door,player,islandCurrentActors());if(result.ok)islandDoorSound(door.open);else if(result.reason==='Doorway occupied')islandNote('Doorway occupied');return}
  if(target.kind==='container'){const items=Island.openContainer(islandState,target.object,player);for(const q of items)if(q.type==='ammo')IslandInventory.pickup(islandState,player,q);updateHUD();return}
- const ok=IslandInventory.pickup(islandState,player,target.object,(type,rarity)=>gun(type,rarity));if(!ok)islandNote('Loadout full');slot=player.slot??slot;selectedItem=IslandInventory.isMed(player.inventory[slot])?'medkit':'weapon';updateHUD();
+ const oldSlot=slot,ok=IslandInventory.pickup(islandState,player,target.object,(type,rarity)=>gun(type,rarity));if(!ok)islandNote('Loadout full');slot=player.slot??slot;if(slot!==oldSlot){weaponEquipReadyAtMs=combatInputTimeMs()+IslandWeaponStats.data.equipDelayMs;const g=player.inventory[slot];if(g)g.equipReadyAtMs=weaponEquipReadyAtMs;fireWasHeld=actionDown('fire');fireIntentAtMs=weaponEquipReadyAtMs}selectedItem=IslandInventory.isMed(player.inventory[slot])?'medkit':'weapon';updateHUD();
 }
 shoot=function(a,angle,enemy=false,atMs=combatInputTimeMs()){
  if(islandNetwork.ready&&!enemy){islandSendInput();return false;}
- if(!enemy){const g=a.inventory[slot];if(IslandInventory.isMed(g))return false;if(g?.reloading){advanceWeaponReload(g,atMs);if(g.reloading){g.reloading=false;g.reload=0;g.reloadEndsAtMs=0}}IslandInventory.feedGun(a,g)}
- const firstBullet=bullets.length,result=islandOriginal.shoot(a,angle,enemy,atMs);if(result&&enemy)a.weaponLastShotAtMs=atMs;if(result&&!enemy&&a.inventory[slot]?.type===2&&(a.inventory[slot].fireProfile||PLAYER_WEAPON_FIRE_PROFILE[2])==='Pump Shotgun')Island.configurePumpShot(bullets.slice(firstBullet),a.inventory[slot].rarity,angle);
+ if(!enemy){if(atMs+1e-7<weaponEquipReadyAtMs)return false;const g=a.inventory[slot];if(IslandInventory.isMed(g))return false;if(g?.reloading){advanceWeaponReload(g,atMs);if(g.reloading){g.reloading=false;g.reload=0;g.reloadEndsAtMs=0}}IslandInventory.feedGun(a,g)}
+ const firstBullet=bullets.length,result=islandOriginal.shoot(a,angle,enemy,atMs);if(result&&enemy)a.weaponLastShotAtMs=atMs;if(result&&!enemy&&a.inventory[slot]?.type===2)Island.configurePumpShot(bullets.slice(firstBullet),a.inventory[slot].rarity,angle,{shotId:bullets[firstBullet]?.shotId,attackerId:a.id||'local-player',attackerX:a.x,attackerY:a.y});
  if(result&&islandState)a.revealedUntil=islandState.time+1.5;return result;
 };
 reload=function(){
@@ -103,8 +103,9 @@ function islandStepBullets(dt,frameStartMs){
  for(const q of bullets){
   const travelDt=q.spawnTimeMs===undefined?dt:Math.max(0,(combatTimeMs-Math.max(frameStartMs,q.spawnTimeMs))/1000),motion=Island.projectileMotion(q,travelDt),nx=motion.x,ny=motion.y,wall=Island.raycast(islandState,q.x,q.y,nx,ny,1);let collision=wall?{t:wall.t,object:wall.object}:null;
   for(const target of islandCurrentActors())if(target!==q.owner&&target.hp>0&&target.phase==='ground'){const t=Island.segmentHitCircle(q.x,q.y,nx,ny,target);if(t!==null&&(!collision||t<collision.t))collision={t,target}}
-  if(collision){q.life=0;if(collision.target){const t=collision.target;const oldHp=t.hp,oldShield=t.shield||0;damage(t,q.damage);if(q.owner===player){t.hitByPlayer=true;islandAddDamageNumber(t,Math.min(oldHp,Math.max(0,oldHp-t.hp)),Math.max(0,oldShield-t.shield))}Island.applyPumpHit(islandState,q,t)}else Island.damageObject(islandState,collision.object,q.damage,q.owner)}
+  if(collision){q.life=0;if(collision.target){const t=collision.target;const oldHp=t.hp,oldShield=t.shield||0;damage(t,q.damage);if(q.owner===player){t.hitByPlayer=true;islandAddDamageNumber(t,Math.min(oldHp,Math.max(0,oldHp-t.hp)),Math.max(0,oldShield-t.shield))}Island.applyPumpHit(islandState,q,t,q.owner)}else Island.damageObject(islandState,collision.object,q.damage,q.owner)}
   else{q.x=nx;q.y=ny;q.vx=motion.vx;q.vy=motion.vy;q.life-=travelDt}
+  q.position={x:q.x,y:q.y};q.velocity={x:q.vx,y:q.vy};
  }
  bullets=bullets.filter(q=>q.life>0);
 }
@@ -117,15 +118,15 @@ update=function(dt,frameWallMs=combatWallTimeMs()){
  if(islandNetwork.enabled){islandOnlineUpdate(dt);return}
  islandState.time+=dt;player.phase=dropPhase;
  if(dropPhase!=='ground'){
-  islandOriginal.update(dt,frameWallMs);player.phase=dropPhase;for(const b of bots)if(!islandDeployBot(b,dt))islandBotStep(b,dt);islandStepBullets(dt,combatTimeMs);islandResolveDeaths();Island.advanceZone(islandState,dt,bots);islandClampCamera();return;
+  islandOriginal.update(dt,frameWallMs);player.phase=dropPhase;for(const b of bots){if(!islandDeployBot(b,dt))islandBotStep(b,dt);if(b.phase==='ground')Island.stepKnockback(islandState,b,dt)}islandStepBullets(dt,combatTimeMs);islandResolveDeaths();Island.advanceZone(islandState,dt,bots);islandClampCamera();return;
  }
  const frameStartMs=combatTimeMs;combatTimeMs+=Math.max(0,dt)*1000;combatWallAnchorMs=frameWallMs;time+=dt;
  const smooth=Math.min(1,dt*10);cameraZoom+=(ISLAND_GROUND_ZOOM-cameraZoom)*smooth;cameraX+=(player.x-cameraX)*smooth;cameraY+=(player.y-cameraY)*smooth;
- const movement=movementVector();Island.moveActor(islandState,player,movement.dx,movement.dy,dt,player.speed);IslandInventory.autoAmmo(islandState,player);
+ const movement=movementVector();Island.moveActor(islandState,player,movement.dx,movement.dy,dt,player.speed);Island.stepKnockback(islandState,player,dt);IslandInventory.autoAmmo(islandState,player);
  player.cd-=dt;player.meleeSwing=Math.max(0,(player.meleeSwing||0)-dt);updatePlayerAim();
  advancePlayerCombat(frameStartMs,combatTimeMs);
  if(selectedItem==='weapon'&&slot===0&&actionDown('fire')&&player.cd<=0)swingMelee();
- for(const b of bots)if(!islandDeployBot(b,dt))islandBotStep(b,dt);
+ for(const b of bots){if(!islandDeployBot(b,dt))islandBotStep(b,dt);if(b.phase==='ground')Island.stepKnockback(islandState,b,dt)}
  islandStepBullets(dt,frameStartMs);islandResolveDeaths();
  Island.advanceZone(islandState,dt,islandCurrentActors());storm=islandState.zone.current.r;
  islandClampCamera();updateHUD();if(player.hp<=0)end(false);else if(!bots.length)end(true);
@@ -258,7 +259,7 @@ function islandOnlineUpdate(dt){
  else{dropFast=!!keys[' '];const length=Math.hypot(movement.dx,movement.dy)||1;player.x=Island.clamp(player.x+movement.dx/length*Island.PARACHUTE_SPEED*dt,40,world-40);player.y=Island.clamp(player.y+movement.dy/length*Island.PARACHUTE_SPEED*dt,40,world-40);dropRemaining=Math.max(0,dropRemaining-dt*(dropFast?2:1))}
  // Interpolate visible remote actors only. Hidden actors are never sent by the server.
  if(net.previous){const f=Math.min(1,(performance.now()-net.receivedAt)/70);if(net._previousActorsFor!==net.previous){net._previousActorsFor=net.previous;net._previousActors=new Map(net.previous.actors.map(a=>[a.id,a]))}if(net._renderActorsFor!==net.last){net._renderActorsFor=net.last;net._renderActors=net.last.actors.map(a=>({...a}))}bots=net._renderActors;for(let i=0;i<bots.length;i++){const a=net.last.actors[i],old=net._previousActors.get(a.id);bots[i].x=old?old.x+(a.x-old.x)*f:a.x;bots[i].y=old?old.y+(a.y-old.y)*f:a.y}}
- if(net._renderBulletsFor!==net.last){net._renderBulletsFor=net.last;net._renderBullets=net.last.bullets.map(b=>({...b}))}bullets=net._renderBullets;const bulletAge=Math.min(.08,(performance.now()-net.receivedAt)/1000);for(let i=0;i<bullets.length;i++){const src=net.last.bullets[i];const motion=Island.projectileMotion(src,bulletAge);bullets[i].x=motion.x;bullets[i].y=motion.y;bullets[i].vx=motion.vx;bullets[i].vy=motion.vy}
+ if(net._renderBulletsFor!==net.last){net._renderBulletsFor=net.last;net._renderBullets=net.last.bullets.map(b=>({...b}))}bullets=net._renderBullets;const bulletAge=Math.min(.08,(performance.now()-net.receivedAt)/1000);for(let i=0;i<bullets.length;i++){const src=net.last.bullets[i];const motion=Island.projectileMotion(src,bulletAge);bullets[i].x=motion.x;bullets[i].y=motion.y;bullets[i].vx=motion.vx;bullets[i].vy=motion.vy;bullets[i].position={x:motion.x,y:motion.y};bullets[i].velocity={x:motion.vx,y:motion.vy}}
  const targetZoom=islandFlightZoom(),smooth=Math.min(1,dt*10);
  cameraZoom+=(targetZoom-cameraZoom)*smooth;cameraX+=(player.x+(net.visualOffset?.x||0)-cameraX)*smooth;cameraY+=(player.y+(net.visualOffset?.y||0)-cameraY)*smooth;islandClampCamera();updateHUD();islandSetText('#alive',String(net.last.alive));
 }
@@ -291,7 +292,7 @@ drawCharacter=function(a){
  CosmeticRig.drawPack(x,CosmeticRig.pack(cosmeticSprite('backpacks',packIndex),packIndex,bodyInfo));
  if(!CosmeticRig.drawBody(x,bodyInfo))circle(0,0,26,'#ffd17b');
  if(local&&selectedItem==='medkit'||!local&&a.itemKind==='med'){CosmeticRig.drawGunHands?.(x,bodyInfo,0);const mouth=bodyInfo.mouth;x.fillStyle='#ecece1';x.beginPath();x.roundRect(mouth-2,-9,19,18,4);x.fill();x.fillStyle='#b84a43';x.fillRect(mouth+5,-6,3,12);x.fillRect(mouth+1,-2,11,3)}
- else if(g){const last=local?g.lastShotAtMs:a.weaponLastShotAtMs,clock=islandNetwork.ready?islandState.time*1000:combatTimeMs,age=last==null?Infinity:Math.max(0,clock-last),kick=age<170?([5.5,3.2,6.5][g.type]||3)*Math.exp(-age/45):0;x.save();x.translate(-kick,0);x.rotate(-kick*.006);CosmeticRig.drawGunHands?.(x,bodyInfo,g.type);drawHeldWeapon(g.type,bodyInfo.mouth,local?g.rarity:(a.weaponRarity||0),age);islandDrawGunCasing(x,bodyInfo.mouth,g.type,age);x.restore();}
+ else if(g){const rarity=local?g.rarity:(a.weaponRarity||0),last=local?g.lastShotAtMs:a.weaponLastShotAtMs,clock=islandNetwork.ready?islandState.time*1000:combatTimeMs,age=last==null?Infinity:Math.max(0,clock-last),recoilMs=IslandWeaponStats.variantFor({type:g.type,rarity})?.recoilMs??85,kick=age<recoilMs?([5.5,3.2,6.5][g.type]||3)*Math.exp(-age/Math.max(18,recoilMs*.28)):0;x.save();x.translate(-kick,0);x.rotate(-kick*.006);CosmeticRig.drawGunHands?.(x,bodyInfo,g.type);drawHeldWeapon(g.type,bodyInfo.mouth,rarity,age);islandDrawGunCasing(x,bodyInfo.mouth,g.type,age);x.restore();}
  else if(equippedSlot===0)drawSidewaysMelee(meleeIndex,bodyInfo.mouth,a.meleeSwing||0,cosmetics.skins[skin]?.[1]||'#bca255',skin,a.punchHand);
  else CosmeticRig.drawFists?.(x,{...bodyInfo,punchHand:a.punchHand},a.meleeSwing||0);
  if(!bodyInfo.art&&!g&&(equippedSlot!==0||meleeIndex<0)&&selectedItem!=='medkit')CosmeticRig.drawBody(x,bodyInfo);

@@ -1,0 +1,91 @@
+{
+  "equipDelayMs": 200,
+  "reloadMs": 1150,
+  "burst": {
+    "size": 7,
+    "bulletIntervalMs": 65,
+    "recoveryMs": 320
+  },
+  "projectiles": {
+    "deagle": {
+      "speed": 1700,
+      "lifeMs": 1000,
+      "spreadRadians": 0.025,
+      "muzzleOffset": 38
+    },
+    "ak": {
+      "speed": 850,
+      "lifeMs": 1000,
+      "spreadRadians": 0.012,
+      "muzzleOffset": 38
+    },
+    "pump": {
+      "speed": 630,
+      "lifeMs": 500,
+      "muzzleOffset": 38,
+      "pelletOffsetsDeg": [-12, -8, -4, 0, 4, 8, 12],
+      "damageByRarity": [90, 95, 100, 105, 110],
+      "knockback": {
+        "speed": 180,
+        "durationMs": 150,
+        "range": 700,
+        "minimumScale": 0.25
+      }
+    }
+  },
+  "variants": {
+    "DEAGLE": {
+      "type": 0,
+      "ammoFamily": "sniper",
+      "magazine": 7,
+      "damage": 40,
+      "cooldownMs": 500,
+      "trigger": "press",
+      "projectile": "deagle",
+      "muzzleFlashMs": 60,
+      "recoilMs": 100
+    },
+    "DEAGLE_UE": {
+      "type": 0,
+      "ammoFamily": "sniper",
+      "magazine": 10,
+      "damage": 45,
+      "cooldownMs": 500,
+      "trigger": "press",
+      "projectile": "deagle",
+      "muzzleFlashMs": 60,
+      "recoilMs": 100
+    },
+    "AK": {
+      "type": 1,
+      "ammoFamily": "p90",
+      "magazine": 40,
+      "damage": 12,
+      "trigger": "hold",
+      "projectile": "ak",
+      "muzzleFlashMs": 40,
+      "recoilMs": 85
+    },
+    "AK_UE": {
+      "type": 1,
+      "ammoFamily": "p90",
+      "magazine": 50,
+      "damage": 17,
+      "trigger": "hold",
+      "projectile": "ak",
+      "muzzleFlashMs": 40,
+      "recoilMs": 85
+    },
+    "PUMP_SHOTGUN": {
+      "type": 2,
+      "ammoFamily": "shotgun",
+      "magazine": 5,
+      "damageByRarity": [90, 95, 100, 105, 110],
+      "cooldownMs": 1000,
+      "trigger": "press",
+      "projectile": "pump",
+      "muzzleFlashMs": 80,
+      "recoilMs": 150
+    }
+  }
+}

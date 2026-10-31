@@ -1,7 +1,7 @@
-(function(root,factory){const api=factory(typeof module==='object'&&module.exports?require('./world.js'):root.IslandCore);if(typeof module==='object'&&module.exports)module.exports=api;else root.IslandInventory=api})(typeof globalThis!=='undefined'?globalThis:this,function(C){
+(function(root,factory){const api=factory(typeof module==='object'&&module.exports?require('./world.js'):root.IslandCore,typeof module==='object'&&module.exports?require('./weapon-rules.js'):root.IslandWeaponStats);if(typeof module==='object'&&module.exports)module.exports=api;else root.IslandInventory=api})(typeof globalThis!=='undefined'?globalThis:this,function(C,WeaponStats){
 'use strict';
 const FAMILIES=['smg','shotgun','sniper','p90'];
-const isMed=g=>g?.kind==='med',isGun=g=>!!g&&!isMed(g)&&Number.isInteger(g.type)&&g.type>=0&&g.type<4,family=g=>['sniper','p90','shotgun','sniper'][g.type]||'smg';
+const isMed=g=>g?.kind==='med',isGun=g=>!!g&&!isMed(g)&&Number.isInteger(g.type)&&g.type>=0&&g.type<4,family=g=>WeaponStats.familyFor(g,['sniper','p90','shotgun','sniper'][g?.type]||'smg');
 function prepare(p){p.ammoWallet=p.ammoWallet||{smg:0,shotgun:0,sniper:0,p90:0};p.inventory=p.inventory||[null,null,null,null,null,null];p.med=p.inventory.reduce((n,g)=>n+(isMed(g)?g.count:0),0);return p}
 function totals(p){prepare(p);const out={...p.ammoWallet};for(const g of p.inventory)if(isGun(g))out[family(g)]=(out[family(g)]||0)+Math.max(0,g.reserve||0);return out}
 function feedGun(p,g){prepare(p);if(!isGun(g))return;const f=family(g);g.reserve=(g.reserve||0)+(p.ammoWallet[f]||0);p.ammoWallet[f]=0}

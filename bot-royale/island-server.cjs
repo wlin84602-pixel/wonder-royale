@@ -3,6 +3,7 @@ const http=require('http'),fs=require('fs'),path=require('path'),crypto=require(
 const {Session}=require('./island/session.cjs'),{LobbySession}=require('./island/lobby-session.cjs');
 const ROOT=path.join(__dirname,'public'),RULES=JSON.parse(fs.readFileSync(path.join(__dirname,'island/combat-rules.json'),'utf8'));
 function createServer(options={}){
+ const {CosmeticStore}=require('./island/cosmetic-store.cjs');const cosmeticStore=new CosmeticStore(path.join(process.env.COSMETIC_DATA_DIR||path.join(__dirname,'.data'),'cosmetics.json'));
  const sessions=new Map(),clients=new Map(),connections=new Set();
  function getRoom(name){if(!sessions.has(name)&&sessions.size>=16)throw Error('Room limit reached');if(!sessions.has(name))sessions.set(name,new (options.lobby===false?Session:LobbySession)(crypto.randomBytes(4).readUInt32LE(),RULES,{bots:options.bots??24,roomName:name}));return sessions.get(name)}
  function json(res,status,value){res.writeHead(status,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify(value))}
@@ -10,6 +11,7 @@ function createServer(options={}){
  const server=http.createServer(async(req,res)=>{
   const url=new URL(req.url,'http://localhost');
   try{
+   if(url.pathname.startsWith('/api/cosmetics/')){const token=req.headers.authorization?.replace(/^Bearer /,'');if(req.method==='POST'&&url.pathname==='/api/cosmetics/account')return json(res,200,cosmeticStore.create());if(req.method==='GET'&&url.pathname==='/api/cosmetics/inventory')return json(res,200,cosmeticStore.view(token));if(req.method==='POST'&&url.pathname==='/api/cosmetics/open'){const m=await body(req);return json(res,200,cosmeticStore.open(token,m.transactionId))}return json(res,404,{error:'Unknown cosmetic action'})}
    if(req.method==='GET'&&url.pathname==='/health')return json(res,200,{ok:true,game:'Bot Royale'});
    if(req.method==='GET'&&url.pathname==='/api/meta')return json(res,200,{online:true,tickRate:30,maxPlayers:25,version:2,lobby:true});
    if(req.method==='POST'&&url.pathname==='/api/join'){

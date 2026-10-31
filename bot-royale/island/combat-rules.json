@@ -1,11 +1,12 @@
 {
   "types": [
     {
-      "name": "PISTOL",
-      "clip": 12,
-      "damage": 22,
-      "rate": 0.28,
-      "speed": 700,
+      "name": "Deagle",
+      "clip": 7,
+      "damage": 40,
+      "rate": 0.5,
+      "speed": 1700,
+      "ammoFamily": "sniper",
       "color": "#d4ded8"
     },
     {
@@ -48,7 +49,7 @@
     "Pistol": 280
   },
   "profiles": [
-    "Pistol",
+    "Desert Eagle",
     "AK-Style Rifle",
     "Pump Shotgun",
     "Bolt-Action Sniper"

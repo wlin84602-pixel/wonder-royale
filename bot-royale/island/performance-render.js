@@ -1,5 +1,5 @@
 // Bounded caches for static artwork. Collision and combat state remain live.
-(function(root,factory){const api=factory(typeof module==='object'&&module.exports?require('./world.js'):root.IslandCore,typeof module==='object'&&module.exports?require('./render.js'):root.IslandRender);if(typeof module==='object'&&module.exports)module.exports=api;else root.IslandPerformance=api})(typeof globalThis!=='undefined'?globalThis:this,function(C,R){
+(function(root,factory){const api=factory(typeof module==='object'&&module.exports?require('./world.js'):root.IslandCore,typeof module==='object'&&module.exports?require('./render.js'):root.IslandRender,typeof module==='object'&&module.exports?require('./map-theme.js'):root.IslandMapTheme);if(typeof module==='object'&&module.exports)module.exports=api;else root.IslandPerformance=api})(typeof globalThis!=='undefined'?globalThis:this,function(C,R,Theme){
 'use strict';
 const raw={...R},MAX_BYTES=32*1024*1024,cache=new Map(),ids=new WeakMap(),farCaches=new WeakMap(),stats={bytes:0,hits:0,misses:0,sceneBuilds:0,terrainBuilds:0,spriteBuilds:0};let nextId=0,stamp=0;
 function id(o){if(!ids.has(o))ids.set(o,++nextId);return ids.get(o)}
@@ -18,8 +18,9 @@ R.object=function(z,o,time){if(o.destroyed||o.lootContainer||o.kind==='bush')ret
  const key='object:'+JSON.stringify([o.kind,o.shape,o.w,o.h,o.r,o.trunkRadius,o.paint,o.color,o.bx-o.ax,o.by-o.ay]);
  const local={...o,x:o.x-b.x,y:o.y-b.y,ax:o.ax-b.x,bx:o.bx-b.x,ay:o.ay-b.y,by:o.by-b.y};const origin={x:-pad,y:-pad,w:rect.w,h:rect.h};z.save();z.translate(b.x,b.y);if(!sprite(z,key,origin,ctx=>raw.object(ctx,local,time)))raw.object(z,local,time);z.restore()
 };
-R.canopies=function(z,objects,local){for(const o of objects)if(o.kind==='tree'&&!o.destroyed){const r=o.canopy+6,b={x:-r,y:-r,w:r*2,h:r*2},key='canopy:'+o.canopy+':'+(o.tint||0);z.save();z.translate(o.x,o.y);if(!sprite(z,key,b,ctx=>raw.canopies(ctx,[{...o,x:0,y:0}],local)))raw.canopies(z,[{...o,x:0,y:0}],local);z.restore()}};
-R.bushes=function(z,s,visible,local=null){for(const b of s.bushes)if(visible({x:b.x-b.r,y:b.y-b.r,w:b.r*2,h:b.r*2})){const radius=b.r+5,rect={x:-radius,y:-radius,w:radius*2,h:radius*2};z.save();z.translate(b.x,b.y);if(local&&Math.hypot(local.x-b.x,local.y-b.y)<(b.hideRadius??b.r*.83))z.globalAlpha=.55;if(!sprite(z,'bush:'+b.r,rect,ctx=>raw.bushes(ctx,{bushes:[{...b,x:0,y:0}]},()=>true)))raw.bushes(z,{bushes:[{...b,x:0,y:0}]},()=>true);z.restore()}};
+R.canopies=function(z,objects,local){for(const o of objects)if(o.kind==='tree'&&!o.destroyed){const biome=Theme.idAt(o.x,o.y,C.SIZE),r=o.canopy+6,b={x:-r,y:-r,w:r*2,h:r*2},key='canopy:'+o.canopy+':'+(o.tint||0)+':'+biome;z.save();z.translate(o.x,o.y);if(!sprite(z,key,b,ctx=>raw.canopies(ctx,[{...o,x:0,y:0,visualBiome:biome}],local)))raw.canopies(z,[{...o,x:0,y:0,visualBiome:biome}],local);z.restore()}};
+R.bushes=function(z,s,visible,local=null){for(const b of s.bushes)if(visible({x:b.x-b.r,y:b.y-b.r,w:b.r*2,h:b.r*2})){const biome=Theme.idAt(b.x,b.y,C.SIZE),radius=b.r+5,rect={x:-radius,y:-radius,w:radius*2,h:radius*2};z.save();z.translate(b.x,b.y);if(local&&Math.hypot(local.x-b.x,local.y-b.y)<(b.hideRadius??b.r*.83))z.globalAlpha=.55;if(!sprite(z,'bush:'+b.r+':'+biome,rect,ctx=>raw.bushes(ctx,{bushes:[{...b,x:0,y:0,visualBiome:biome}]},()=>true)))raw.bushes(z,{bushes:[{...b,x:0,y:0,visualBiome:biome}]},()=>true);z.restore()}};
+
 R.crate=function(z,c){if(c.open||c.destroyed)return;z.save();z.translate(c.x,c.y);if(!sprite(z,'crate:'+c.kind,{x:-36,y:-36,w:72,h:72},ctx=>raw.crate(ctx,{...c,x:0,y:0})))raw.crate(z,{...c,x:0,y:0});z.restore()};
 R.floors=raw.floors;R.roofs=raw.roofs;
 function intersects(a,b,pad=0){return a.x+a.w+pad>=b.x&&a.x-pad<=b.x+b.w&&a.y+a.h+pad>=b.y&&a.y-pad<=b.y+b.h}
@@ -45,7 +46,7 @@ R.farScene=function(z,s,view){
   for(const d of s.doors){const angle=C.doorAngleAt(d,s.time);if(item.doors.get(d.id)!==angle){mark({x:d.hingeX-d.length,y:d.hingeY-d.length,w:d.length*2,h:d.length*2});item.doors.set(d.id,angle)}}
   for(const key of dirty){const [xx,yy]=key.split(',').map(Number);paintFar(item.ctx,s,{x:xx*512,y:yy*512,w:512,h:512});stats.scenePatches=(stats.scenePatches||0)+1}
  }
- item.checkedRevision=revision;z.fillStyle='#4a9bb5';z.fillRect(view.x,view.y,view.w,view.h);z.drawImage(item.canvas,0,0,s.size,s.size);return true
+ item.checkedRevision=revision;z.fillStyle='#1978a6';z.fillRect(view.x,view.y,view.w,view.h);z.drawImage(item.canvas,0,0,s.size,s.size);return true
 };
 return{stats,raw,MAX_BYTES,clear(){for(const q of cache.values())q.canvas.width=q.canvas.height=1;cache.clear();stats.bytes=0}};
 });

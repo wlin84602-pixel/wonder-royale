@@ -95,7 +95,7 @@ function buildLegacyWorld(seed=1){
  state.index=new SpatialIndex(state.objects);
  for(const loc of state.locations){
   for(let i=0;i<16;i++){const spot=findValid(state,{x:loc.x-520+random()*1040,y:loc.y-480+random()*960},15);
-   state.loot.push({id:id('loot'),x:spot.x,y:spot.y,type:i%5===0?'med':i%5===1?'shield':i%5===2?'ammo':'gun',weapon:random()<.5?1:2,rarity:Math.floor(random()*(loc.risk==='high'?5:4)),amount:30,taken:false});
+   state.loot.push({id:id('loot'),x:spot.x,y:spot.y,type:i%5===0?'med':i%5===1?'shield':i%5===2?'ammo':'gun',weapon:Math.floor(random()*3),rarity:Math.floor(random()*(loc.risk==='high'?5:4)),amount:30,taken:false});
   }
   for(let i=0;i<4;i++){const spot=findValid(state,{x:loc.x-560+random()*1120,y:loc.y-500+random()*1000},24,true,true);state.containers.push({id:id('chest'),x:spot.x,y:spot.y,kind:i===0?'gold':i===1?'ammo':'basic',open:false,hp:60})}
  }
@@ -181,7 +181,7 @@ function buildWorld(seed=1){
   if(plots.query(x-100,y-100,200,200).some(b=>circleRect(x,y,100,b)))continue;
   if(s.index.query(x-140,y-140,280,280).some(o=>o.kind==='tree'&&hyp(o,{x,y})<o.canopy+50||o.kind==='bush'&&hyp(o,{x,y})<o.r+50))continue;
   if(s.loot.some(q=>hyp(q,{x,y})<(q.type==='gun'?1000:60)))continue;
-  s.loot.push({id:id('loot'),x,y,type:'gun',weapon:lootRandom()<.5?1:2,rarity:groundGunCount%8===7?1:0,taken:false});groundGunCount++;
+  s.loot.push({id:id('loot'),x,y,type:'gun',weapon:Math.floor(lootRandom()*3),rarity:groundGunCount%8===7?1:0,taken:false});groundGunCount++;
  }
  if(groundGunCount!==GROUND_GUN_COUNT)throw Error('Not enough sparse ground-loot locations');
  s.zone=createZone(s,random);s.random=random;return s;
@@ -189,6 +189,9 @@ function buildWorld(seed=1){
 const PUMP_FULL_HIT_DAMAGE=Object.freeze([90,95,100,105,110]),pumpPelletGroups=new WeakMap();
 function configurePumpShot(pellets,rarity,angle){const group={count:pellets.length,hits:new Map(),dx:Math.cos(angle),dy:Math.sin(angle)};for(const pellet of pellets){pellet.damage=PUMP_FULL_HIT_DAMAGE[clamp(rarity||0,0,4)]/pellets.length;pumpPelletGroups.set(pellet,group)}}
 function applyPumpHit(s,pellet,target){const group=pumpPelletGroups.get(pellet);if(!group)return false;const count=(group.hits.get(target)||0)+1;group.hits.set(target,count);if(count!==group.count)return false;moveActor(s,target,group.dx,group.dy,.12,480);return true}
+// Analytic air drag gives identical travel at every frame rate.
+const PROJECTILE_DRAG=.18;
+function projectileMotion(b,seconds){const dt=Math.max(0,seconds),decay=Math.exp(-PROJECTILE_DRAG*dt),travel=-Math.expm1(-PROJECTILE_DRAG*dt)/PROJECTILE_DRAG;return{x:b.x+b.vx*travel,y:b.y+b.vy*travel,vx:b.vx*decay,vy:b.vy*decay}}
 function solidHit(o,x,y,r){return o.shape==='circle'?Math.hypot(x-o.x,y-o.y)<r+o.r-.001:o.shape==='segment'?pointSegment(x,y,o.ax,o.ay,o.bx,o.by)<r+o.r-.001:circleRect(x,y,r,o)}
 function segmentHitCapsule(ax,ay,bx,by,o,pad=0){
  const angle=Math.atan2(o.by-o.ay,o.bx-o.ax),c=Math.cos(angle),sn=Math.sin(angle),rot=(x,y)=>({x:(x-o.ax)*c+(y-o.ay)*sn,y:-(x-o.ax)*sn+(y-o.ay)*c}),a=rot(ax,ay),b=rot(bx,by),len=Math.hypot(o.bx-o.ax,o.by-o.ay),r=o.r+pad;
@@ -198,8 +201,11 @@ function segmentHitCapsule(ax,ay,bx,by,o,pad=0){
 function onBridge(s,x,y,r=0){return s.bridges.some(b=>pointSegment(x,y,b.ax,b.ay,b.bx,b.by)<b.width/2-r)}
 function isWater(s,x,y,r=0){if(onBridge(s,x,y,r))return false;return s.water.some(w=>w.kind==='lake'?Math.hypot((x-w.x)/(w.rx+r),(y-w.y)/(w.ry+r))<1:pointSegment(x,y,w.ax,w.ay,w.bx,w.by)<w.r+r)}
 function playable(s,x,y,r=PLAYER_RADIUS){if(x-r>30&&y-r>30&&x+r<s.size-30&&y+r<s.size-30&&s.bridges.some(b=>b.dock&&pointSegment(x,y,b.ax,b.ay,b.bx,b.by)<b.width/2-r))return true;if(![[x,y],[x-r,y],[x+r,y],[x,y-r],[x,y+r]].every(p=>pointPolygon(...p,s.coast)))return false;return !isWater(s,x,y,r)}
-function activeSolid(o){return !o.destroyed&&o.solid&&!(o.kind==='door'&&o.open)&&!(o.lootContainer&&o.open)}
-function blocked(s,x,y,r=PLAYER_RADIUS){if(!playable(s,x,y,r))return true;return s.index.query(x-r,y-r,r*2,r*2).some(o=>activeSolid(o)&&solidHit(o,x,y,r))}
+const doorBroadphases=new WeakMap(),doorCollisionShapes=new WeakMap();
+function doorPanel(d,time){if(d.hingeX===undefined)return d;const old=doorCollisionShapes.get(d);if(old&&old.time===time&&old.open===d.open&&old.changedAt===d.changedAt&&old.swing===d.swing&&old.turnFrom===d.turnFrom)return old.shape;const pose=doorPose(d,time),r=7,shape={...d,shape:'segment',r,ax:pose.hingeX,ay:pose.hingeY,bx:pose.tipX,by:pose.tipY,x:Math.min(pose.hingeX,pose.tipX)-r,y:Math.min(pose.hingeY,pose.tipY)-r,w:Math.abs(pose.tipX-pose.hingeX)+r*2,h:Math.abs(pose.tipY-pose.hingeY)+r*2,source:d};doorCollisionShapes.set(d,{time,open:d.open,changedAt:d.changedAt,swing:d.swing,turnFrom:d.turnFrom,shape});return shape}
+function collisionObjects(s,x,y,w,h){const ordinary=s.index.query(x,y,w,h).filter(o=>o.kind!=='door'||o.hingeX===undefined||!o.open);const doors=s.doors||[];if(!doors.length)return ordinary;let broad=doorBroadphases.get(s);if(!broad||broad.list!==doors||broad.count!==doors.length){const entries=doors.filter(d=>d.hingeX!==undefined).map(d=>({id:d.id,x:d.hingeX-d.length-9,y:d.hingeY-d.length-9,w:d.length*2+18,h:d.length*2+18,door:d}));broad={list:doors,count:doors.length,index:new SpatialIndex(entries)};doorBroadphases.set(s,broad)}for(const entry of broad.index.query(x,y,w,h)){if(!entry.door.open||s.time-entry.door.changedAt<.09-1e-8)continue;const panel=doorPanel(entry.door,s.time);if(panel.x+panel.w>=x&&panel.x<=x+w&&panel.y+panel.h>=y&&panel.y<=y+h)ordinary.push(panel)}return ordinary}
+function activeSolid(o){return !o.destroyed&&o.solid&&!(o.kind==='door'&&o.open&&o.hingeX===undefined)&&!(o.lootContainer&&o.open)}
+function blocked(s,x,y,r=PLAYER_RADIUS){if(!playable(s,x,y,r))return true;return collisionObjects(s,x-r,y-r,r*2,r*2).some(o=>activeSolid(o)&&solidHit(o,x,y,r))}
 function findValid(s,p,r=PLAYER_RADIUS,avoidRoof=false,avoidBridges=false,avoidBushes=false){
  const valid=(x,y)=>(!avoidBushes||!s.index.query(x-r-100,y-r-100,(r+100)*2,(r+100)*2).some(o=>o.kind==='bush'&&hyp(o,{x,y})<o.r+r+24))&&(!avoidBridges||!s.bridges.some(b=>pointSegment(x,y,b.ax,b.ay,b.bx,b.by)<b.width/2+60))&&!blocked(s,x,y,r)&&(!avoidRoof||!s.buildings.some(b=>circleRect(x,y,r,b)||b.entryPoints.some(p=>Math.hypot(x-p.x,y-p.y)<90)));
  if(valid(p.x,p.y))return {x:p.x,y:p.y};
@@ -225,7 +231,7 @@ function slideStep(s,a,vx,vy,radius){
   const x=a.x,y=a.y;if(!blocked(s,x+vx,y+vy,radius)){a.x+=vx;a.y+=vy;return}
   let lo=0,hi=1;for(let i=0;i<14;i++){const mid=(lo+hi)/2;if(blocked(s,x+vx*mid,y+vy*mid,radius))hi=mid;else lo=mid}
   a.x=x+vx*lo;a.y=y+vy*lo;vx*=1-lo;vy*=1-lo;
-  const contacts=s.index.query(a.x-radius-1,a.y-radius-1,radius*2+2,radius*2+2).filter(o=>activeSolid(o)&&solidHit(o,a.x,a.y,radius+.06));let projected=false;
+  const contacts=collisionObjects(s,a.x-radius-1,a.y-radius-1,radius*2+2,radius*2+2).filter(o=>activeSolid(o)&&solidHit(o,a.x,a.y,radius+.06));let projected=false;
   for(const o of contacts){const n=contactNormal(o,a.x,a.y);if(!n)continue;const budget=Math.hypot(vx,vy),into=vx*n.x+vy*n.y;if(into< -1e-8){vx-=n.x*into;vy-=n.y*into;
    if(o.kind==='tree'&&Math.hypot(vx,vy)<budget*.45){const cross=n.x*(a.doorMoveY||0)-n.y*(a.doorMoveX||0),side=Math.abs(cross)>1e-6?Math.sign(cross):a.treeSlideId===o.id?a.treeSlideSide:1;a.treeSlideId=o.id;a.treeSlideSide=side;vx=-n.y*side*budget*.8;vy=n.x*side*budget*.8}
    projected=true}}
@@ -243,7 +249,7 @@ function moveActor(s,a,dx,dy,dt,speed=a.speed||205){
 }
 function segmentHitRect(ax,ay,bx,by,o,pad=0){let lo=0,hi=1;for(const [p,d,min,max]of [[ax,bx-ax,o.x-pad,o.x+o.w+pad],[ay,by-ay,o.y-pad,o.y+o.h+pad]]){if(Math.abs(d)<1e-10){if(p<min||p>max)return null}else{let t1=(min-p)/d,t2=(max-p)/d;if(t1>t2)[t1,t2]=[t2,t1];lo=Math.max(lo,t1);hi=Math.min(hi,t2);if(lo>hi)return null}}return lo}
 function segmentHitCircle(ax,ay,bx,by,o,pad=0){const dx=bx-ax,dy=by-ay,fx=ax-o.x,fy=ay-o.y,r=o.r+pad,A=dx*dx+dy*dy,C=fx*fx+fy*fy-r*r;if(C<=0)return 0;if(A===0)return null;const B=2*(fx*dx+fy*dy),D=B*B-4*A*C;if(D<0)return null;const t=(-B-Math.sqrt(D))/(2*A);return t>=0&&t<=1?t:null}
-function raycast(s,ax,ay,bx,by,pad=1,ignore=null){let best=null;for(const o of s.index.query(Math.min(ax,bx)-pad,Math.min(ay,by)-pad,Math.abs(bx-ax)+pad*2,Math.abs(by-ay)+pad*2)){if(o.destroyed||!o.blocksShots||o.kind==='door'&&o.open||o.lootContainer&&o.open||ignore&&ignore(o))continue;const t=o.shape==='circle'?segmentHitCircle(ax,ay,bx,by,o,pad):o.shape==='segment'?segmentHitCapsule(ax,ay,bx,by,o,pad):segmentHitRect(ax,ay,bx,by,o,pad);if(t!==null&&(!best||t<best.t))best={object:o,t}}return best}
+function raycast(s,ax,ay,bx,by,pad=1,ignore=null){let best=null;for(const o of collisionObjects(s,Math.min(ax,bx)-pad,Math.min(ay,by)-pad,Math.abs(bx-ax)+pad*2,Math.abs(by-ay)+pad*2)){if(o.destroyed||!o.blocksShots||o.kind==='door'&&o.open&&o.hingeX===undefined||o.lootContainer&&o.open||ignore&&ignore(o.source||o))continue;const t=o.shape==='circle'?segmentHitCircle(ax,ay,bx,by,o,pad):o.shape==='segment'?segmentHitCapsule(ax,ay,bx,by,o,pad):segmentHitRect(ax,ay,bx,by,o,pad);if(t!==null&&(!best||t<best.t))best={object:o.source||o,t}}return best}
 const buildingLookups=new WeakMap();
 function buildingAt(s,a){if(!s.buildings.length)return null;let entry=buildingLookups.get(s);if(!entry||entry.list!==s.buildings||entry.count!==s.buildings.length){entry={list:s.buildings,count:s.buildings.length,index:new SpatialIndex(s.buildings)};buildingLookups.set(s,entry)}return entry.index.query(a.x,a.y,0,0).find(b=>a.x>b.x+12&&a.x<b.x+b.w-12&&a.y>b.y+12&&a.y<b.y+b.h-12&&(!b.outline||pointPolygon(a.x,a.y,b.outline)))||null}
 function bushAt(s,a){return s.index.query(a.x-1,a.y-1,2,2).find(b=>b.kind==='bush'&&Math.hypot(a.x-b.x,a.y-b.y)<(b.hideRadius??b.r*.83))||null}
@@ -302,7 +308,7 @@ function openContainer(s,c,a,weaponCount=4){
  for(let i=0;i<drops.length;i++){
   const p=findValid(s,{x:c.x+(i-(drops.length-1)/2)*46,y:c.y+(drops.length>1?42:0)},13),q={id:'loot-'+s.nextId++,...p,type:drops[i],amount:drops[i]==='ammo'?45:1,taken:false};
   if(q.type==='ammo')q.ammoFamily=['smg','shotgun','sniper','p90'][Math.floor(random()*4)];
-  if(q.type==='gun'){q.weapon=random()<.5?1:2;const roll=random();q.rarity=c.kind==='ultimate'?4:c.kind==='gold'?(roll<.6?2:roll<.9?3:4):(roll<.6?0:roll<.85?1:roll<.95?2:roll<.99?3:4)}
+  if(q.type==='gun'){q.weapon=Math.floor(random()*3);const roll=random();q.rarity=c.kind==='ultimate'?4:c.kind==='gold'?(roll<.6?2:roll<.9?3:4):(roll<.6?0:roll<.85?1:roll<.95?2:roll<.99?3:4)}
   s.loot.push(q);out.push(q);
  }s.events.push({kind:'crate',x:c.x,y:c.y});return out;
 }
@@ -328,7 +334,7 @@ function advanceZone(s,dt,actors=[]){
 function zoneCountdown(s){const z=s.zone;if(z.mode==='finished')return 0;const c=ZONE_PHASES[z.phase];return Math.max(0,Math.ceil((z.mode==='prepare'?c.prepare:c.shrink)-z.elapsed))}
 function planeRoute(seed){const r=rng(seed^0xabc143),edge=Math.floor(r()*4),offset=650+r()*4700,end=650+r()*4700,a=edge===0?{x:160,y:offset}:edge===1?{x:5840,y:offset}:edge===2?{x:offset,y:160}:{x:offset,y:5840},b=edge===0?{x:5840,y:end}:edge===1?{x:160,y:end}:edge===2?{x:end,y:5840}:{x:end,y:160};a.x*=MAP_SCALE;a.y*=MAP_SCALE;b.x*=MAP_SCALE;b.y*=MAP_SCALE;return{start:a,end:b,angle:Math.atan2(b.y-a.y,b.x-a.x),duration:hyp(a,b)/(220*MAP_SCALE)}}
 function planePosition(route,time){const f=clamp(time/route.duration,0,1);return{x:route.start.x+(route.end.x-route.start.x)*f,y:route.start.y+(route.end.y-route.start.y)*f}}
-return{SIZE:SIZE*MAP_SCALE,MAP_SCALE,PLAYER_RADIUS,PLAYER_SPEED,PARACHUTE_SPEED,DROP_SECONDS,GROUND_GUN_COUNT,PUMP_FULL_HIT_DAMAGE,configurePumpShot,applyPumpHit,solidHit,LOCATIONS:LOCATIONS.map(l=>({...l,x:l.x*MAP_SCALE,y:l.y*MAP_SCALE})),ZONE_PHASES,COAST:COAST.map(([x,y])=>[x*MAP_SCALE,y*MAP_SCALE]),SpatialIndex,rng,clamp,hyp,pointSegment,circleRect,buildWorld,playable,isWater,blocked,findValid,resolveActorOverlap,moveActor,raycast,segmentHitCircle,buildingAt,bushAt,apertureDistance,canViewInterior,doorSwingAway,doorPose,doorAngleAt,doorInteractionDistance,canSee,interactDoor,interactionTarget,openContainer,damageObject,advanceZone,zoneCountdown,planeRoute,planePosition,bounds};
+return{PROJECTILE_DRAG,projectileMotion,SIZE:SIZE*MAP_SCALE,MAP_SCALE,PLAYER_RADIUS,PLAYER_SPEED,PARACHUTE_SPEED,DROP_SECONDS,GROUND_GUN_COUNT,PUMP_FULL_HIT_DAMAGE,configurePumpShot,applyPumpHit,solidHit,LOCATIONS:LOCATIONS.map(l=>({...l,x:l.x*MAP_SCALE,y:l.y*MAP_SCALE})),ZONE_PHASES,COAST:COAST.map(([x,y])=>[x*MAP_SCALE,y*MAP_SCALE]),SpatialIndex,rng,clamp,hyp,pointSegment,circleRect,buildWorld,playable,isWater,blocked,findValid,resolveActorOverlap,moveActor,raycast,segmentHitCircle,buildingAt,bushAt,apertureDistance,canViewInterior,doorSwingAway,doorPose,doorAngleAt,doorInteractionDistance,canSee,interactDoor,interactionTarget,openContainer,damageObject,advanceZone,zoneCountdown,planeRoute,planePosition,bounds};
 });
 
 

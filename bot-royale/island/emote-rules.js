@@ -1,0 +1,5 @@
+(function(root,factory){const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;else root.IslandEmotes=api})(typeof globalThis!=='undefined'?globalThis:this,function(){
+const NAMES=['Thumbs Up','Thumbs Down','Clap','Wave','Peace','Heart','Laugh','Cry','Angry','Confused','Surprised','Cool','Sleep','GG','WP','EZ','Hello!','Bye!','Love','Broken Heart','Party','Star','Music','Fire','Crown','Trophy','Target','Bomb','Ghost','Alien','UFO','Skull','Chicken','Shark','Pizza','Frog','Cat','Dog','Plant','Ramune'];
+function normalize(values){const slots=Array(6).fill(-1),seen=new Set();if(!Array.isArray(values))values=[0,1,2,3,4,5];for(let i=0;i<6;i++){const v=values[i];if(Number.isInteger(v)&&v>=0&&v<NAMES.length&&!seen.has(v)){slots[i]=v;seen.add(v)}}return slots}
+function action(p,m,now){if(m.kind==='equip-emotes'){p.emotes=normalize(m.emotes);return{ok:true}}if(m.kind!=='emote'||!Number.isInteger(m.index)||!normalize(p.emotes).includes(m.index)||m.index<0||now<(p.emoteReadyAt||0))return{ok:false};p.emoteIndex=m.index;p.emoteUntil=now+3;p.emoteReadyAt=now+.7;return{ok:true}}
+return{NAMES,normalize,action,MAX_EQUIPPED:6};});

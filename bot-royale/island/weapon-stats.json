@@ -23,14 +23,34 @@
       "speed": 630,
       "lifeMs": 500,
       "muzzleOffset": 38,
-      "pelletOffsetsDeg": [-12, -8, -4, 0, 4, 8, 12],
-      "damageByRarity": [90, 95, 100, 105, 110],
+      "pelletOffsetsDeg": [
+        -12,
+        -8,
+        -4,
+        0,
+        4,
+        8,
+        12
+      ],
+      "damageByRarity": [
+        90,
+        95,
+        100,
+        105,
+        110
+      ],
       "knockback": {
         "speed": 180,
         "durationMs": 150,
         "range": 700,
         "minimumScale": 0.25
       }
+    },
+    "sniper": {
+      "speed": 3000,
+      "lifeMs": 1650,
+      "spreadRadians": 0,
+      "muzzleOffset": 55
     }
   },
   "variants": {
@@ -80,12 +100,41 @@
       "type": 2,
       "ammoFamily": "shotgun",
       "magazine": 5,
-      "damageByRarity": [90, 95, 100, 105, 110],
+      "damageByRarity": [
+        90,
+        95,
+        100,
+        105,
+        110
+      ],
       "cooldownMs": 1000,
       "trigger": "press",
       "projectile": "pump",
       "muzzleFlashMs": 80,
       "recoilMs": 150
+    },
+    "BOLT_SNIPER": {
+      "type": 3,
+      "ammoFamily": "sniper",
+      "magazine": 5,
+      "damage": 75,
+      "cooldownMs": 1000,
+      "trigger": "press",
+      "projectile": "sniper",
+      "muzzleFlashMs": 60,
+      "recoilMs": 150
+    },
+    "BOLT_SNIPER_UE": {
+      "type": 3,
+      "ammoFamily": "sniper",
+      "magazine": 7,
+      "damage": 90,
+      "cooldownMs": 1000,
+      "trigger": "press",
+      "projectile": "sniper",
+      "muzzleFlashMs": 60,
+      "recoilMs": 150
     }
-  }
+  },
+  "sniperViewMultiplier": 1.35
 }

@@ -4,7 +4,8 @@ const Island=IslandCore,IslandDraw=IslandRender,ISLAND_GROUND_ZOOM=2.25/Math.sqr
 const islandOriginal={newGame,goHome,end,update,draw,shoot,reload,swingMelee,interact,finishLanding,createPlaneRoute,useSelectedMedkit,onkeydown,onmousedown,oncontextmenu};
 let islandNetwork={enabled:typeof location!=='undefined'&&/^https?:/.test(location.protocol)&&new URLSearchParams(location.search).get('online')==='1',ready:false,token:null,id:null,last:null,receivedAt:0,sequence:0,actionSeq:0,timer:null,stream:null,joining:false,generation:0,error:'',snapshots:[]};
 // Selected cameras: ground Extra-close (D), plane Wide (C), parachute Close (A).
-function islandFlightZoom(phase=dropPhase){const fit=Math.max(innerWidth/world,innerHeight/world),plane=Math.max(fit,Math.sqrt(6*innerWidth*innerHeight)/world)*3/1.5;return phase==='plane'?plane:phase==='parachute'?ISLAND_PARACHUTE_ZOOM:ISLAND_GROUND_ZOOM}
+function islandGroundZoom(){return ISLAND_GROUND_ZOOM/(slot>0&&player?.inventory?.[slot]?.type===3?IslandWeaponStats.data.sniperViewMultiplier:1)}
+function islandFlightZoom(phase=dropPhase){const fit=Math.max(innerWidth/world,innerHeight/world),plane=Math.max(fit,Math.sqrt(6*innerWidth*innerHeight)/world)*3/1.5;return phase==='plane'?plane:phase==='parachute'?ISLAND_PARACHUTE_ZOOM:islandGroundZoom()}
 function islandFollowFlight(dt){const smooth=Math.min(1,dt*10);cameraZoom+=(islandFlightZoom()-cameraZoom)*smooth;cameraX+=(player.x-cameraX)*smooth;cameraY+=(player.y-cameraY)*smooth;if(dropPhase==='plane'){cameraX=player.x;cameraY=player.y}islandClampCamera()}
 updateDrop=function(dt){
  if(dropPhase==='plane'){planeElapsed+=dt;Object.assign(player,Island.planePosition(planeRoute,planeElapsed));if(planeElapsed>=planeRoute.duration)startParachuteDrop()}
@@ -121,7 +122,7 @@ update=function(dt,frameWallMs=combatWallTimeMs()){
   islandOriginal.update(dt,frameWallMs);player.phase=dropPhase;for(const b of bots){if(!islandDeployBot(b,dt))islandBotStep(b,dt);if(b.phase==='ground')Island.stepKnockback(islandState,b,dt)}islandStepBullets(dt,combatTimeMs);islandResolveDeaths();Island.advanceZone(islandState,dt,bots);islandClampCamera();return;
  }
  const frameStartMs=combatTimeMs;combatTimeMs+=Math.max(0,dt)*1000;combatWallAnchorMs=frameWallMs;time+=dt;
- const smooth=Math.min(1,dt*10);cameraZoom+=(ISLAND_GROUND_ZOOM-cameraZoom)*smooth;cameraX+=(player.x-cameraX)*smooth;cameraY+=(player.y-cameraY)*smooth;
+ const smooth=Math.min(1,dt*10);cameraZoom+=(islandGroundZoom()-cameraZoom)*smooth;cameraX+=(player.x-cameraX)*smooth;cameraY+=(player.y-cameraY)*smooth;
  const movement=movementVector();Island.moveActor(islandState,player,movement.dx,movement.dy,dt,player.speed);Island.stepKnockback(islandState,player,dt);IslandInventory.autoAmmo(islandState,player);
  player.cd-=dt;player.meleeSwing=Math.max(0,(player.meleeSwing||0)-dt);updatePlayerAim();
  advancePlayerCombat(frameStartMs,combatTimeMs);

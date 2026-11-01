@@ -10,6 +10,7 @@
   if(type===0)return rarityIndex(rarity)===4?'DEAGLE_UE':'DEAGLE';
   if(type===1)return rarityIndex(rarity)===4?'AK_UE':'AK';
   if(type===2)return 'PUMP_SHOTGUN';
+  if(type===3)return rarityIndex(rarity)===4?'BOLT_SNIPER_UE':'BOLT_SNIPER';
   return null;
  }
  function variantFor(g){return data.variants[idFor(g?.type,g?.rarity)]||null}

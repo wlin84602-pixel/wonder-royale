@@ -95,9 +95,7 @@ swingMelee=function(){
 useSelectedMedkit=function(){if(!running||dropPhase!=='ground'||selectedItem!=='medkit')return;player.slot=slot;if(islandNetwork.ready){islandSendAction('medkit');return}IslandInventory.act(islandState,player,{kind:'medkit'});selectedItem=IslandInventory.isMed(player.inventory[slot])?'medkit':'weapon';updateHUD()};
 function islandDeployBot(b,dt){if(b.phase==='plane'){Object.assign(b,Island.planePosition(planeRoute,islandState.time));if(islandState.time>=b.jumpAt||islandState.time>=planeRoute.duration)b.phase='parachute';return true}if(b.phase==='parachute'){const target=b.dropTarget||b,dx=target.x-b.x,dy=target.y-b.y,n=Math.hypot(dx,dy)||1;b.angle=Math.atan2(dy,dx);b.x=Island.clamp(b.x+dx/n*Island.PARACHUTE_SPEED*dt,40,world-40);b.y=Island.clamp(b.y+dy/n*Island.PARACHUTE_SPEED*dt,40,world-40);b.dropRemaining-=dt;if(b.dropRemaining<=0){Object.assign(b,Island.findValid(islandState,b,26,true));b.phase='ground';b.dropRemaining=0}return true}return false}
 function islandBotStep(b,dt){
- b.cd-=dt;b.turn-=dt;const targets=islandCurrentActors().filter(t=>t!==b&&t.hp>0&&(!t.phase||t.phase==='ground')&&dist(b,t)<700&&Island.canSee(islandState,b,t)).sort((a,c)=>dist(b,a)-dist(b,c)),target=targets[0];
- if(target){b.angle=Math.atan2(target.y-b.y,target.x-b.x);if(dist(b,target)>210)Island.moveActor(islandState,b,Math.cos(b.angle),Math.sin(b.angle),dt,105);if(b.cd<=0&&dist(b,target)<500)shoot(b,b.angle,true)}
- else{const z=islandState.zone.current;if(dist(b,z)>z.r-100)b.angle=Math.atan2(z.y-b.y,z.x-b.x);else if(b.turn<=0){b.angle=rnd(0,7);b.turn=rnd(.7,2)}const before={x:b.x,y:b.y};Island.moveActor(islandState,b,Math.cos(b.angle),Math.sin(b.angle),dt,85);if(dist(before,b)<.2)b.turn=0}
+ b.cd-=dt;b.turn-=dt;const intent=IslandBotAI.plan(Island,islandState,b,islandCurrentActors(),dt);Island.moveActor(islandState,b,intent.dx,intent.dy,dt,245);if(intent.fire&&b.cd<=0)shoot(b,b.angle,true);
  const door=islandState.doors.find(d=>!d.open&&dist(b,{x:d.x+d.w/2,y:d.y+d.h/2})<75);if(door)Island.interactDoor(islandState,door,b,islandCurrentActors());
 }
 function islandStepBullets(dt,frameStartMs){

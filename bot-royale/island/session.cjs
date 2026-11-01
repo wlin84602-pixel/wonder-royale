@@ -1,10 +1,11 @@
 'use strict';
+const BotAI=require('./bot-ai.js');
 const C=require('./world.js'),I=require('./inventory.js'),E=require('./emote-rules.js'),WeaponStats=require('./weapon-rules.js');
 class Session{
  constructor(seed,rules,options={}){this.world=C.buildWorld(seed);this.rules=rules;this.actors=new Map();this.inputs=new Map();this.bullets=[];this.markers=new Map();this.time=0;this.tick=0;this.nextActor=0;this.nextBullet=0;this.nextShot=0;this.damageEvents=[];this.nextDamageId=0;this.route=C.planeRoute(seed);this.maxPlayers=options.maxPlayers||25;this.botCount=options.bots??24;this.lastActions=new Map();this.addBots()}
  clip(g){return WeaponStats.magazineFor(g,this.rules.types[g.type].clip)}
  gun(type,rarity=0){const t=this.rules.types[type],variant=WeaponStats.variantFor({type,rarity});return{type,rarity,weaponId:WeaponStats.idFor(type,rarity),ammo:this.clip({type,rarity}),reserve:this.clip({type,rarity})*4,reload:0,reloading:false,reloadEndsAtMs:0,nextFireAtMs:0,lastShotAtMs:null,burstRemaining:0,equipReadyAtMs:0,fireProfile:this.rules.profiles[type],triggerMode:variant?.trigger||(type===0||type===2?'press':'hold')}}
- addBots(){for(let i=0;i<this.botCount;i++){const l=this.world.locations[i%8],p=C.findValid(this.world,{x:l.x-500+this.world.random()*1000,y:l.y-500+this.world.random()*1000},26,true),id='bot-'+i;this.actors.set(id,{id,...p,hp:75,shield:10,r:26,speed:140,skin:i%26,backpack:-1,melee:0,parachute:0,angle:0,phase:'plane',bot:true,dropRemaining:C.DROP_SECONDS,dropFast:false,jumpAt:this.route.duration*(.18+this.world.random()*.62),dropTarget:p,slot:1,med:0,inventory:[null,this.gun(1),null,null,null,null],nextBotShot:0,turnUntil:0,steer:0})}}
+ addBots(){for(let i=0;i<this.botCount;i++){const l=this.world.locations[i%8],p=C.findValid(this.world,{x:l.x-500+this.world.random()*1000,y:l.y-500+this.world.random()*1000},26,true),id='bot-'+i;this.actors.set(id,{id,...p,hp:75,shield:10,r:26,speed:245,skin:i%26,backpack:-1,melee:0,parachute:0,angle:0,phase:'plane',bot:true,dropRemaining:C.DROP_SECONDS,dropFast:false,jumpAt:this.route.duration*(.18+this.world.random()*.62),dropTarget:p,slot:1,med:0,inventory:[null,this.gun(1),null,null,null,null],nextBotShot:0,turnUntil:0,steer:0})}}
  join(name,look={}){
  const humans=[...this.actors.values()].filter(p=>!p.bot);if(humans.length>=this.maxPlayers)throw Error('Room is full');
  const id='p-'+(++this.nextActor),pos=C.planePosition(this.route,this.time),p={id,emotes:E.normalize(look.emotes),name:String(name||'Player').slice(0,18),...pos,hp:100,shield:0,r:26,speed:C.PLAYER_SPEED,skin:C.clamp(look.skin??0,-1,37),backpack:C.clamp(look.backpack??-1,-1,21),melee:C.clamp(look.melee??0,-1,23),parachute:C.clamp(look.parachute??0,-1,4),angle:this.route.angle,phase:this.time<this.route.duration?'plane':'parachute',dropRemaining:C.DROP_SECONDS,dropFast:false,slot:1,equipReadyAtMs:0,med:0,inventory:[null,this.gun(1,4),null,null,null,null],ammoWallet:{smg:0,shotgun:0,sniper:0,p90:0},meleeReadyAt:0,lastAction:0,sequence:-1,revealedUntil:0,kills:0};
@@ -74,15 +75,11 @@ class Session{
  const target=C.interactionTarget(this.world,p);if(!target)return{ok:false};if(target.kind==='door')return C.interactDoor(this.world,target.object,p,[...this.actors.values()]);if(target.kind==='container'){const items=C.openContainer(this.world,target.object,p);for(const q of items)if(q.type==='ammo')I.pickup(this.world,p,q);return{ok:items.length>0}}const oldSlot=p.slot,ok=I.pickup(this.world,p,target.object,(type,rarity)=>this.gun(type,rarity));if(ok&&p.slot!==oldSlot){p.equipReadyAtMs=this.time*1000+WeaponStats.data.equipDelayMs;const g=p.inventory[p.slot];if(g)g.equipReadyAtMs=p.equipReadyAtMs}return{ok};
  }
  botInput(p,dt){
- const targets=[...this.actors.values()].filter(a=>a!==p&&a.hp>0&&a.phase==='ground'&&C.hyp(a,p)<800&&C.canSee(this.world,p,a)).sort((a,b)=>C.hyp(a,p)-C.hyp(b,p)),target=targets[0];
- if(target){p.angle=Math.atan2(target.y-p.y,target.x-p.x);if(C.hyp(target,p)>240)C.moveActor(this.world,p,Math.cos(p.angle),Math.sin(p.angle),dt,p.speed);
-  if(this.time>=p.nextBotShot&&C.hyp(target,p)<550){this.fire(p,this.time*1000,true);p.nextBotShot=Math.max(this.time+.02,(p.inventory[p.slot]?.nextFireAtMs||0)/1000)}
- }else{
-  const z=this.world.zone.current;if(C.hyp(p,z)>z.r-120)p.steer=Math.atan2(z.y-p.y,z.x-p.x);
-  else if(this.time>=p.turnUntil){p.steer=this.world.random()*Math.PI*2;p.turnUntil=this.time+1+this.world.random()*2}
-  const before={x:p.x,y:p.y};C.moveActor(this.world,p,Math.cos(p.steer),Math.sin(p.steer),dt,p.speed*.7);if(C.hyp(p,before)<1)p.turnUntil=0;p.angle=p.steer;
- }
- // Bots open nearby closed doors rather than walking through them.
+ const g=p.inventory[p.slot];if(g)this.finishReload(g,this.time*1000);
+ const intent=BotAI.plan(C,this.world,p,[...this.actors.values()],dt,WeaponStats.projectileFor(g)?.speed||1100);
+ C.moveActor(this.world,p,intent.dx,intent.dy,dt,p.speed);I.autoAmmo(this.world,p);
+ if(intent.fire)this.fire(p,this.time*1000,true);
+ else if(g&&!g.reloading&&g.ammo<this.clip(g)*.35&&g.reserve>0)this.reload(g,this.time*1000);
  const door=this.world.doors.find(d=>!d.open&&C.hyp(p,{x:d.x+d.w/2,y:d.y+d.h/2})<80);if(door)C.interactDoor(this.world,door,p,[...this.actors.values()]);
  }
  step(dt=1/30){

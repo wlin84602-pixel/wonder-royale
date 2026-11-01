@@ -25,7 +25,7 @@ draw=function(){
  }IslandDraw.canopies(x,objects,player);for(const actor of [...bots,player]){const remaining=Math.max(0,(actor.bounceUntil||0)-s.time),lift=remaining?Math.sin((1-remaining/1.1)*Math.PI)*110:0;islandDrawPlayerEmote(x,actor,s.time,cameraZoom,lift)}x.restore();
  const mini=$('#lobby-island-map');if(mini.width!==180)mini.width=180;if(mini.height!==180)mini.height=180;IslandLobbyRender.mini(mini.getContext('2d'),s,[...bots,player].map(p=>({...p,local:p===player})),view);lobbyActivityUI();
 };
-function lobbyActivityUI(){const s=islandNetwork.lobbyWorld,active=player.arcadeRoundEnd>s.time;islandSetText('#lobby-activity-hint',active?'Aim & fire · '+Math.ceil(player.arcadeRoundEnd-s.time)+'s remaining':IslandLobby.inRange(player)?keyLabel(bindings.interact)+' · Start a 30-second target round · Enter to chat':'Walk onto the arcade deck · Enter to chat');islandSetText('#lobby-personal-stats','SCORE '+(player.arcadeScore||0)+'  ·  BEST '+(player.arcadeBest||0));islandSetText('#lobby-current-area','Target Arcade');islandSetText('#lobby-map-toggle',islandNetwork.lobbyOverview?'FOLLOW PLAYER':'LOBBY OVERVIEW')}
+function lobbyActivityUI(){islandSetText('#lobby-activity-hint','');islandSetText('#lobby-personal-stats','');islandSetText('#lobby-current-area','Waiting lobby')}
 
 let lobbyLastShot=-100;
 function lobbyShot(){if(!islandNetwork.inLobby||matchMenuOpen||!IslandLobby.inRange(player)||performance.now()-lobbyLastShot<190)return;updatePlayerAim();lobbyLastShot=performance.now();islandSendAction('lobby-shot',{aim:player.angle})}
@@ -44,5 +44,6 @@ for(const area of IslandLobby.AREAS)$('#lobby-travel-'+area.id).onclick=()=>{if(
 $('#lobby-map-toggle').onclick=()=>{islandNetwork.lobbyOverview=!islandNetwork.lobbyOverview};
 newGame=function(){previousNewGame();if(islandNetwork.enabled&&!islandNetwork.ready){const net=islandNetwork;net.enteringLobby=true;net.lobbyWorld=IslandLobby.create(islandState.seed);Object.assign(player,{x:IslandLobby.SIZE/2,y:IslandLobby.SIZE/2,phase:'lobby',slot:0});slot=0;dropPhase='lobby';bots=[];bullets=[];setWaiting(true);status.textContent='Connecting to the waiting lobby…';startButton.disabled=true;startButton.textContent='CONNECTING…';$('#lobby-roster').innerHTML='';islandSetText('#lobby-room-title','ROOM · '+net.room);lobbyCamera()}};
 $('#start').onclick=newGame;
+const activities=document.querySelector?.('.waiting-activities');if(activities)activities.style.display='none';
 setWaiting(false);
 })();

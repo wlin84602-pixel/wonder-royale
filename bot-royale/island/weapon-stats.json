@@ -51,6 +51,12 @@
       "lifeMs": 1650,
       "spreadRadians": 0,
       "muzzleOffset": 55
+    },
+    "p90": {
+      "speed": 1100,
+      "lifeMs": 1000,
+      "spreadRadians": 0.16,
+      "muzzleOffset": 45
     }
   },
   "variants": {
@@ -134,6 +140,30 @@
       "projectile": "sniper",
       "muzzleFlashMs": 60,
       "recoilMs": 150
+    },
+    "P90": {
+      "type": 4,
+      "ammoFamily": "smg",
+      "magazine": 40,
+      "damage": 14,
+      "cooldownMs": 45,
+      "reloadMs": 1000,
+      "trigger": "hold",
+      "projectile": "p90",
+      "muzzleFlashMs": 30,
+      "recoilMs": 65
+    },
+    "P90_UE": {
+      "type": 4,
+      "ammoFamily": "smg",
+      "magazine": 60,
+      "damage": 17,
+      "cooldownMs": 45,
+      "reloadMs": 1000,
+      "trigger": "hold",
+      "projectile": "p90",
+      "muzzleFlashMs": 30,
+      "recoilMs": 65
     }
   },
   "sniperViewMultiplier": 1.35

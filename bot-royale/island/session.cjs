@@ -44,7 +44,7 @@ class Session{
  if(m.kind==='interact')return this.interact(p,m);
  return{ok:false};
  }
- reload(g,at){this.finishReload(g,at);if(g.reloading||g.ammo>=this.clip(g)||g.reserve<=0)return false;if(g.type===1)g.burstRemaining=0;g.reloading=true;g.reloadEndsAtMs=at+WeaponStats.data.reloadMs;g.reload=WeaponStats.data.reloadMs/1000;return true}
+ reload(g,at){this.finishReload(g,at);if(g.reloading||g.ammo>=this.clip(g)||g.reserve<=0)return false;if(g.type===1)g.burstRemaining=0;g.reloading=true;g.reloadEndsAtMs=at+(WeaponStats.variantFor(g)?.reloadMs??WeaponStats.data.reloadMs);g.reload=(WeaponStats.variantFor(g)?.reloadMs??WeaponStats.data.reloadMs)/1000;return true}
  finishReload(g,at){if(g.reloading&&at+1e-7>=g.reloadEndsAtMs){const add=Math.min(this.clip(g)-g.ammo,g.reserve);g.ammo+=add;g.reserve-=add;g.reloading=false}g.reload=g.reloading?Math.max(0,(g.reloadEndsAtMs-at)/1000):0}
  fire(p,at,enemy=false){
  const g=p.inventory[p.slot];if(p.phase!=='ground'||!I.isGun(g)||at+1e-7<(p.equipReadyAtMs||0))return false;I.feedGun(p,g);this.finishReload(g,at);if(g.reloading||at+1e-7<g.nextFireAtMs)return false;
@@ -88,7 +88,7 @@ class Session{
  step(dt=1/30){
  const start=this.time*1000;this.time+=dt;this.world.time=this.time;this.tick++;
  const live=[...this.actors.values()].filter(p=>p.hp>0);
- for(const p of live){p.meleeSwing=Math.max(0,(p.meleeSwing||0)-dt);
+ for(const p of live){I.tickHealing(this.world,p);p.meleeSwing=Math.max(0,(p.meleeSwing||0)-dt);
   if(p.phase==='plane'){Object.assign(p,C.planePosition(this.route,this.time));if(this.time>=this.route.duration||p.bot&&this.time>=p.jumpAt)p.phase='parachute';continue}
   if(p.phase==='parachute'){
    const target=p.dropTarget||p,delta={x:target.x-p.x,y:target.y-p.y},distance=Math.hypot(delta.x,delta.y)||1,input=p.bot?{dx:delta.x/distance,dy:delta.y/distance,aim:Math.atan2(delta.y,delta.x)}:this.inputs.get(p.id)||{dx:0,dy:0,aim:p.angle};p.angle=input.aim;const length=Math.hypot(input.dx,input.dy)||1;p.x=C.clamp(p.x+input.dx/length*C.PARACHUTE_SPEED*dt,80,C.SIZE-80);p.y=C.clamp(p.y+input.dy/length*C.PARACHUTE_SPEED*dt,80,C.SIZE-80);p.dropFast=!p.bot&&this.time-(p.lastInputAt??-1)<.35&&input.dive===true;p.dropRemaining-=dt*(p.dropFast?2:1);
@@ -112,7 +112,7 @@ class Session{
  }
  snapshot(id){
  const self=this.actors.get(id);if(!self)return null;
- const actors=[...this.actors.values()].filter(a=>a.id!==id&&a.hp>0&&C.canSee(this.world,self,a)).map(p=>({id:p.id,name:p.name,chatText:p.chatText,chatUntil:p.chatUntil,emoteIndex:p.emoteIndex,emoteUntil:p.emoteUntil,x:p.x,y:p.y,hp:p.hp,shield:p.shield,angle:p.angle,phase:p.phase,dropRemaining:p.dropRemaining,skin:p.skin,backpack:p.backpack,melee:p.melee,parachute:p.parachute,slot:p.slot,weaponType:p.inventory[p.slot]?.type??1,weaponRarity:p.inventory[p.slot]?.rarity??0,weaponLastShotAtMs:p.inventory[p.slot]?.lastShotAtMs??null,itemKind:p.slot===0?'melee':I.isMed(p.inventory[p.slot])?'med':p.inventory[p.slot]?'gun':'empty',bot:p.bot,meleeSwing:p.meleeSwing,punchHand:p.punchHand,revealedUntil:p.revealedUntil}));
+ const actors=[...this.actors.values()].filter(a=>a.id!==id&&a.hp>0&&C.canSee(this.world,self,a)).map(p=>({id:p.id,name:p.name,chatText:p.chatText,chatUntil:p.chatUntil,emoteIndex:p.emoteIndex,emoteUntil:p.emoteUntil,x:p.x,y:p.y,hp:p.hp,shield:p.shield,angle:p.angle,phase:p.phase,dropRemaining:p.dropRemaining,skin:p.skin,backpack:p.backpack,melee:p.melee,parachute:p.parachute,slot:p.slot,weaponType:p.inventory[p.slot]?.type??1,weaponRarity:p.inventory[p.slot]?.rarity??0,weaponLastShotAtMs:p.inventory[p.slot]?.lastShotAtMs??null,itemKind:p.slot===0?'melee':I.isMed(p.inventory[p.slot])?p.inventory[p.slot].kind:p.inventory[p.slot]?'gun':'empty',bot:p.bot,meleeSwing:p.meleeSwing,punchHand:p.punchHand,revealedUntil:p.revealedUntil}));
  const alive=[...this.actors.values()].filter(p=>p.hp>0).length;
  return {damageEvents:this.damageEvents.filter(e=>e.source===id&&this.time-e.at<1.2),tick:this.tick,actionSeq:this.lastActions.get(id)??-1,time:this.time,seed:this.world.seed,self:JSON.parse(JSON.stringify(self)),actors,alive,zone:this.world.zone,plane:{route:this.route,position:C.planePosition(this.route,this.time)},doors:this.world.doors.filter(d=>C.hyp(self,{x:d.x+d.w/2,y:d.y+d.h/2})<3500).map(d=>({id:d.id,open:d.open,changedAt:d.changedAt,turnFrom:d.turnFrom??0,swing:d.swing||1})),destroyed:this.world.objects.filter(o=>o.destroyed).map(o=>o.id),containers:this.world.containers.filter(c=>c.open).map(c=>c.id),loot:this.world.loot.filter(l=>!l.taken&&C.hyp(l,self)<3300&&(!C.buildingAt(this.world,l)||C.canViewInterior(this.world,C.buildingAt(this.world,l),self))),bullets:this.bullets.filter(b=>C.hyp(b,self)<3400).map(b=>({...b})),marker:this.markers.get(id)||null};
  }

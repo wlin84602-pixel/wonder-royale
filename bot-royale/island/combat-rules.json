@@ -32,6 +32,15 @@
       "rate": 1.1,
       "speed": 1100,
       "color": "#f2c45e"
+    },
+    {
+      "name": "P90",
+      "clip": 40,
+      "damage": 14,
+      "rate": 0.045,
+      "speed": 1100,
+      "ammoFamily": "smg",
+      "color": "#8fdba0"
     }
   ],
   "cooldowns": {
@@ -52,7 +61,8 @@
     "Desert Eagle",
     "AK-Style Rifle",
     "Pump Shotgun",
-    "Bolt-Action Sniper"
+    "Bolt-Action Sniper",
+    "P90"
   ],
   "reloadMs": 1150,
   "rarity": [
@@ -115,6 +125,12 @@
         "lifeMs": 1650,
         "spreadRadians": 0,
         "muzzleOffset": 55
+      },
+      "p90": {
+        "speed": 1100,
+        "lifeMs": 1000,
+        "spreadRadians": 0.16,
+        "muzzleOffset": 45
       }
     },
     "variants": {
@@ -198,6 +214,30 @@
         "projectile": "sniper",
         "muzzleFlashMs": 60,
         "recoilMs": 150
+      },
+      "P90": {
+        "type": 4,
+        "ammoFamily": "smg",
+        "magazine": 40,
+        "damage": 14,
+        "cooldownMs": 45,
+        "reloadMs": 1000,
+        "trigger": "hold",
+        "projectile": "p90",
+        "muzzleFlashMs": 30,
+        "recoilMs": 65
+      },
+      "P90_UE": {
+        "type": 4,
+        "ammoFamily": "smg",
+        "magazine": 60,
+        "damage": 17,
+        "cooldownMs": 45,
+        "reloadMs": 1000,
+        "trigger": "hold",
+        "projectile": "p90",
+        "muzzleFlashMs": 30,
+        "recoilMs": 65
       }
     },
     "sniperViewMultiplier": 1.35

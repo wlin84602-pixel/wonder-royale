@@ -117,7 +117,7 @@ function islandResolveDeaths(){
 update=function(dt,frameWallMs=combatWallTimeMs()){
  islandLastDt=dt;if(!islandState)return islandOriginal.update(dt,frameWallMs);
  if(islandNetwork.enabled){islandOnlineUpdate(dt);return}
- islandState.time+=dt;player.phase=dropPhase;
+ islandState.time+=dt;player.phase=dropPhase;IslandInventory.tickHealing(islandState,player);
  if(dropPhase!=='ground'){
   islandOriginal.update(dt,frameWallMs);player.phase=dropPhase;for(const b of bots){if(!islandDeployBot(b,dt))islandBotStep(b,dt);if(b.phase==='ground')Island.stepKnockback(islandState,b,dt)}islandStepBullets(dt,combatTimeMs);islandResolveDeaths();Island.advanceZone(islandState,dt,bots);islandClampCamera();return;
  }
@@ -148,7 +148,7 @@ function islandDrawDamageNumbers(){
 function islandReloadProgress(){
  const g=player?.inventory[slot];if(!running||dropPhase!=='ground'||!IslandInventory.isGun(g)||!g.reloading)return null;
  const now=islandNetwork.ready?islandState.time*1000:combatTimeMs,remaining=g.reloadEndsAtMs-now;
- return remaining>0?Island.clamp(1-remaining/WEAPON_RELOAD_MS,0,1):null
+ return remaining>0?Island.clamp(1-remaining/(IslandWeaponStats.variantFor(g)?.reloadMs??WEAPON_RELOAD_MS),0,1):null
 }
 function islandDrawReloadRing(){
  const progress=islandReloadProgress();if(progress===null)return;const sx=innerWidth/2+(player.x-cameraX)*cameraZoom,sy=innerHeight/2+(player.y-cameraY)*cameraZoom,r=Math.max(18,player.r*cameraZoom+10);
@@ -292,7 +292,7 @@ drawCharacter=function(a){
  x.save();x.imageSmoothingEnabled=true;x.imageSmoothingQuality='high';x.translate(a.x,a.y);x.rotate(a.angle||0);
  CosmeticRig.drawPack(x,CosmeticRig.pack(cosmeticSprite('backpacks',packIndex),packIndex,bodyInfo));
  if(!CosmeticRig.drawBody(x,bodyInfo))circle(0,0,26,'#ffd17b');
- if(local&&selectedItem==='medkit'||!local&&a.itemKind==='med'){CosmeticRig.drawGunHands?.(x,bodyInfo,0);const mouth=bodyInfo.mouth;x.fillStyle='#ecece1';x.beginPath();x.roundRect(mouth-2,-9,19,18,4);x.fill();x.fillStyle='#b84a43';x.fillRect(mouth+5,-6,3,12);x.fillRect(mouth+1,-2,11,3)}
+ if(local&&selectedItem==='medkit'||!local&&(a.itemKind==='med'||a.itemKind==='small-shield'||a.itemKind==='big-shield')){CosmeticRig.drawGunHands?.(x,bodyInfo,0);islandDrawHeldMedkit(x,bodyInfo.mouth,local?player.inventory[slot]?.kind:a.itemKind)}
  else if(g){const rarity=local?g.rarity:(a.weaponRarity||0),last=local?g.lastShotAtMs:a.weaponLastShotAtMs,clock=islandNetwork.ready?islandState.time*1000:combatTimeMs,age=last==null?Infinity:Math.max(0,clock-last),recoilMs=IslandWeaponStats.variantFor({type:g.type,rarity})?.recoilMs??85,kick=age<recoilMs?([5.5,3.2,6.5][g.type]||3)*Math.exp(-age/Math.max(18,recoilMs*.28)):0;x.save();x.translate(-kick,0);x.rotate(-kick*.006);CosmeticRig.drawGunHands?.(x,bodyInfo,g.type);drawHeldWeapon(g.type,bodyInfo.mouth,rarity,age);islandDrawGunCasing(x,bodyInfo.mouth,g.type,age);x.restore();}
  else if(equippedSlot===0)drawSidewaysMelee(meleeIndex,bodyInfo.mouth,a.meleeSwing||0,cosmetics.skins[skin]?.[1]||'#bca255',skin,a.punchHand);
  else CosmeticRig.drawFists?.(x,{...bodyInfo,punchHand:a.punchHand},a.meleeSwing||0);

@@ -4,7 +4,48 @@ const previousApply=islandApplySnapshot,previousOnlineUpdate=islandOnlineUpdate,
 const lobbyHUD=$('#waiting-lobby'),roomInput=$('#lobby-room-input'),startButton=$('#lobby-start-match'),status=$('#lobby-status');
 const params=typeof URLSearchParams!=='undefined'?new URLSearchParams(typeof location!=='undefined'?location.search:''):{get(){return null}};
 roomInput.value=params.get('room')||'main';islandNetwork.room=roomInput.value;
-function setWaiting(on){if(!on)globalThis.islandCloseLobbyChat?.();document.body?.classList?.toggle('waiting-room',on);lobbyHUD.style.display=on?'block':'none'}
+const arcadeStart=$('#lobby-arcade-start'),arcadeTiles=Array.from({length:6},(_,i)=>$('#lobby-tile-'+i));
+for(const button of [arcadeStart,...arcadeTiles])button.addEventListener('keydown',event=>{
+ if(event.key==='Enter'||event.key===' ')event.stopPropagation();
+});
+let arcadeTimer=null,arcadeDeadline=0,arcadeTarget=-1,arcadeScore=0,arcadeBest=0;
+function paintArcade(){
+ const active=arcadeTimer!==null,seconds=Math.max(0,Math.ceil((arcadeDeadline-performance.now())/1000));
+ islandSetText('#lobby-personal-stats',`Score ${arcadeScore} · Best ${arcadeBest}`);
+ islandSetText('#lobby-arcade-start',active?`${seconds}s left`:'Play 15-second round');
+ arcadeStart.disabled=active||!islandNetwork.inLobby;
+ for(const [i,tile] of arcadeTiles.entries()){
+  const lit=active&&i===arcadeTarget;
+  tile.disabled=!active;tile.className=lit?'is-lit':'';
+  tile.setAttribute('aria-label',`Tile ${i+1}${lit?' (lit)':''}`);
+  tile.textContent=lit?'◆':'·';
+ }
+}
+function finishArcade(){
+ clearInterval(arcadeTimer);arcadeTimer=null;arcadeTarget=-1;paintArcade();
+}
+arcadeStart.onclick=()=>{
+ if(!islandNetwork.inLobby||matchMenuOpen||arcadeTimer!==null)return;
+ arcadeScore=0;arcadeTarget=Math.floor(Math.random()*arcadeTiles.length);arcadeDeadline=performance.now()+15000;
+ arcadeTimer=setInterval(()=>{
+  if(performance.now()>=arcadeDeadline)finishArcade();
+  else islandSetText('#lobby-arcade-start',`${Math.ceil((arcadeDeadline-performance.now())/1000)}s left`);
+ },100);
+ paintArcade();
+};
+for(const [i,tile] of arcadeTiles.entries())tile.onclick=()=>{
+ if(!islandNetwork.inLobby||matchMenuOpen||arcadeTimer===null)return;
+ if(performance.now()>=arcadeDeadline){finishArcade();return}
+ if(i!==arcadeTarget)return;
+ arcadeScore++;arcadeBest=Math.max(arcadeBest,arcadeScore);
+ arcadeTarget=(i+1+Math.floor(Math.random()*(arcadeTiles.length-1)))%arcadeTiles.length;
+ paintArcade();
+};
+function setWaiting(on){
+ if(!on){globalThis.islandCloseLobbyChat?.();if(arcadeTimer!==null)finishArcade()}
+ arcadeStart.disabled=!on||!islandNetwork.inLobby||arcadeTimer!==null;
+ document.body?.classList?.toggle('waiting-room',on);lobbyHUD.style.display=on?'block':'none';
+}
 function lobbyCamera(){const S=IslandLobby.SIZE;if(islandNetwork.lobbyOverview){cameraX=cameraY=S/2;cameraZoom=Math.min(innerWidth/(S+80),innerHeight/(S+80));return}cameraZoom=Math.max(innerWidth/(S+80),innerHeight/(S+80),innerWidth<700?.65:.8);const w=innerWidth/(2*cameraZoom),h=innerHeight/(2*cameraZoom);cameraX=innerWidth/cameraZoom>=S?S/2:Island.clamp(player.x,w,S-w);cameraY=innerHeight/cameraZoom>=S?S/2:Island.clamp(player.y,h,S-h)}
 
 function lobbyUI(snapshot){const host=snapshot.hostId===player.id,hostName=snapshot.roster.find(p=>p.id===snapshot.hostId)?.name||'Host';islandSetText('#lobby-room-title','ROOM · '+snapshot.room);islandSetText('#lobby-player-count',snapshot.alive+' / 25 PLAYERS');status.textContent=host?'You are the host. Start whenever you are ready.':'Waiting for '+hostName+' to start the match.';startButton.disabled=!host;startButton.textContent=host?'START MATCH →':'WAITING FOR HOST';const rosterKey=JSON.stringify(snapshot.roster)+'|'+snapshot.hostId+'|'+player.id;if(islandNetwork.rosterKey!==rosterKey){islandNetwork.rosterKey=rosterKey;$('#lobby-roster').innerHTML=snapshot.roster.map(p=>'<li><span>'+htmlText(p.name)+(p.id===player.id?' (you)':'')+'</span><b>'+(p.id===snapshot.hostId?'HOST':'READY')+'</b></li>').join('')}const u=new URL(typeof location!=='undefined'&&/^https?:/.test(location.protocol)?location.href:'https://bot-royale-production.up.railway.app/');u.search='';u.searchParams.set('room',snapshot.room);$('#lobby-invite-link').value=u.href}
@@ -23,9 +64,8 @@ draw=function(){
   x.save();x.translate(0,-lift);if(IslandLobby.inRange(actor))drawCharacter({...actor,slot:1,itemKind:'gun',weaponType:1});else if(dancing)drawCharacter({...actor,angle:(actor.angle||0)+Math.sin(s.time*7)*.35,slot:0});else drawCharacter(actor);x.restore();
   x.font='bold 17px system-ui';x.textAlign='center';const name=(actor.id===islandNetwork.last.hostId?'★ ':'')+(actor.name||'Player');x.lineWidth=5;x.strokeStyle='#214941';x.strokeText(name,actor.x,actor.y+63-lift);x.fillStyle=actor===player?'#fff1b7':'#fff';x.fillText(name,actor.x,actor.y+63-lift);islandDrawLobbyBubble(x,actor,s.time,cameraZoom,lift);
  }IslandDraw.canopies(x,objects,player);for(const actor of [...bots,player]){const remaining=Math.max(0,(actor.bounceUntil||0)-s.time),lift=remaining?Math.sin((1-remaining/1.1)*Math.PI)*110:0;islandDrawPlayerEmote(x,actor,s.time,cameraZoom,lift)}x.restore();
- const mini=$('#lobby-island-map');if(mini.width!==180)mini.width=180;if(mini.height!==180)mini.height=180;IslandLobbyRender.mini(mini.getContext('2d'),s,[...bots,player].map(p=>({...p,local:p===player})),view);lobbyActivityUI();
+ const mini=$('#lobby-island-map');if(mini.width!==180)mini.width=180;if(mini.height!==180)mini.height=180;IslandLobbyRender.mini(mini.getContext('2d'),s,[...bots,player].map(p=>({...p,local:p===player})),view);
 };
-function lobbyActivityUI(){islandSetText('#lobby-activity-hint','');islandSetText('#lobby-personal-stats','');islandSetText('#lobby-current-area','Waiting lobby')}
 
 let lobbyLastShot=-100;
 function lobbyShot(){if(!islandNetwork.inLobby||matchMenuOpen||!IslandLobby.inRange(player)||performance.now()-lobbyLastShot<190)return;updatePlayerAim();lobbyLastShot=performance.now();islandSendAction('lobby-shot',{aim:player.angle})}
@@ -44,6 +84,5 @@ for(const area of IslandLobby.AREAS)$('#lobby-travel-'+area.id).onclick=()=>{if(
 $('#lobby-map-toggle').onclick=()=>{islandNetwork.lobbyOverview=!islandNetwork.lobbyOverview};
 newGame=function(){previousNewGame();if(islandNetwork.enabled&&!islandNetwork.ready){const net=islandNetwork;net.enteringLobby=true;net.lobbyWorld=IslandLobby.create(islandState.seed);Object.assign(player,{x:IslandLobby.SIZE/2,y:IslandLobby.SIZE/2,phase:'lobby',slot:0});slot=0;dropPhase='lobby';bots=[];bullets=[];setWaiting(true);status.textContent='Connecting to the waiting lobby…';startButton.disabled=true;startButton.textContent='CONNECTING…';$('#lobby-roster').innerHTML='';islandSetText('#lobby-room-title','ROOM · '+net.room);lobbyCamera()}};
 $('#start').onclick=newGame;
-const activities=document.querySelector?.('.waiting-activities');if(activities)activities.style.display='none';
 setWaiting(false);
 })();

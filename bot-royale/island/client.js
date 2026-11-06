@@ -166,18 +166,33 @@ draw=function(){
  x.save();x.translate(innerWidth/2,innerHeight/2);x.scale(cameraZoom,cameraZoom);x.translate(-Math.round(cameraX*cameraZoom*scale)/(cameraZoom*scale),-Math.round(cameraY*cameraZoom*scale)/(cameraZoom*scale));
  const far=dropPhase==='plane'&&cameraZoom<.16&&IslandDraw.farScene&&IslandDraw.farScene(x,islandState,view);if(!far&&!objects.length)objects=islandState.index.query(view.x,view.y,view.w,view.h);islandRenderCount=objects.length;
  if(!far){IslandDraw.terrain(x,islandState,view);IslandDraw.floors(x,islandState,visible)}
- const opaque=new Map(islandState.buildings.filter(b=>visible(b)&&b.outline?.length===4&&!Island.canViewInterior(islandState,b,player)).map(b=>[b.id,b]));
+ const interiorCache=new Map();
+ const interiorVisible=building=>{
+  if(!interiorCache.has(building.id))interiorCache.set(building.id,Island.canViewInterior(islandState,building,player));
+  return interiorCache.get(building.id);
+ };
+ const opaque=new Map(islandState.buildings.filter(b=>visible(b)&&b.outline?.length===4&&!interiorVisible(b)).map(b=>[b.id,b]));
  for(const o of objects)if(!far&&o.kind!=='door'){const b=opaque.get(o.building),r=b?Island.bounds(o):null;if(b&&r.x>b.x+24&&r.y>b.y+24&&r.x+r.w<b.x+b.w-24&&r.y+r.h<b.y+b.h-24)continue;IslandDraw.object(x,o,islandState.time)}
  for(const q of chests)if(!far&&visible({x:q.x-30,y:q.y-30,w:60,h:60}))IslandDraw.crate(x,q);
- for(const q of loot)if(visible({x:q.x-80,y:q.y-80,w:160,h:160})&&(!Island.buildingAt(islandState,q)||Island.canViewInterior(islandState,Island.buildingAt(islandState,q),player))){const sx=innerWidth/2+(q.x-cameraX)*cameraZoom,sy=innerHeight/2+(q.y-cameraY)*cameraZoom,hovered=islandHoverCanvas&&!islandMapOpen&&!matchMenuOpen&&!settingsOpen&&q.type==='gun'&&!q.taken&&Math.hypot(mouse.x-sx,mouse.y-sy)<=Math.max(12,37*cameraZoom);IslandDraw.loot(x,q,q.type==='gun'?islandWeaponSprite(q.weapon,q.rarity):null,tiers,dropPhase==='ground'&&(dist(q,player)<85||hovered),keyLabel(bindings.interact),q.type==='gun'?types[q.weapon]?.name:'')}
- for(const q of bullets)islandDrawProjectile(x,q,cameraZoom);
- for(const b of bots)if((!b.phase||b.phase==='ground')&&Island.canSee(islandState,player,b)&&(!Island.buildingAt(islandState,b)||Island.canViewInterior(islandState,Island.buildingAt(islandState,b),player)))islandDrawRemote(b);
+ const pointVisible=(point,pad)=>point.x+pad>=view.x&&point.x-pad<=view.x+view.w&&point.y+pad>=view.y&&point.y-pad<=view.y+view.h;
+ for(const q of loot){if(q.taken||!pointVisible(q,80))continue;const building=Island.buildingAt(islandState,q);if(building&&!interiorVisible(building))continue;const sx=innerWidth/2+(q.x-cameraX)*cameraZoom,sy=innerHeight/2+(q.y-cameraY)*cameraZoom,hovered=islandHoverCanvas&&!islandMapOpen&&!matchMenuOpen&&!settingsOpen&&q.type==='gun'&&!q.taken&&Math.hypot(mouse.x-sx,mouse.y-sy)<=Math.max(12,37*cameraZoom);IslandDraw.loot(x,q,q.type==='gun'?islandWeaponSprite(q.weapon,q.rarity):null,tiers,dropPhase==='ground'&&(dist(q,player)<85||hovered),keyLabel(bindings.interact),q.type==='gun'?types[q.weapon]?.name:'')}
+ for(const q of bullets)if(pointVisible(q,Math.max(70,24/cameraZoom)))islandDrawProjectile(x,q,cameraZoom);
+ const visibleActors=[];
+ for(const actor of bots){
+  if(!pointVisible(actor,Math.max(120,80/cameraZoom)))continue;
+  if(!actor.phase||actor.phase==='ground'){
+   if(!Island.canSee(islandState,player,actor))continue;
+   islandDrawRemote(actor);
+  }
+  visibleActors.push(actor);
+ }
  if(dropPhase==='ground')drawCharacter(player);
- if(!far)IslandDraw.bushes(x,islandState,visible,player);if(!far){IslandDraw.canopies(x,objects,player);IslandDraw.roofs(x,islandState,player,visible,islandLastDt)}for(const o of objects)if(!far&&o.kind==='door'&&(o.exterior||Island.canViewInterior(islandState,islandState.buildings.find(b=>b.id===o.building),player)))IslandDraw.object(x,o,islandState.time);IslandDraw.gas(x,islandState,view);if(islandState.time<planeRoute.duration)islandDrawPlaneAt(Island.planePosition(planeRoute,islandState.time));if(dropPhase==='parachute')drawDropVehicle();for(const a of bots)if(a.phase==='parachute'&&Island.canSee(islandState,player,a))islandDrawRemote(a);
+ if(!far)IslandDraw.bushes(x,islandState,visible,player);if(!far){IslandDraw.canopies(x,objects,player);IslandDraw.roofs(x,islandState,player,visible,islandLastDt)}for(const o of objects)if(!far&&o.kind==='door'&&(o.exterior||Island.canViewInterior(islandState,islandState.buildings.find(b=>b.id===o.building),player)))IslandDraw.object(x,o,islandState.time);IslandDraw.gas(x,islandState,view);if(islandState.time<planeRoute.duration)islandDrawPlaneAt(Island.planePosition(planeRoute,islandState.time));if(dropPhase==='parachute')drawDropVehicle();for(const a of visibleActors)if(a.phase==='parachute')islandDrawRemote(a);
  if(islandMarker){x.strokeStyle='#ffdc5e';x.lineWidth=3;x.beginPath();x.arc(islandMarker.x,islandMarker.y,24,0,7);x.moveTo(islandMarker.x,islandMarker.y-33);x.lineTo(islandMarker.x,islandMarker.y+33);x.stroke()}
  if(dropPhase==='ground'){const hint=islandState.time<islandNoteUntil?islandInteractionNote:islandNearestHint();if(hint){x.font='bold 12px sans-serif';x.textAlign='center';x.fillStyle='#092b36e8';x.beginPath();x.roundRect(player.x-105,player.y-79,210,25,6);x.fill();x.fillStyle='#eff9eb';x.fillText(hint,player.x,player.y-62);x.textAlign='start'}}
  // Emotes are an overlay above roofs, canopies and every map prop.
- for(const actor of [...bots,player])if(actor===player||Island.canSee(islandState,player,actor))islandDrawPlayerEmote(x,actor,islandState.time,cameraZoom);
+ for(const actor of visibleActors)if(actor.emoteUntil>islandState.time)islandDrawPlayerEmote(x,actor,islandState.time,cameraZoom);
+ if(player.emoteUntil>islandState.time)islandDrawPlayerEmote(x,player,islandState.time,cameraZoom);
  x.restore();drawLandingBar();islandDrawReloadRing();islandDrawDamageNumbers();
  if(player.gasHitUntil>islandState.time){x.strokeStyle='#54bfff90';x.lineWidth=14;x.strokeRect(7,7,innerWidth-14,innerHeight-14)}
  islandDrawMaps();

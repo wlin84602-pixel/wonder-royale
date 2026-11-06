@@ -98,11 +98,13 @@
  }
  function melee(art,index,bodyInfo,swing=0){
   const b=bounds(art);if(!b)return null;const p=meleeProfiles[index]||{length:78,grip:[.5,.9],supportGrip:[.5,.7]};
-  const grips=gripPair(art,b,p,index),f=p.length/Math.max(b.w,b.h),arc=swing>0?-Math.sin(Math.min(1,Math.max(0,1-swing/.18))*Math.PI)*.8:0;
-  // The new sheet draws diagonal handles. Align the measured grip axis to the
-  // same sideways holding axis as the existing upright melee artwork.
-  const heldAngle=index>=22?Math.PI/2-Math.atan2((grips.supportGrip[1]-grips.grip[1])*b.h,(grips.supportGrip[0]-grips.grip[0])*b.w):(index<10?3.93:Math.PI);
-  return {art,b,width:b.w*f,height:b.h*f,x:(index===12?40:35)+bodyInfo.profile.hand,y:-16,angle:heldAngle+arc,grip:grips.grip,supportGrip:grips.supportGrip};
+  const grips=gripPair(art,b,p,index),f=p.length/Math.max(b.w,b.h);
+  const gripX=(grips.supportGrip[0]-grips.grip[0])*b.w;
+  const gripY=(grips.supportGrip[1]-grips.grip[1])*b.h;
+  // Align the handle across the character's front, regardless of its source angle.
+  const heldAngle=Math.PI/2-Math.atan2(gripY,gripX);
+  const arc=swing>0?-Math.sin(Math.min(1,Math.max(0,1-swing/.18))*Math.PI)*.42:0;
+  return {art,b,width:b.w*f,height:b.h*f,x:bodyInfo.mouth+9+bodyInfo.profile.hand,y:-Math.hypot(gripX,gripY)*f/2,angle:heldAngle+arc,grip:grips.grip,supportGrip:grips.supportGrip};
  }
  function sprite(ctx,info,anchor=[.5,.5]){
   const {art,b,width,height}=info;ctx.drawImage(art,b.x,b.y,b.w,b.h,-width*anchor[0],-height*anchor[1],width,height);
@@ -116,7 +118,9 @@
  function drawMelee(ctx,info){
   if(!info)return false;
   const c=Math.cos(info.angle),s=Math.sin(info.angle),dx=(info.supportGrip[0]-info.grip[0])*info.width,dy=(info.supportGrip[1]-info.grip[1])*info.height,sx=c*dx-s*dy,sy=s*dx+c*dy,length=Math.hypot(sx,sy)||1,nx=-sy/length,ny=sx/length;
-  const hands=[{x:info.x+nx*6.5,y:info.y+ny*6.5},{x:info.x+sx-nx*6.5,y:info.y+sy-ny*6.5}];
+  // On short handles, offset the fists just enough to keep both visible.
+  const wrap=Math.sqrt(Math.max(0,16**2-length**2))/2;
+  const hands=[{x:info.x+nx*wrap,y:info.y+ny*wrap},{x:info.x+sx-nx*wrap,y:info.y+sy-ny*wrap}];
   // Short, rounded forearms emerge from the body and remain connected to each grip
   // while the weapon pivots through its attack arc. The handle artwork draws above them.
   const bodyRadius=38;

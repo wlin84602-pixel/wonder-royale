@@ -115,7 +115,7 @@ function islandResolveDeaths(){
 update=function(dt,frameWallMs=combatWallTimeMs()){
  islandLastDt=dt;if(!islandState)return islandOriginal.update(dt,frameWallMs);
  if(islandNetwork.enabled){islandOnlineUpdate(dt);return}
- islandState.time+=dt;Island.stepDoorSafety(islandState,islandCurrentActors(),dt);player.phase=dropPhase;IslandInventory.tickHealing(islandState,player);
+ islandState.time+=dt;player.phase=dropPhase;IslandInventory.tickHealing(islandState,player);
  if(dropPhase!=='ground'){
   islandOriginal.update(dt,frameWallMs);player.phase=dropPhase;for(const b of bots){if(!islandDeployBot(b,dt))islandBotStep(b,dt);if(b.phase==='ground')Island.stepKnockback(islandState,b,dt)}islandStepBullets(dt,combatTimeMs);islandResolveDeaths();Island.advanceZone(islandState,dt,bots);islandClampCamera();return;
  }
@@ -265,7 +265,7 @@ function islandApplySnapshot(snapshot){
 }
 function islandOnlineUpdate(dt){
  const net=islandNetwork;if(!net.ready||!net.last){islandClampCamera();return}
- islandState.time=Math.max(islandState.time,net.last.time+Math.min(.2,(performance.now()-net.receivedAt)/1000));player.phase=dropPhase;Island.stepDoorSafety(islandState,islandCurrentActors(),dt);
+ islandState.time=Math.max(islandState.time,net.last.time+Math.min(.2,(performance.now()-net.receivedAt)/1000));player.phase=dropPhase;
  updatePlayerAim();const fresh=performance.now()-net.receivedAt<1000;if(!fresh){$('#island-network-state').textContent='CONNECTION LOST · RETRYING';return}
  const movement=islandMapOpen||matchMenuOpen?{dx:0,dy:0}:movementVector();
  if(dropPhase==='ground')Island.moveActor(islandState,player,movement.dx,movement.dy,dt,player.speed);
@@ -302,7 +302,7 @@ drawEquippedMelee=function(mouth){drawSidewaysMelee(selectedCosmetic('melees'),m
 drawCharacter=function(a){
  const local=a===player,skin=local?selectedCosmetic('skins'):a.skin,packIndex=local?selectedCosmetic('backpacks'):(a.backpack??-1),meleeIndex=local?selectedCosmetic('melees'):(a.melee??-1);
  const bodyInfo=islandCosmeticBody(skin),equippedSlot=local?slot:(a.slot??1),g=local?(equippedSlot===0?null:a.inventory[equippedSlot]):(equippedSlot===0||a.itemKind==='empty'?null:{type:a.weaponType??1});
- x.save();x.imageSmoothingEnabled=true;x.imageSmoothingQuality='high';x.translate(a.x+(islandNetwork.ready?0:a.doorNudgeX||0),a.y+(islandNetwork.ready?0:a.doorNudgeY||0));x.rotate(a.angle||0);
+ x.save();x.imageSmoothingEnabled=true;x.imageSmoothingQuality='high';x.translate(a.x,a.y);x.rotate(a.angle||0);
  CosmeticRig.drawAssembly(x,{skin,backpack:packIndex,melee:meleeIndex},cosmeticSprite,a.meleeSwing||0,equippedSlot===0);
  if(local&&selectedItem==='medkit'||!local&&(a.itemKind==='med'||a.itemKind==='small-shield'||a.itemKind==='big-shield')){CosmeticRig.drawGunHands?.(x,bodyInfo,0);islandDrawHeldMedkit(x,bodyInfo.mouth,local?player.inventory[slot]?.kind:a.itemKind)}
  else if(g){const rarity=local?g.rarity:(a.weaponRarity||0),last=local?g.lastShotAtMs:a.weaponLastShotAtMs,clock=islandNetwork.ready?islandState.time*1000:combatTimeMs,age=last==null?Infinity:Math.max(0,clock-last),recoilMs=IslandWeaponStats.variantFor({type:g.type,rarity})?.recoilMs??85,kick=age<recoilMs?([7,4.2,9,8,3.6][g.type]||3)*Math.exp(-age/Math.max(18,recoilMs*.28)):0;x.save();x.translate(-kick,0);x.rotate(-kick*.006);CosmeticRig.drawGunHands?.(x,bodyInfo,g.type);drawHeldWeapon(g.type,bodyInfo.mouth,rarity,age);islandDrawGunCasing(x,bodyInfo.mouth,g.type,age);x.restore();}

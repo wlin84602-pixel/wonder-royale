@@ -587,7 +587,7 @@ function onBridge(s,x,y,r=0){return s.bridges.some(b=>pointSegment(x,y,b.ax,b.ay
 function isWater(s,x,y,r=0){if(onBridge(s,x,y,r))return false;return s.water.some(w=>w.kind==='lake'?Math.hypot((x-w.x)/(w.rx+r),(y-w.y)/(w.ry+r))<1:pointSegment(x,y,w.ax,w.ay,w.bx,w.by)<w.r+r)}
 function playable(s,x,y,r=PLAYER_RADIUS){if(x-r>30&&y-r>30&&x+r<s.size-30&&y+r<s.size-30&&s.bridges.some(b=>b.dock&&pointSegment(x,y,b.ax,b.ay,b.bx,b.by)<b.width/2-r))return true;if(![[x,y],[x-r,y],[x+r,y],[x,y-r],[x,y+r]].every(p=>pointPolygon(...p,s.coast)))return false;return !isWater(s,x,y,r)}
 const doorBroadphases=new WeakMap(),doorCollisionShapes=new WeakMap();
-function doorPanel(d,time){if(d.hingeX===undefined)return d;const old=doorCollisionShapes.get(d);if(old&&old.time===time&&old.open===d.open&&old.changedAt===d.changedAt&&old.swing===d.swing&&old.turnFrom===d.turnFrom)return old.shape;const pose=doorPose(d,time),r=7,shape={...d,shape:'segment',r,ax:pose.hingeX,ay:pose.hingeY,bx:pose.tipX,by:pose.tipY,x:Math.min(pose.hingeX,pose.tipX)-r,y:Math.min(pose.hingeY,pose.tipY)-r,w:Math.abs(pose.tipX-pose.hingeX)+r*2,h:Math.abs(pose.tipY-pose.hingeY)+r*2,source:d};doorCollisionShapes.set(d,{time,open:d.open,changedAt:d.changedAt,swing:d.swing,turnFrom:d.turnFrom,shape});return shape}
+function doorPanel(d,time){if(d.hingeX===undefined)return d;const old=doorCollisionShapes.get(d);if(old&&old.time===time&&old.open===d.open&&old.changedAt===d.changedAt&&old.swing===d.swing&&old.turnFrom===d.turnFrom)return old.shape;const pose=doorPose(d,Infinity),r=7,shape={...d,shape:'segment',r,ax:pose.hingeX,ay:pose.hingeY,bx:pose.tipX,by:pose.tipY,x:Math.min(pose.hingeX,pose.tipX)-r,y:Math.min(pose.hingeY,pose.tipY)-r,w:Math.abs(pose.tipX-pose.hingeX)+r*2,h:Math.abs(pose.tipY-pose.hingeY)+r*2,source:d};doorCollisionShapes.set(d,{time,open:d.open,changedAt:d.changedAt,swing:d.swing,turnFrom:d.turnFrom,shape});return shape}
 function collisionObjects(s,x,y,w,h){const ordinary=s.index.query(x,y,w,h).filter(o=>o.kind!=='door'||o.hingeX===undefined);const doors=s.doors||[];if(!doors.length)return ordinary;let broad=doorBroadphases.get(s);if(!broad||broad.list!==doors||broad.count!==doors.length){const entries=doors.filter(d=>d.hingeX!==undefined).map(d=>({id:d.id,x:d.hingeX-d.length-9,y:d.hingeY-d.length-9,w:d.length*2+18,h:d.length*2+18,door:d}));broad={list:doors,count:doors.length,index:new SpatialIndex(entries)};doorBroadphases.set(s,broad)}for(const entry of broad.index.query(x,y,w,h)){const panel=doorPanel(entry.door,s.time);if(panel.x+panel.w>=x&&panel.x<=x+w&&panel.y+panel.h>=y&&panel.y<=y+h)ordinary.push(panel)}return ordinary}
 function activeSolid(o){return !o.destroyed&&o.solid&&!(o.kind==='door'&&o.open&&o.hingeX===undefined)&&!(o.lootContainer&&o.open)}
 function blocked(s,x,y,r=PLAYER_RADIUS){if(!playable(s,x,y,r))return true;return collisionObjects(s,x-r,y-r,r*2,r*2).some(o=>activeSolid(o)&&solidHit(o,x,y,r))}
@@ -666,34 +666,6 @@ function doorSwingAway(d,opener){const tx=Math.cos(d.closedAngle),ty=Math.sin(d.
 function doorPose(d,time){const angle=d.closedAngle+doorAngleAt(d,time);return{hingeX:d.hingeX,hingeY:d.hingeY,angle,tipX:d.hingeX+Math.cos(angle)*d.length,tipY:d.hingeY+Math.sin(angle)*d.length}}
 function doorAngleAt(d,time){const target=d.open?(d.swing||1)*Math.PI/2:0,t=clamp((time-d.changedAt)/.09,0,1),f=t*t*(3-2*t);return(d.turnFrom??(d.open?0:(d.swing||1)*Math.PI/2))*(1-f)+target*f}
 function canSee(s,viewer,target){if(viewer===target||viewer.id&&viewer.id===target.id)return true;if(target.phase&&target.phase!=='ground')return true;const building=buildingAt(s,target);if(building&&!canViewInterior(s,building,viewer))return false;if(target.phase&&target.phase!=='ground')return true;if(hyp(viewer,target)>3200)return false;const bush=bushAt(s,target);if(bush&&s.time>=(target.revealedUntil||0)&&bushAt(s,viewer)?.id!==bush.id)return false;return !raycast(s,viewer.x,viewer.y,target.x,target.y,0,o=>o.kind==='window'||o.kind==='door'&&o.exterior&&building&&apertureDistance(o,viewer)<=52)}
-function stepDoorSafety(s,actors,dt){
- const endTime=s.time,decay=Math.exp(-Math.max(0,dt)/.08);
- for(const actor of actors){actor.doorNudgeX=(actor.doorNudgeX||0)*decay;actor.doorNudgeY=(actor.doorNudgeY||0)*decay}
- for(const door of s.doors||[]){
-  if(door.hingeX===undefined||endTime-door.changedAt>.09+dt)continue;
-  const startTime=Math.max(door.changedAt,endTime-dt),from=doorAngleAt(door,startTime),to=doorAngleAt(door,endTime);
-  if(Math.abs(to-from)<1e-8)continue;
-  const nearby=actors.filter(a=>a.hp>0&&(!a.phase||a.phase==='ground')&&Math.hypot(a.x-door.hingeX,a.y-door.hingeY)<door.length+(a.r||PLAYER_RADIUS)+9);
-  // Resolve small swept steps so the panel never appears inside a character first.
-  const steps=Math.max(1,Math.ceil((endTime-startTime)/.002));
-  for(let i=1;i<=steps;i++){
-   s.time=startTime+(endTime-startTime)*i/steps;
-   const panel=doorPanel(door,s.time);
-   for(const actor of nearby){
-    const radius=actor.r||PLAYER_RADIUS;if(!solidHit(panel,actor.x,actor.y,radius))continue;
-    const normal=contactNormal(panel,actor.x,actor.y);if(!normal)continue;
-    const distance=pointSegment(actor.x,actor.y,panel.ax,panel.ay,panel.bx,panel.by);
-    const separation=radius+panel.r-distance+.02;
-    const nx=actor.x+normal.x*separation,ny=actor.y+normal.y*separation;
-    if(blocked(s,nx,ny,radius))continue;
-    actor.doorNudgeX=(actor.doorNudgeX||0)+actor.x-nx;actor.doorNudgeY=(actor.doorNudgeY||0)+actor.y-ny;
-    actor.x=nx;actor.y=ny;
-   }
-  }
-  s.time=endTime;
- }
- s.time=endTime;
-}
 function doorInteractionDistance(door,a,time){
  if(door.hingeX===undefined)return apertureDistance(door,a);
  const pose=doorPose(door,time);
@@ -707,7 +679,16 @@ function interactDoor(s,door,a,actors=[],desiredOpen){
  const moved=[];
  const turnFrom=doorAngleAt(door,s.time);
  if(!door.open&&door.hingeX!==undefined)door.swing=doorSwingAway(door,a);
- door.open=!door.open;door.turnFrom=turnFrom;door.lastUse=s.time;door.changedAt=s.time;if(!bot)door.manualUntil=s.time+1.2;s.events.push({kind:'door',x:door.x,y:door.y,open:door.open});return{ok:true,moved};
+ door.open=!door.open;door.turnFrom=turnFrom;door.lastUse=s.time;door.changedAt=s.time;if(!bot)door.manualUntil=s.time+1.2;
+ // Settle only actual overlap with the final panel, once per toggle.
+ // The animated sweep cannot carry or repeatedly push an actor.
+ const panel=doorPanel(door,s.time);
+ for(const actor of new Set([a,...actors])){
+  if(actor.hp<=0||actor.phase&&actor.phase!=='ground'||!solidHit(panel,actor.x,actor.y,actor.r||PLAYER_RADIUS))continue;
+  const fromX=actor.x,fromY=actor.y;
+  if(resolveActorOverlap(s,actor))moved.push({id:actor.id,x:actor.x,y:actor.y,fromX,fromY});
+ }
+ s.events.push({kind:'door',x:door.x,y:door.y,open:door.open});return{ok:true,moved};
 }
 function interactionTarget(s,a){if(a.phase&&a.phase!=='ground')return null;const candidates=[];for(const d of s.doors){const distance=doorInteractionDistance(d,a,s.time);if(distance<=80){const hingeDistance=d.hingeX===undefined?Infinity:hyp(a,{x:d.hingeX,y:d.hingeY});candidates.push({kind:'door',object:d,distance,hingeDistance,hingeTouch:hingeDistance<=(a.r||PLAYER_RADIUS)+26})}}for(const c of s.containers)if(!c.open&&hyp(a,c)<92){const hit=raycast(s,a.x,a.y,c.x,c.y,0);if(!hit||hit.object.id===c.id)candidates.push({kind:'container',object:c,distance:hyp(a,c)})}for(const l of s.loot)if(!l.taken&&hyp(a,l)<72&&!raycast(s,a.x,a.y,l.x,l.y,0))candidates.push({kind:'loot',object:l,distance:hyp(a,l)});return candidates.sort((a,b)=>(a.kind==='door'?0:1)-(b.kind==='door'?0:1)||(a.hingeTouch?0:1)-(b.hingeTouch?0:1)||(a.hingeTouch&&b.hingeTouch?a.hingeDistance-b.hingeDistance:a.distance-b.distance))[0]||null}
 function openContainer(s,c,a,weaponCount=4){
@@ -743,7 +724,7 @@ function advanceZone(s,dt,actors=[]){
 function zoneCountdown(s){const z=s.zone;if(z.mode==='finished')return 0;const c=ZONE_PHASES[z.phase];return Math.max(0,Math.ceil((z.mode==='prepare'?c.prepare:c.shrink)-z.elapsed))}
 function planeRoute(seed){const r=rng(seed^0xabc143),edge=Math.floor(r()*4),offset=650+r()*4700,end=650+r()*4700,a=edge===0?{x:160,y:offset}:edge===1?{x:5840,y:offset}:edge===2?{x:offset,y:160}:{x:offset,y:5840},b=edge===0?{x:5840,y:end}:edge===1?{x:160,y:end}:edge===2?{x:end,y:5840}:{x:end,y:160};a.x*=MAP_SCALE;a.y*=MAP_SCALE;b.x*=MAP_SCALE;b.y*=MAP_SCALE;return{start:a,end:b,angle:Math.atan2(b.y-a.y,b.x-a.x),duration:hyp(a,b)/(220*MAP_SCALE)}}
 function planePosition(route,time){const f=clamp(time/route.duration,0,1);return{x:route.start.x+(route.end.x-route.start.x)*f,y:route.start.y+(route.end.y-route.start.y)*f}}
-return{stepDoorSafety,PROJECTILE_DRAG,projectileMotion,SIZE:SIZE*MAP_SCALE,MAP_SCALE,PLAYER_RADIUS,PLAYER_SPEED,PARACHUTE_SPEED,DROP_SECONDS,GROUND_GUN_COUNT,PUMP_FULL_HIT_DAMAGE,configurePumpShot,applyPumpHit,stepKnockback,solidHit,LOCATIONS:LOCATIONS.map(l=>({...l,x:l.x*MAP_SCALE,y:l.y*MAP_SCALE})),ZONE_PHASES,COAST:COAST.map(([x,y])=>[x*MAP_SCALE,y*MAP_SCALE]),SpatialIndex,rng,clamp,hyp,pointSegment,circleRect,buildWorld,playable,isWater,blocked,findValid,resolveActorOverlap,moveActor,raycast,segmentHitCircle,buildingAt,bushAt,apertureDistance,canViewInterior,doorSwingAway,doorPose,doorAngleAt,doorInteractionDistance,canSee,interactDoor,interactionTarget,openContainer,damageObject,advanceZone,zoneCountdown,planeRoute,planePosition,bounds};
+return{PROJECTILE_DRAG,projectileMotion,SIZE:SIZE*MAP_SCALE,MAP_SCALE,PLAYER_RADIUS,PLAYER_SPEED,PARACHUTE_SPEED,DROP_SECONDS,GROUND_GUN_COUNT,PUMP_FULL_HIT_DAMAGE,configurePumpShot,applyPumpHit,stepKnockback,solidHit,LOCATIONS:LOCATIONS.map(l=>({...l,x:l.x*MAP_SCALE,y:l.y*MAP_SCALE})),ZONE_PHASES,COAST:COAST.map(([x,y])=>[x*MAP_SCALE,y*MAP_SCALE]),SpatialIndex,rng,clamp,hyp,pointSegment,circleRect,buildWorld,playable,isWater,blocked,findValid,resolveActorOverlap,moveActor,raycast,segmentHitCircle,buildingAt,bushAt,apertureDistance,canViewInterior,doorSwingAway,doorPose,doorAngleAt,doorInteractionDistance,canSee,interactDoor,interactionTarget,openContainer,damageObject,advanceZone,zoneCountdown,planeRoute,planePosition,bounds};
 });
 
 
@@ -1555,7 +1536,7 @@ function islandResolveDeaths(){
 update=function(dt,frameWallMs=combatWallTimeMs()){
  islandLastDt=dt;if(!islandState)return islandOriginal.update(dt,frameWallMs);
  if(islandNetwork.enabled){islandOnlineUpdate(dt);return}
- islandState.time+=dt;Island.stepDoorSafety(islandState,islandCurrentActors(),dt);player.phase=dropPhase;IslandInventory.tickHealing(islandState,player);
+ islandState.time+=dt;player.phase=dropPhase;IslandInventory.tickHealing(islandState,player);
  if(dropPhase!=='ground'){
   islandOriginal.update(dt,frameWallMs);player.phase=dropPhase;for(const b of bots){if(!islandDeployBot(b,dt))islandBotStep(b,dt);if(b.phase==='ground')Island.stepKnockback(islandState,b,dt)}islandStepBullets(dt,combatTimeMs);islandResolveDeaths();Island.advanceZone(islandState,dt,bots);islandClampCamera();return;
  }
@@ -1705,7 +1686,7 @@ function islandApplySnapshot(snapshot){
 }
 function islandOnlineUpdate(dt){
  const net=islandNetwork;if(!net.ready||!net.last){islandClampCamera();return}
- islandState.time=Math.max(islandState.time,net.last.time+Math.min(.2,(performance.now()-net.receivedAt)/1000));player.phase=dropPhase;Island.stepDoorSafety(islandState,islandCurrentActors(),dt);
+ islandState.time=Math.max(islandState.time,net.last.time+Math.min(.2,(performance.now()-net.receivedAt)/1000));player.phase=dropPhase;
  updatePlayerAim();const fresh=performance.now()-net.receivedAt<1000;if(!fresh){$('#island-network-state').textContent='CONNECTION LOST · RETRYING';return}
  const movement=islandMapOpen||matchMenuOpen?{dx:0,dy:0}:movementVector();
  if(dropPhase==='ground')Island.moveActor(islandState,player,movement.dx,movement.dy,dt,player.speed);
@@ -1742,7 +1723,7 @@ drawEquippedMelee=function(mouth){drawSidewaysMelee(selectedCosmetic('melees'),m
 drawCharacter=function(a){
  const local=a===player,skin=local?selectedCosmetic('skins'):a.skin,packIndex=local?selectedCosmetic('backpacks'):(a.backpack??-1),meleeIndex=local?selectedCosmetic('melees'):(a.melee??-1);
  const bodyInfo=islandCosmeticBody(skin),equippedSlot=local?slot:(a.slot??1),g=local?(equippedSlot===0?null:a.inventory[equippedSlot]):(equippedSlot===0||a.itemKind==='empty'?null:{type:a.weaponType??1});
- x.save();x.imageSmoothingEnabled=true;x.imageSmoothingQuality='high';x.translate(a.x+(islandNetwork.ready?0:a.doorNudgeX||0),a.y+(islandNetwork.ready?0:a.doorNudgeY||0));x.rotate(a.angle||0);
+ x.save();x.imageSmoothingEnabled=true;x.imageSmoothingQuality='high';x.translate(a.x,a.y);x.rotate(a.angle||0);
  CosmeticRig.drawAssembly(x,{skin,backpack:packIndex,melee:meleeIndex},cosmeticSprite,a.meleeSwing||0,equippedSlot===0);
  if(local&&selectedItem==='medkit'||!local&&(a.itemKind==='med'||a.itemKind==='small-shield'||a.itemKind==='big-shield')){CosmeticRig.drawGunHands?.(x,bodyInfo,0);islandDrawHeldMedkit(x,bodyInfo.mouth,local?player.inventory[slot]?.kind:a.itemKind)}
  else if(g){const rarity=local?g.rarity:(a.weaponRarity||0),last=local?g.lastShotAtMs:a.weaponLastShotAtMs,clock=islandNetwork.ready?islandState.time*1000:combatTimeMs,age=last==null?Infinity:Math.max(0,clock-last),recoilMs=IslandWeaponStats.variantFor({type:g.type,rarity})?.recoilMs??85,kick=age<recoilMs?([7,4.2,9,8,3.6][g.type]||3)*Math.exp(-age/Math.max(18,recoilMs*.28)):0;x.save();x.translate(-kick,0);x.rotate(-kick*.006);CosmeticRig.drawGunHands?.(x,bodyInfo,g.type);drawHeldWeapon(g.type,bodyInfo.mouth,rarity,age);islandDrawGunCasing(x,bodyInfo.mouth,g.type,age);x.restore();}

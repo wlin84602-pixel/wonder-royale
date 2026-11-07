@@ -291,19 +291,32 @@ function doorPose(d,time){const angle=d.closedAngle+doorAngleAt(d,time);return{h
 function doorAngleAt(d,time){const target=d.open?(d.swing||1)*Math.PI/2:0,t=clamp((time-d.changedAt)/.09,0,1),f=t*t*(3-2*t);return(d.turnFrom??(d.open?0:(d.swing||1)*Math.PI/2))*(1-f)+target*f}
 function canSee(s,viewer,target){if(viewer===target||viewer.id&&viewer.id===target.id)return true;if(target.phase&&target.phase!=='ground')return true;const building=buildingAt(s,target);if(building&&!canViewInterior(s,building,viewer))return false;if(target.phase&&target.phase!=='ground')return true;if(hyp(viewer,target)>3200)return false;const bush=bushAt(s,target);if(bush&&s.time>=(target.revealedUntil||0)&&bushAt(s,viewer)?.id!==bush.id)return false;return !raycast(s,viewer.x,viewer.y,target.x,target.y,0,o=>o.kind==='window'||o.kind==='door'&&o.exterior&&building&&apertureDistance(o,viewer)<=52)}
 function stepDoorSafety(s,actors,dt){
+ const endTime=s.time,decay=Math.exp(-Math.max(0,dt)/.08);
+ for(const actor of actors){actor.doorNudgeX=(actor.doorNudgeX||0)*decay;actor.doorNudgeY=(actor.doorNudgeY||0)*decay}
  for(const door of s.doors||[]){
-  if(door.hingeX===undefined||s.time-door.changedAt>.09+dt)continue;
-  const from=doorAngleAt(door,Math.max(door.changedAt,s.time-dt)),to=doorAngleAt(door,s.time);
+  if(door.hingeX===undefined||endTime-door.changedAt>.09+dt)continue;
+  const startTime=Math.max(door.changedAt,endTime-dt),from=doorAngleAt(door,startTime),to=doorAngleAt(door,endTime);
   if(Math.abs(to-from)<1e-8)continue;
   const nearby=actors.filter(a=>a.hp>0&&(!a.phase||a.phase==='ground')&&Math.hypot(a.x-door.hingeX,a.y-door.hingeY)<door.length+(a.r||PLAYER_RADIUS)+9);
-  const steps=Math.max(1,Math.ceil(Math.abs(to-from)/.04));let obstructed=false;
-  for(let i=1;i<=steps&&!obstructed;i++){
-   const angle=door.closedAngle+from+(to-from)*i/steps;
-   const tipX=door.hingeX+Math.cos(angle)*door.length,tipY=door.hingeY+Math.sin(angle)*door.length;
-   obstructed=nearby.some(a=>pointSegment(a.x,a.y,door.hingeX,door.hingeY,tipX,tipY)<(a.r||PLAYER_RADIUS)+7.5);
+  // Resolve small swept steps so the panel never appears inside a character first.
+  const steps=Math.max(1,Math.ceil((endTime-startTime)/.002));
+  for(let i=1;i<=steps;i++){
+   s.time=startTime+(endTime-startTime)*i/steps;
+   const panel=doorPanel(door,s.time);
+   for(const actor of nearby){
+    const radius=actor.r||PLAYER_RADIUS;if(!solidHit(panel,actor.x,actor.y,radius))continue;
+    const normal=contactNormal(panel,actor.x,actor.y);if(!normal)continue;
+    const distance=pointSegment(actor.x,actor.y,panel.ax,panel.ay,panel.bx,panel.by);
+    const separation=radius+panel.r-distance+.02;
+    const nx=actor.x+normal.x*separation,ny=actor.y+normal.y*separation;
+    if(blocked(s,nx,ny,radius))continue;
+    actor.doorNudgeX=(actor.doorNudgeX||0)+actor.x-nx;actor.doorNudgeY=(actor.doorNudgeY||0)+actor.y-ny;
+    actor.x=nx;actor.y=ny;
+   }
   }
-  if(obstructed){door.turnFrom=from;door.changedAt=s.time}
+  s.time=endTime;
  }
+ s.time=endTime;
 }
 function doorInteractionDistance(door,a,time){
  if(door.hingeX===undefined)return apertureDistance(door,a);

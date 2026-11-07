@@ -1,0 +1,689 @@
+{
+  "version": 1,
+  "bodyDiameter": 58,
+  "skins": [
+    {
+      "id": "skin-candy",
+      "name": "Candy Maw",
+      "file": "assets/collection/skin-candy.png",
+      "width": 295,
+      "height": 333,
+      "visibleBounds": {
+        "x": 4,
+        "y": 4,
+        "w": 287,
+        "h": 325
+      },
+      "origin": [
+        163,
+        7
+      ],
+      "pivot": [
+        0.49830508474576274,
+        0.5945945945945946
+      ],
+      "bodyDiameter": 282,
+      "scale": 1,
+      "rotation": 1.5707963267948966,
+      "offset": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "skin-diver",
+      "name": "Abyss Diver",
+      "file": "assets/collection/skin-diver.png",
+      "width": 309,
+      "height": 335,
+      "visibleBounds": {
+        "x": 4,
+        "y": 4,
+        "w": 301,
+        "h": 327
+      },
+      "origin": [
+        612,
+        6
+      ],
+      "pivot": [
+        0.49514563106796117,
+        0.5373134328358209
+      ],
+      "bodyDiameter": 292,
+      "scale": 1,
+      "rotation": 1.5707963267948966,
+      "offset": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "skin-emerald",
+      "name": "Emerald Sovereign",
+      "file": "assets/collection/skin-emerald.png",
+      "width": 284,
+      "height": 328,
+      "visibleBounds": {
+        "x": 4,
+        "y": 4,
+        "w": 276,
+        "h": 320
+      },
+      "origin": [
+        1071,
+        16
+      ],
+      "pivot": [
+        0.7183098591549296,
+        0.5426829268292683
+      ],
+      "bodyDiameter": 280,
+      "scale": 1,
+      "rotation": 1.5707963267948966,
+      "offset": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "skin-crimson",
+      "name": "Crimson Dragon",
+      "file": "assets/collection/skin-crimson.png",
+      "width": 311,
+      "height": 326,
+      "visibleBounds": {
+        "x": 4,
+        "y": 4,
+        "w": 303,
+        "h": 318
+      },
+      "origin": [
+        156,
+        346
+      ],
+      "pivot": [
+        0.49517684887459806,
+        0.5030674846625767
+      ],
+      "bodyDiameter": 286,
+      "scale": 1,
+      "rotation": 1.5707963267948966,
+      "offset": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "skin-violet",
+      "name": "Violet Reaper",
+      "file": "assets/collection/skin-violet.png",
+      "width": 310,
+      "height": 326,
+      "visibleBounds": {
+        "x": 4,
+        "y": 4,
+        "w": 302,
+        "h": 318
+      },
+      "origin": [
+        611,
+        346
+      ],
+      "pivot": [
+        0.4967741935483871,
+        0.5030674846625767
+      ],
+      "bodyDiameter": 285,
+      "scale": 1,
+      "rotation": 1.5707963267948966,
+      "offset": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "skin-frost",
+      "name": "Frost Guardian",
+      "file": "assets/collection/skin-frost.png",
+      "width": 315,
+      "height": 325,
+      "visibleBounds": {
+        "x": 4,
+        "y": 4,
+        "w": 307,
+        "h": 317
+      },
+      "origin": [
+        1058,
+        347
+      ],
+      "pivot": [
+        0.6888888888888889,
+        0.5015384615384615
+      ],
+      "bodyDiameter": 284,
+      "scale": 1,
+      "rotation": 1.5707963267948966,
+      "offset": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "skin-storm",
+      "name": "Storm Spirit",
+      "file": "assets/collection/skin-storm.png",
+      "width": 366,
+      "height": 334,
+      "visibleBounds": {
+        "x": 4,
+        "y": 4,
+        "w": 358,
+        "h": 326
+      },
+      "origin": [
+        585,
+        679
+      ],
+      "pivot": [
+        0.4918032786885246,
+        0.5119760479041916
+      ],
+      "bodyDiameter": 288,
+      "scale": 1,
+      "rotation": 1.5707963267948966,
+      "offset": [
+        0,
+        0
+      ]
+    }
+  ],
+  "melees": [
+    {
+      "id": "melee-candy-gloves",
+      "name": "Candy Gloves",
+      "kind": "gloves",
+      "parts": [
+        {
+          "id": "melee-candy-glove-0",
+          "file": "assets/collection/melee-candy-glove-0.png",
+          "width": 167,
+          "height": 175,
+          "visibleBounds": {
+            "x": 4,
+            "y": 4,
+            "w": 159,
+            "h": 167
+          },
+          "origin": [
+            79,
+            145
+          ]
+        },
+        {
+          "id": "melee-candy-glove-1",
+          "file": "assets/collection/melee-candy-glove-1.png",
+          "width": 167,
+          "height": 176,
+          "visibleBounds": {
+            "x": 4,
+            "y": 4,
+            "w": 159,
+            "h": 168
+          },
+          "origin": [
+            263,
+            144
+          ]
+        }
+      ],
+      "pivot": [
+        0.5,
+        0.9
+      ],
+      "scale": 0.33,
+      "rotation": 1.5707963267948966,
+      "offset": [
+        0,
+        -0.37
+      ]
+    },
+    {
+      "id": "melee-abyss-gloves",
+      "name": "Diver Gloves",
+      "kind": "gloves",
+      "parts": [
+        {
+          "id": "melee-abyss-glove-0",
+          "file": "assets/collection/melee-abyss-glove-0.png",
+          "width": 162,
+          "height": 179,
+          "visibleBounds": {
+            "x": 4,
+            "y": 4,
+            "w": 154,
+            "h": 171
+          },
+          "origin": [
+            572,
+            141
+          ]
+        },
+        {
+          "id": "melee-abyss-glove-1",
+          "file": "assets/collection/melee-abyss-glove-1.png",
+          "width": 163,
+          "height": 178,
+          "visibleBounds": {
+            "x": 4,
+            "y": 4,
+            "w": 155,
+            "h": 170
+          },
+          "origin": [
+            760,
+            142
+          ]
+        }
+      ],
+      "pivot": [
+        0.5,
+        0.9
+      ],
+      "scale": 0.33,
+      "rotation": 1.5707963267948966,
+      "offset": [
+        0,
+        -0.37
+      ]
+    },
+    {
+      "id": "melee-emerald",
+      "name": "Emerald Scythe",
+      "kind": "long",
+      "file": "assets/collection/melee-emerald.png",
+      "width": 476,
+      "height": 180,
+      "visibleBounds": {
+        "x": 4,
+        "y": 4,
+        "w": 468,
+        "h": 172
+      },
+      "origin": [
+        1022,
+        107
+      ],
+      "pivot": [
+        0.4016806722689076,
+        0.5888888888888889
+      ],
+      "scale": 1.82,
+      "rotation": 1.5707963267948966,
+      "offset": [
+        0,
+        -0.48
+      ]
+    },
+    {
+      "id": "melee-crimson",
+      "name": "Crimson Scythe",
+      "kind": "long",
+      "file": "assets/collection/melee-crimson.png",
+      "width": 462,
+      "height": 174,
+      "visibleBounds": {
+        "x": 4,
+        "y": 4,
+        "w": 454,
+        "h": 166
+      },
+      "origin": [
+        26,
+        428
+      ],
+      "pivot": [
+        0.4017316017316018,
+        0.6149425287356322
+      ],
+      "scale": 1.84,
+      "rotation": 1.5707963267948966,
+      "offset": [
+        0,
+        -0.48
+      ]
+    },
+    {
+      "id": "melee-violet",
+      "name": "Violet Scythe",
+      "kind": "long",
+      "file": "assets/collection/melee-violet.png",
+      "width": 453,
+      "height": 175,
+      "visibleBounds": {
+        "x": 4,
+        "y": 4,
+        "w": 445,
+        "h": 167
+      },
+      "origin": [
+        526,
+        428
+      ],
+      "pivot": [
+        0.40176600441501104,
+        0.6114285714285714
+      ],
+      "scale": 1.82,
+      "rotation": 1.5707963267948966,
+      "offset": [
+        0,
+        -0.48
+      ]
+    },
+    {
+      "id": "melee-frost",
+      "name": "Frost Scythe",
+      "kind": "long",
+      "file": "assets/collection/melee-frost.png",
+      "width": 486,
+      "height": 173,
+      "visibleBounds": {
+        "x": 4,
+        "y": 4,
+        "w": 478,
+        "h": 165
+      },
+      "origin": [
+        1023,
+        428
+      ],
+      "pivot": [
+        0.40164609053497946,
+        0.6184971098265896
+      ],
+      "scale": 1.88,
+      "rotation": 1.5707963267948966,
+      "offset": [
+        0,
+        -0.48
+      ]
+    },
+    {
+      "id": "melee-candy",
+      "name": "Candy Cleaver",
+      "kind": "long",
+      "file": "assets/collection/melee-candy.png",
+      "width": 458,
+      "height": 215,
+      "visibleBounds": {
+        "x": 4,
+        "y": 4,
+        "w": 450,
+        "h": 207
+      },
+      "origin": [
+        26,
+        733
+      ],
+      "pivot": [
+        0.4017467248908297,
+        0.5116279069767442
+      ],
+      "scale": 1.8,
+      "rotation": 1.5707963267948966,
+      "offset": [
+        0,
+        -0.48
+      ]
+    },
+    {
+      "id": "melee-abyss",
+      "name": "Abyss Anchor",
+      "kind": "long",
+      "file": "assets/collection/melee-abyss.png",
+      "width": 442,
+      "height": 201,
+      "visibleBounds": {
+        "x": 4,
+        "y": 4,
+        "w": 434,
+        "h": 193
+      },
+      "origin": [
+        529,
+        735
+      ],
+      "pivot": [
+        0.4018099547511313,
+        0.5422885572139303
+      ],
+      "scale": 1.78,
+      "rotation": 1.5707963267948966,
+      "offset": [
+        0,
+        -0.48
+      ]
+    },
+    {
+      "id": "melee-storm",
+      "name": "Storm Lance",
+      "kind": "long",
+      "file": "assets/collection/melee-storm.png",
+      "width": 479,
+      "height": 195,
+      "visibleBounds": {
+        "x": 4,
+        "y": 4,
+        "w": 471,
+        "h": 187
+      },
+      "origin": [
+        1032,
+        730
+      ],
+      "pivot": [
+        0.40167014613778707,
+        0.5846153846153846
+      ],
+      "scale": 1.9,
+      "rotation": 1.5707963267948966,
+      "offset": [
+        0,
+        -0.48
+      ]
+    }
+  ],
+  "backpacks": [
+    {
+      "id": "backpack-candy",
+      "name": "Candy Curls",
+      "file": "assets/collection/backpack-candy.png",
+      "width": 441,
+      "height": 246,
+      "visibleBounds": {
+        "x": 4,
+        "y": 4,
+        "w": 433,
+        "h": 238
+      },
+      "origin": [
+        52,
+        60
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "scale": 1.68,
+      "rotation": 1.5707963267948966,
+      "offset": [
+        0,
+        0.35
+      ]
+    },
+    {
+      "id": "backpack-abyss",
+      "name": "Abyss Tentacles",
+      "file": "assets/collection/backpack-abyss.png",
+      "width": 453,
+      "height": 262,
+      "visibleBounds": {
+        "x": 4,
+        "y": 4,
+        "w": 445,
+        "h": 254
+      },
+      "origin": [
+        538,
+        54
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "scale": 1.72,
+      "rotation": 1.5707963267948966,
+      "offset": [
+        0,
+        0.33
+      ]
+    },
+    {
+      "id": "backpack-emerald",
+      "name": "Emerald Wings",
+      "file": "assets/collection/backpack-emerald.png",
+      "width": 482,
+      "height": 258,
+      "visibleBounds": {
+        "x": 4,
+        "y": 4,
+        "w": 474,
+        "h": 250
+      },
+      "origin": [
+        1030,
+        53
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "scale": 1.65,
+      "rotation": 1.5707963267948966,
+      "offset": [
+        0,
+        0.34
+      ]
+    },
+    {
+      "id": "backpack-crimson",
+      "name": "Crimson Wings",
+      "file": "assets/collection/backpack-crimson.png",
+      "width": 476,
+      "height": 255,
+      "visibleBounds": {
+        "x": 4,
+        "y": 4,
+        "w": 468,
+        "h": 247
+      },
+      "origin": [
+        24,
+        389
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "scale": 1.65,
+      "rotation": 1.5707963267948966,
+      "offset": [
+        0,
+        0.35
+      ]
+    },
+    {
+      "id": "backpack-violet",
+      "name": "Violet Wings",
+      "file": "assets/collection/backpack-violet.png",
+      "width": 477,
+      "height": 255,
+      "visibleBounds": {
+        "x": 4,
+        "y": 4,
+        "w": 469,
+        "h": 247
+      },
+      "origin": [
+        524,
+        381
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "scale": 1.68,
+      "rotation": 1.5707963267948966,
+      "offset": [
+        0,
+        0.35
+      ]
+    },
+    {
+      "id": "backpack-frost",
+      "name": "Frost Wings",
+      "file": "assets/collection/backpack-frost.png",
+      "width": 497,
+      "height": 249,
+      "visibleBounds": {
+        "x": 4,
+        "y": 4,
+        "w": 489,
+        "h": 241
+      },
+      "origin": [
+        1024,
+        386
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "scale": 1.72,
+      "rotation": 1.5707963267948966,
+      "offset": [
+        0,
+        0.35
+      ]
+    },
+    {
+      "id": "backpack-storm",
+      "name": "Storm Clouds",
+      "file": "assets/collection/backpack-storm.png",
+      "width": 502,
+      "height": 242,
+      "visibleBounds": {
+        "x": 4,
+        "y": 4,
+        "w": 494,
+        "h": 234
+      },
+      "origin": [
+        513,
+        725
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "scale": 1.7,
+      "rotation": 1.5707963267948966,
+      "offset": [
+        0,
+        0.41
+      ]
+    }
+  ]
+}

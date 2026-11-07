@@ -70,7 +70,8 @@
     1.1,
     1.2,
     1.35,
-    1.5
+    1.5,
+    1.6
   ],
   "weapons": {
     "equipDelayMs": 200,
@@ -108,10 +109,10 @@
         ],
         "damageByRarity": [
           90,
-          95,
-          100,
-          105,
-          110
+          91,
+          92,
+          93,
+          94
         ],
         "knockback": {
           "speed": 180,
@@ -143,7 +144,14 @@
         "trigger": "press",
         "projectile": "deagle",
         "muzzleFlashMs": 60,
-        "recoilMs": 100
+        "recoilMs": 100,
+        "damageByRarity": [
+          40,
+          41,
+          42,
+          43,
+          44
+        ]
       },
       "DEAGLE_UE": {
         "type": 0,
@@ -164,7 +172,14 @@
         "trigger": "hold",
         "projectile": "ak",
         "muzzleFlashMs": 40,
-        "recoilMs": 85
+        "recoilMs": 85,
+        "damageByRarity": [
+          12,
+          13,
+          14,
+          15,
+          16
+        ]
       },
       "AK_UE": {
         "type": 1,
@@ -182,10 +197,10 @@
         "magazine": 5,
         "damageByRarity": [
           90,
-          95,
-          100,
-          105,
-          110
+          91,
+          92,
+          93,
+          94
         ],
         "cooldownMs": 1000,
         "trigger": "press",
@@ -202,7 +217,14 @@
         "trigger": "press",
         "projectile": "sniper",
         "muzzleFlashMs": 60,
-        "recoilMs": 150
+        "recoilMs": 150,
+        "damageByRarity": [
+          75,
+          76,
+          77,
+          78,
+          79
+        ]
       },
       "BOLT_SNIPER_UE": {
         "type": 3,
@@ -225,13 +247,20 @@
         "trigger": "hold",
         "projectile": "p90",
         "muzzleFlashMs": 30,
-        "recoilMs": 65
+        "recoilMs": 65,
+        "damageByRarity": [
+          14,
+          15,
+          16,
+          17,
+          18
+        ]
       },
       "P90_UE": {
         "type": 4,
         "ammoFamily": "smg",
         "magazine": 60,
-        "damage": 17,
+        "damage": 19,
         "cooldownMs": 45,
         "reloadMs": 1000,
         "trigger": "hold",

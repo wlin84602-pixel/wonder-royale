@@ -20,7 +20,7 @@ function initializeIsland(seed){
  islandDamageNumbers=[];islandSeenDamageEvents=new Set();islandState=Island.buildWorld(seed);islandMarker=null;islandMapOpen=false;$('#island-map-panel').style.display='none';
  buildings=islandState.buildings;trees=islandState.objects.filter(o=>o.kind==='tree');loot=islandState.loot;chests=islandState.containers;
  planeRoute=Island.planeRoute(seed);for(let i=0;i<bots.length;i++){const loc=islandState.locations[i%8],point=Island.findValid(islandState,{x:loc.x-470+islandState.random()*940,y:loc.y-450+islandState.random()*900},26,true);Object.assign(bots[i],planeRoute.start,{id:'offline-bot-'+i,phase:'plane',dropRemaining:Island.DROP_SECONDS,dropFast:false,dropTarget:point,jumpAt:planeRoute.duration*(.18+islandState.random()*.62),parachute:i%5,shield:10,revealedUntil:0});}
- player.inventory=[null,gun(1,4),null,null,null,null];slot=player.slot=1;selectedItem='weapon';player.id='local';player.phase='plane';player.revealedUntil=0;planeRoute=Island.planeRoute(seed);planeVariant=(seed>>>0)%2;planeElapsed=0;Object.assign(player,planeRoute.start);cameraX=player.x;cameraY=player.y;cameraZoom=islandFlightZoom();
+ player.inventory=[null,gun(1,5),null,null,null,null];slot=player.slot=1;selectedItem='weapon';player.id='local';player.phase='plane';player.revealedUntil=0;planeRoute=Island.planeRoute(seed);planeVariant=(seed>>>0)%2;planeElapsed=0;Object.assign(player,planeRoute.start);cameraX=player.x;cameraY=player.y;cameraZoom=islandFlightZoom();
  if(typeof document.body?.classList?.toggle==='function')document.body.classList.toggle('island-match',true);
  $('#island-minimap').style.display='block';$('#island-zone-hud').style.display='block';$('#island-network-state').style.display='block';$('#island-network-state').textContent=islandNetwork.enabled?'CONNECTING':'SOLO · LOCAL';islandClampCamera();
 }
@@ -220,7 +220,7 @@ async function islandRequest(endpoint,body,token=islandNetwork.token){const resp
 async function islandJoin(){
  const net=islandNetwork,generation=++net.generation;net.joining=true;net.ready=false;net.error='';
  try{
-  const room=net.room||new URLSearchParams(location.search).get('room')||'main',data=await islandRequest('join',{room,name:localProfile.nickname,look:{emotes:islandEquippedEmotes,skin:selectedCosmetic('skins'),backpack:selectedCosmetic('backpacks'),melee:selectedCosmetic('melees'),parachute:selectedCosmetic('parachutes')}},null);
+  const room=net.room||new URLSearchParams(location.search).get('room')||'main',data=await islandRequest('join',{room,name:localProfile.nickname,look:{skinId:progression.skinId,meleeId:progression.meleeId,backpackId:progression.backpackId,emotes:islandEquippedEmotes,skin:selectedCosmetic('skins'),backpack:selectedCosmetic('backpacks'),melee:selectedCosmetic('melees'),parachute:selectedCosmetic('parachutes')}},null);
   if(generation!==net.generation){islandRequest('leave',{},data.token).catch(()=>{});return}
   net.token=data.token;net.id=data.id;net.inputInFlight=0;net.lastSentInput=null;net.firePressSeq=0;net.slotPressFloor=0;net.sequence=0;net.actionSeq=0;net.last=null;net.doorPredictions=new Map();initializeIsland(data.seed);planeRoute=data.route;net.ready=true;net.joining=false;
   islandApplySnapshot(data.snapshot);const queuedDrops=net.pendingDropCount||0;net.pendingDropCount=0;for(let i=0;i<queuedDrops;i++)islandSendAction('jump');net.stream=new EventSource('/api/events?token='+encodeURIComponent(net.token));
@@ -303,11 +303,10 @@ drawCharacter=function(a){
  const local=a===player,skin=local?selectedCosmetic('skins'):a.skin,packIndex=local?selectedCosmetic('backpacks'):(a.backpack??-1),meleeIndex=local?selectedCosmetic('melees'):(a.melee??-1);
  const bodyInfo=islandCosmeticBody(skin),equippedSlot=local?slot:(a.slot??1),g=local?(equippedSlot===0?null:a.inventory[equippedSlot]):(equippedSlot===0||a.itemKind==='empty'?null:{type:a.weaponType??1});
  x.save();x.imageSmoothingEnabled=true;x.imageSmoothingQuality='high';x.translate(a.x,a.y);x.rotate(a.angle||0);
- CosmeticRig.drawPack(x,CosmeticRig.pack(cosmeticSprite('backpacks',packIndex),packIndex,bodyInfo));
- if(!CosmeticRig.drawBody(x,bodyInfo))circle(0,0,26,'#ffd17b');
+ CosmeticRig.drawAssembly(x,{skin,backpack:packIndex,melee:meleeIndex},cosmeticSprite,a.meleeSwing||0,equippedSlot===0);
  if(local&&selectedItem==='medkit'||!local&&(a.itemKind==='med'||a.itemKind==='small-shield'||a.itemKind==='big-shield')){CosmeticRig.drawGunHands?.(x,bodyInfo,0);islandDrawHeldMedkit(x,bodyInfo.mouth,local?player.inventory[slot]?.kind:a.itemKind)}
- else if(g){const rarity=local?g.rarity:(a.weaponRarity||0),last=local?g.lastShotAtMs:a.weaponLastShotAtMs,clock=islandNetwork.ready?islandState.time*1000:combatTimeMs,age=last==null?Infinity:Math.max(0,clock-last),recoilMs=IslandWeaponStats.variantFor({type:g.type,rarity})?.recoilMs??85,kick=age<recoilMs?([5.5,3.2,6.5][g.type]||3)*Math.exp(-age/Math.max(18,recoilMs*.28)):0;x.save();x.translate(-kick,0);x.rotate(-kick*.006);CosmeticRig.drawGunHands?.(x,bodyInfo,g.type);drawHeldWeapon(g.type,bodyInfo.mouth,rarity,age);islandDrawGunCasing(x,bodyInfo.mouth,g.type,age);x.restore();}
- else if(equippedSlot===0)drawSidewaysMelee(meleeIndex,bodyInfo.mouth,a.meleeSwing||0,cosmetics.skins[skin]?.[1]||'#bca255',skin,a.punchHand);
+ else if(g){const rarity=local?g.rarity:(a.weaponRarity||0),last=local?g.lastShotAtMs:a.weaponLastShotAtMs,clock=islandNetwork.ready?islandState.time*1000:combatTimeMs,age=last==null?Infinity:Math.max(0,clock-last),recoilMs=IslandWeaponStats.variantFor({type:g.type,rarity})?.recoilMs??85,kick=age<recoilMs?([7,4.2,9,8,3.6][g.type]||3)*Math.exp(-age/Math.max(18,recoilMs*.28)):0;x.save();x.translate(-kick,0);x.rotate(-kick*.006);CosmeticRig.drawGunHands?.(x,bodyInfo,g.type);drawHeldWeapon(g.type,bodyInfo.mouth,rarity,age);islandDrawGunCasing(x,bodyInfo.mouth,g.type,age);x.restore();}
+ else if(equippedSlot===0){}
  else CosmeticRig.drawFists?.(x,{...bodyInfo,punchHand:a.punchHand},a.meleeSwing||0);
  if(!bodyInfo.art&&!g&&(equippedSlot!==0||meleeIndex<0)&&selectedItem!=='medkit')CosmeticRig.drawBody(x,bodyInfo);
  x.restore();

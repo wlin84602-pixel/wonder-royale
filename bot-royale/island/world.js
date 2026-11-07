@@ -95,11 +95,11 @@ function buildLegacyWorld(seed=1){
  state.index=new SpatialIndex(state.objects);
  for(const loc of state.locations){
   for(let i=0;i<16;i++){const spot=findValid(state,{x:loc.x-520+random()*1040,y:loc.y-480+random()*960},15);
-   state.loot.push({id:id('loot'),x:spot.x,y:spot.y,type:i%5===0?'med':i%5===1?'shield':i%5===2?'ammo':'gun',weapon:Math.floor(random()*5),rarity:Math.floor(random()*(loc.risk==='high'?5:4)),amount:30,taken:false});
+   state.loot.push({id:id('loot'),x:spot.x,y:spot.y,type:i%5===0?'med':i%5===1?'shield':i%5===2?'ammo':'gun',weapon:Math.floor(random()*5),rarity:Math.floor(random()*(loc.risk==='high'?6:5)),amount:30,taken:false});
   }
   for(let i=0;i<4;i++){const spot=findValid(state,{x:loc.x-560+random()*1120,y:loc.y-500+random()*1000},24,true,true);state.containers.push({id:id('chest'),x:spot.x,y:spot.y,kind:i===0?'gold':i===1?'ammo':'basic',open:false,hp:60})}
  }
- for(const c of state.containers){Object.assign(c,{shape:'circle',r:18,solid:true,blocksShots:true,lootContainer:true,destructible:c.kind==='basic'});state.objects.push(c)}state.index=new SpatialIndex(state.objects);for(const q of state.loot)Object.assign(q,findValid(state,q,15));state.zone=createZone(state,random);state.random=random;return state;
+ for(const c of state.containers){Object.assign(c,{shape:'circle',r:18,solid:true,blocksShots:true,lootContainer:true,destructible:c.kind==='basic'});state.objects.push(c)}state.index=new SpatialIndex(state.objects);for(const q of state.loot){if(q.type==='gun'&&q.weapon===2&&q.rarity>4)q.rarity=4;Object.assign(q,findValid(state,q,15))}state.zone=createZone(state,random);state.random=random;return state;
 }
 function buildWorld(seed=1){
  const s=buildLegacyWorld(seed),F=MAP_SCALE,random=rng(seed^0x6ce9b6),point=p=>({x:p.x*F,y:p.y*F});
@@ -199,8 +199,8 @@ function applyPumpHit(s,pellet,target,attacker){
 }
 function stepKnockback(s,target,dt){const k=target.knockbackImpulse;if(!k||dt<=0)return false;const from=Math.min(k.elapsed,k.duration),to=Math.min(k.duration,from+dt),travel=Math.max(0,(to-from)-(to*to-from*from)/(2*k.duration));if(travel>0)moveActor(s,target,k.dx,k.dy,travel,k.speed);k.elapsed=to;if(to>=k.duration-1e-9)delete target.knockbackImpulse;return true}
 // Analytic air drag gives identical travel at every frame rate.
-const PROJECTILE_DRAG=.18;
-function projectileMotion(b,seconds){const dt=Math.max(0,seconds),decay=Math.exp(-PROJECTILE_DRAG*dt),travel=-Math.expm1(-PROJECTILE_DRAG*dt)/PROJECTILE_DRAG;return{x:b.x+b.vx*travel,y:b.y+b.vy*travel,vx:b.vx*decay,vy:b.vy*decay}}
+const PROJECTILE_DRAG=.55;
+function projectileMotion(b,seconds){const dt=Math.max(0,Math.min(seconds,b.life??Infinity)),decay=Math.exp(-PROJECTILE_DRAG*dt),travel=-Math.expm1(-PROJECTILE_DRAG*dt)/PROJECTILE_DRAG;return{x:b.x+b.vx*travel,y:b.y+b.vy*travel,vx:b.vx*decay,vy:b.vy*decay}}
 function solidHit(o,x,y,r){return o.shape==='circle'?Math.hypot(x-o.x,y-o.y)<r+o.r-.001:o.shape==='segment'?pointSegment(x,y,o.ax,o.ay,o.bx,o.by)<r+o.r-.001:circleRect(x,y,r,o)}
 function segmentHitCapsule(ax,ay,bx,by,o,pad=0){
  const angle=Math.atan2(o.by-o.ay,o.bx-o.ax),c=Math.cos(angle),sn=Math.sin(angle),rot=(x,y)=>({x:(x-o.ax)*c+(y-o.ay)*sn,y:-(x-o.ax)*sn+(y-o.ay)*c}),a=rot(ax,ay),b=rot(bx,by),len=Math.hypot(o.bx-o.ax,o.by-o.ay),r=o.r+pad;
@@ -317,7 +317,7 @@ function openContainer(s,c,a,weaponCount=4){
  for(let i=0;i<drops.length;i++){
   const p=findValid(s,{x:c.x+(i-(drops.length-1)/2)*46,y:c.y+(drops.length>1?42:0)},13),q={id:'loot-'+s.nextId++,...p,type:drops[i],amount:drops[i]==='ammo'?45:1,taken:false};
   if(q.type==='ammo')q.ammoFamily=['smg','shotgun','sniper','p90'][Math.floor(random()*4)];
-  if(q.type==='gun'){q.weapon=Math.floor(random()*5);const roll=random();q.rarity=c.kind==='ultimate'?4:c.kind==='gold'?(roll<.6?2:roll<.9?3:4):(roll<.6?0:roll<.85?1:roll<.95?2:roll<.99?3:4)}
+  if(q.type==='gun'){q.weapon=Math.floor(random()*5);const roll=random();q.rarity=c.kind==='ultimate'?5:c.kind==='gold'?(roll<.6?2:roll<.85?3:roll<.97?4:5):(roll<.6?0:roll<.85?1:roll<.95?2:roll<.985?3:roll<.998?4:5);if(q.rarity===5&&q.weapon===2)q.weapon=3}
   s.loot.push(q);out.push(q);
  }s.events.push({kind:'crate',x:c.x,y:c.y});return out;
 }

@@ -181,7 +181,7 @@ draw=function(){
  for(const actor of bots){
   if(!pointVisible(actor,Math.max(120,80/cameraZoom)))continue;
   if(!actor.phase||actor.phase==='ground'){
-   if(!Island.canSee(islandState,player,actor))continue;
+   if(!islandNetwork.ready&&!Island.canSee(islandState,player,actor))continue;
    islandDrawRemote(actor);
   }
   visibleActors.push(actor);

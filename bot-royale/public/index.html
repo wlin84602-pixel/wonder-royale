@@ -2060,13 +2060,16 @@ if(document.body?.appendChild){
  cosmeticSprite=function(group,index){return index<0?null:cosmeticSprites[group]?.[index]||null};
  const oldPreview=cosmeticPreview;
  cosmeticPreview=function(group,index){
-  if(!groups.includes(group))return oldPreview(group,index);
+  return oldPreview(group,index);
+ };
+ const previousLobbyArt=refreshLobbyArt;
+ refreshLobbyArt=function(){
+  previousLobbyArt();
   const look={skin:selectedCosmetic('skins'),melee:selectedCosmetic('melees'),backpack:selectedCosmetic('backpacks')};
-  look[{skins:'skin',melees:'melee',backpacks:'backpack'}[group]]=index;
   const canvas=document.createElement('canvas');canvas.width=256;canvas.height=210;
   const ctx=canvas.getContext('2d');ctx.translate(128,116);ctx.scale(1.65,1.65);ctx.rotate(-Math.PI/2);
   CosmeticRig.drawAssembly(ctx,look,cosmeticSprite);
-  return canvas.toDataURL();
+  const preview=$('#home-skin-image');preview.src=canvas.toDataURL();preview.style.visibility='visible';
  };
  equipLobbySet=function(){
   for(const group of groups)progression.selected[group]=0;
@@ -2089,6 +2092,7 @@ if(document.body?.appendChild){
    if(item.kind==='gloves'){
     const parts=await Promise.all(item.parts.map(part=>image(part.source)));
     const pair=document.createElement('canvas');pair.width=parts[0].width+parts[1].width;pair.height=Math.max(...parts.map(part=>part.height));pair.gloves=parts;
+    const ctx=pair.getContext('2d');ctx.drawImage(parts[0],0,(pair.height-parts[0].height)/2);ctx.drawImage(parts[1],parts[0].width,(pair.height-parts[1].height)/2);
     cosmeticSprites[group][index]=pair;
    }else cosmeticSprites[group][index]=await image(item.source);
   })());

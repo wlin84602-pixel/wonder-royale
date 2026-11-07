@@ -290,36 +290,32 @@ function doorSwingAway(d,opener){const tx=Math.cos(d.closedAngle),ty=Math.sin(d.
 function doorPose(d,time){const angle=d.closedAngle+doorAngleAt(d,time);return{hingeX:d.hingeX,hingeY:d.hingeY,angle,tipX:d.hingeX+Math.cos(angle)*d.length,tipY:d.hingeY+Math.sin(angle)*d.length}}
 function doorAngleAt(d,time){const target=d.open?(d.swing||1)*Math.PI/2:0,t=clamp((time-d.changedAt)/.09,0,1),f=t*t*(3-2*t);return(d.turnFrom??(d.open?0:(d.swing||1)*Math.PI/2))*(1-f)+target*f}
 function canSee(s,viewer,target){if(viewer===target||viewer.id&&viewer.id===target.id)return true;if(target.phase&&target.phase!=='ground')return true;const building=buildingAt(s,target);if(building&&!canViewInterior(s,building,viewer))return false;if(target.phase&&target.phase!=='ground')return true;if(hyp(viewer,target)>3200)return false;const bush=bushAt(s,target);if(bush&&s.time>=(target.revealedUntil||0)&&bushAt(s,viewer)?.id!==bush.id)return false;return !raycast(s,viewer.x,viewer.y,target.x,target.y,0,o=>o.kind==='window'||o.kind==='door'&&o.exterior&&building&&apertureDistance(o,viewer)<=52)}
+function stepDoorSafety(s,actors,dt){
+ for(const door of s.doors||[]){
+  if(door.hingeX===undefined||s.time-door.changedAt>.09+dt)continue;
+  const from=doorAngleAt(door,Math.max(door.changedAt,s.time-dt)),to=doorAngleAt(door,s.time);
+  if(Math.abs(to-from)<1e-8)continue;
+  const nearby=actors.filter(a=>a.hp>0&&(!a.phase||a.phase==='ground')&&Math.hypot(a.x-door.hingeX,a.y-door.hingeY)<door.length+(a.r||PLAYER_RADIUS)+9);
+  const steps=Math.max(1,Math.ceil(Math.abs(to-from)/.04));let obstructed=false;
+  for(let i=1;i<=steps&&!obstructed;i++){
+   const angle=door.closedAngle+from+(to-from)*i/steps;
+   const tipX=door.hingeX+Math.cos(angle)*door.length,tipY=door.hingeY+Math.sin(angle)*door.length;
+   obstructed=nearby.some(a=>pointSegment(a.x,a.y,door.hingeX,door.hingeY,tipX,tipY)<(a.r||PLAYER_RADIUS)+7.5);
+  }
+  if(obstructed){door.turnFrom=from;door.changedAt=s.time}
+ }
+}
 function doorInteractionDistance(door,a,time){
  if(door.hingeX===undefined)return apertureDistance(door,a);
  const pose=doorPose(door,time);
  return Math.min(apertureDistance(door,a),pointSegment(a.x,a.y,pose.hingeX,pose.hingeY,pose.tipX,pose.tipY));
-}
-function clearClosingDoor(s,door,opener,actors){
- const affected=[...new Set([opener,...actors])].filter(p=>(!p.phase||p.phase==='ground')&&p.hp>0&&circleRect(p.x,p.y,p.r||PLAYER_RADIUS,door));
- if(!affected.length)return[];
- const angle=door.closedAngle??(door.h>door.w?Math.PI/2:0),tx=Math.cos(angle),ty=Math.sin(angle),nx=-ty,ny=tx,hx=door.hingeX??door.x,hy=door.hingeY??door.y,length=door.length??Math.max(door.w,door.h),plans=[];
- for(const p of affected){
-  const radius=p.r||PLAYER_RADIUS,u=(p.x-hx)*tx+(p.y-hy)*ty,side=(p.x-hx)*nx+(p.y-hy)*ny,motion=s.time-(p.doorMoveAt??-100)<.2?(p.doorMoveX||0)*nx+(p.doorMoveY||0)*ny:0,preferred=Math.abs(motion)>.2?Math.sign(motion):Math.abs(side)>.01?Math.sign(side):Math.sign((opener.x-hx)*nx+(opener.y-hy)*ny)||-(door.swing||1),margin=radius+12,offset=radius+11;
-  const tangent=clamp(u,margin,length-margin),samples=[tangent,length/2,margin,length-margin],candidates=[];
-  for(const sign of [preferred,-preferred])for(const along of samples){
-   const x=hx+tx*along+nx*offset*sign,y=hy+ty*along+ny*offset*sign;
-   if(blocked(s,x,y,radius))continue;
-   if([...new Set([opener,...actors])].some(q=>q!==p&&!affected.includes(q)&&q.hp>0&&hyp(q,{x,y})<radius+(q.r||PLAYER_RADIUS)+1))continue;
-   if(plans.some(q=>hyp(q,{x,y})<radius+q.r+1))continue;
-   candidates.push({id:p.id,x,y,r:radius,fromX:p.x,fromY:p.y,actor:p,sidePenalty:sign===preferred?0:length});
-  }
-  candidates.sort((a,b)=>hyp(a,p)+a.sidePenalty-hyp(b,p)-b.sidePenalty);if(!candidates.length)return null;plans.push(candidates[0]);
- }
- for(const plan of plans){plan.actor.x=plan.x;plan.actor.y=plan.y}
- return plans.map(({actor,sidePenalty,r,...position})=>position);
 }
 function interactDoor(s,door,a,actors=[],desiredOpen){
  if(!door||door.kind!=='door'||doorInteractionDistance(door,a,s.time)>80)return {ok:false,reason:'Too far away'};
  const bot=a.bot||String(a.id||'').startsWith('offline-bot-');
  if(bot&&(s.time<(door.manualUntil||0)||s.time-door.lastUse<.35-1e-8))return{ok:false,reason:'Door cooling down'};
  if(typeof desiredOpen==='boolean'&&door.open===desiredOpen)return{ok:true};
- const moved=door.open?clearClosingDoor(s,door,a,actors):[];if(moved===null)return{ok:false,reason:'No clear space beside door'};
+ const moved=[];
  const turnFrom=doorAngleAt(door,s.time);
  if(!door.open&&door.hingeX!==undefined)door.swing=doorSwingAway(door,a);
  door.open=!door.open;door.turnFrom=turnFrom;door.lastUse=s.time;door.changedAt=s.time;if(!bot)door.manualUntil=s.time+1.2;s.events.push({kind:'door',x:door.x,y:door.y,open:door.open});return{ok:true,moved};
@@ -358,7 +354,7 @@ function advanceZone(s,dt,actors=[]){
 function zoneCountdown(s){const z=s.zone;if(z.mode==='finished')return 0;const c=ZONE_PHASES[z.phase];return Math.max(0,Math.ceil((z.mode==='prepare'?c.prepare:c.shrink)-z.elapsed))}
 function planeRoute(seed){const r=rng(seed^0xabc143),edge=Math.floor(r()*4),offset=650+r()*4700,end=650+r()*4700,a=edge===0?{x:160,y:offset}:edge===1?{x:5840,y:offset}:edge===2?{x:offset,y:160}:{x:offset,y:5840},b=edge===0?{x:5840,y:end}:edge===1?{x:160,y:end}:edge===2?{x:end,y:5840}:{x:end,y:160};a.x*=MAP_SCALE;a.y*=MAP_SCALE;b.x*=MAP_SCALE;b.y*=MAP_SCALE;return{start:a,end:b,angle:Math.atan2(b.y-a.y,b.x-a.x),duration:hyp(a,b)/(220*MAP_SCALE)}}
 function planePosition(route,time){const f=clamp(time/route.duration,0,1);return{x:route.start.x+(route.end.x-route.start.x)*f,y:route.start.y+(route.end.y-route.start.y)*f}}
-return{PROJECTILE_DRAG,projectileMotion,SIZE:SIZE*MAP_SCALE,MAP_SCALE,PLAYER_RADIUS,PLAYER_SPEED,PARACHUTE_SPEED,DROP_SECONDS,GROUND_GUN_COUNT,PUMP_FULL_HIT_DAMAGE,configurePumpShot,applyPumpHit,stepKnockback,solidHit,LOCATIONS:LOCATIONS.map(l=>({...l,x:l.x*MAP_SCALE,y:l.y*MAP_SCALE})),ZONE_PHASES,COAST:COAST.map(([x,y])=>[x*MAP_SCALE,y*MAP_SCALE]),SpatialIndex,rng,clamp,hyp,pointSegment,circleRect,buildWorld,playable,isWater,blocked,findValid,resolveActorOverlap,moveActor,raycast,segmentHitCircle,buildingAt,bushAt,apertureDistance,canViewInterior,doorSwingAway,doorPose,doorAngleAt,doorInteractionDistance,canSee,interactDoor,interactionTarget,openContainer,damageObject,advanceZone,zoneCountdown,planeRoute,planePosition,bounds};
+return{stepDoorSafety,PROJECTILE_DRAG,projectileMotion,SIZE:SIZE*MAP_SCALE,MAP_SCALE,PLAYER_RADIUS,PLAYER_SPEED,PARACHUTE_SPEED,DROP_SECONDS,GROUND_GUN_COUNT,PUMP_FULL_HIT_DAMAGE,configurePumpShot,applyPumpHit,stepKnockback,solidHit,LOCATIONS:LOCATIONS.map(l=>({...l,x:l.x*MAP_SCALE,y:l.y*MAP_SCALE})),ZONE_PHASES,COAST:COAST.map(([x,y])=>[x*MAP_SCALE,y*MAP_SCALE]),SpatialIndex,rng,clamp,hyp,pointSegment,circleRect,buildWorld,playable,isWater,blocked,findValid,resolveActorOverlap,moveActor,raycast,segmentHitCircle,buildingAt,bushAt,apertureDistance,canViewInterior,doorSwingAway,doorPose,doorAngleAt,doorInteractionDistance,canSee,interactDoor,interactionTarget,openContainer,damageObject,advanceZone,zoneCountdown,planeRoute,planePosition,bounds};
 });
 
 

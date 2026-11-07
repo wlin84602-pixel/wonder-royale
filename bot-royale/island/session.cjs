@@ -88,7 +88,7 @@ class Session{
  }
  step(dt=1/30){
  const start=this.time*1000;this.time+=dt;this.world.time=this.time;this.tick++;
- const live=[...this.actors.values()].filter(p=>p.hp>0);
+ const live=[...this.actors.values()].filter(p=>p.hp>0);C.stepDoorSafety(this.world,live,dt);
  for(const p of live){I.tickHealing(this.world,p);p.meleeSwing=Math.max(0,(p.meleeSwing||0)-dt);
   if(p.phase==='plane'){Object.assign(p,C.planePosition(this.route,this.time));if(this.time>=this.route.duration||p.bot&&this.time>=p.jumpAt)p.phase='parachute';continue}
   if(p.phase==='parachute'){

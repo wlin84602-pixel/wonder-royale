@@ -115,7 +115,7 @@ function islandResolveDeaths(){
 update=function(dt,frameWallMs=combatWallTimeMs()){
  islandLastDt=dt;if(!islandState)return islandOriginal.update(dt,frameWallMs);
  if(islandNetwork.enabled){islandOnlineUpdate(dt);return}
- islandState.time+=dt;player.phase=dropPhase;IslandInventory.tickHealing(islandState,player);
+ islandState.time+=dt;Island.stepDoorSafety(islandState,islandCurrentActors(),dt);player.phase=dropPhase;IslandInventory.tickHealing(islandState,player);
  if(dropPhase!=='ground'){
   islandOriginal.update(dt,frameWallMs);player.phase=dropPhase;for(const b of bots){if(!islandDeployBot(b,dt))islandBotStep(b,dt);if(b.phase==='ground')Island.stepKnockback(islandState,b,dt)}islandStepBullets(dt,combatTimeMs);islandResolveDeaths();Island.advanceZone(islandState,dt,bots);islandClampCamera();return;
  }
@@ -265,7 +265,7 @@ function islandApplySnapshot(snapshot){
 }
 function islandOnlineUpdate(dt){
  const net=islandNetwork;if(!net.ready||!net.last){islandClampCamera();return}
- islandState.time=Math.max(islandState.time,net.last.time+Math.min(.2,(performance.now()-net.receivedAt)/1000));player.phase=dropPhase;
+ islandState.time=Math.max(islandState.time,net.last.time+Math.min(.2,(performance.now()-net.receivedAt)/1000));player.phase=dropPhase;Island.stepDoorSafety(islandState,islandCurrentActors(),dt);
  updatePlayerAim();const fresh=performance.now()-net.receivedAt<1000;if(!fresh){$('#island-network-state').textContent='CONNECTION LOST · RETRYING';return}
  const movement=islandMapOpen||matchMenuOpen?{dx:0,dy:0}:movementVector();
  if(dropPhase==='ground')Island.moveActor(islandState,player,movement.dx,movement.dy,dt,player.speed);

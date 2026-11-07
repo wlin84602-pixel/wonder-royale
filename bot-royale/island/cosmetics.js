@@ -27,7 +27,9 @@
   info.swing=swing;info.index=index;
   // Both the resting pose and the swing use this asset's own local pivot.
   const progress=Math.max(0,Math.min(1,1-swing/.18));
-  info.angle+=swing>0?-Math.sin(progress*Math.PI)*.3:0;
+  const reach=swing>0?Math.sin(progress*Math.PI):0;
+  info.x+=reach*D*.25;
+  info.angle-=reach*.42;
   info.grip=meta.pivot;
   return info;
  }
@@ -61,11 +63,20 @@
    }
    return true;
   }
-  ctx.save();
-  // The tan fingers meet the shaft while remaining tucked into the body outline.
-  ctx.translate(info.x,info.y);ctx.rotate(info.angle-info.meta.rotation);
-  fist(ctx,-1,-D*.17-info.y,6);fist(ctx,-1,D*.17-info.y,6);ctx.restore();
-  sprite(ctx,info);return true;
+  const angle=info.angle-info.meta.rotation,cos=Math.cos(angle),sin=Math.sin(angle);
+  const hands=[-1,1].map(side=>{
+   const x=-3,y=side*D*.17-info.y;
+   return{x:info.x+cos*x-sin*y,y:info.y+sin*x+cos*y,side};
+  });
+  ctx.save();ctx.lineCap='round';
+  for(const hand of hands){
+   ctx.beginPath();ctx.moveTo(D*.39,hand.side*D*.17);ctx.lineTo(hand.x,hand.y);
+   ctx.strokeStyle='#30302e';ctx.lineWidth=9;ctx.stroke();
+   ctx.strokeStyle=HAND_COLOR;ctx.lineWidth=5;ctx.stroke();
+  }
+  ctx.restore();sprite(ctx,info);
+  // Fingers wrap over the handle, using the same pivot and reach as the weapon.
+  ctx.save();for(const hand of hands)fist(ctx,hand.x,hand.y,6.2);ctx.restore();return true;
  }
  function drawAssembly(ctx,look,getArt,swing=0,showMelee=true){
   const info=body(getArt('skins',look.skin),look.skin);

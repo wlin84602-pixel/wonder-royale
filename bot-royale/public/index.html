@@ -590,7 +590,7 @@ const doorBroadphases=new WeakMap(),doorCollisionShapes=new WeakMap();
 function doorPanel(d,time){if(d.hingeX===undefined)return d;const old=doorCollisionShapes.get(d);if(old&&old.time===time&&old.open===d.open&&old.changedAt===d.changedAt&&old.swing===d.swing&&old.turnFrom===d.turnFrom)return old.shape;const pose=doorPose(d,Infinity),r=7,shape={...d,shape:'segment',r,ax:pose.hingeX,ay:pose.hingeY,bx:pose.tipX,by:pose.tipY,x:Math.min(pose.hingeX,pose.tipX)-r,y:Math.min(pose.hingeY,pose.tipY)-r,w:Math.abs(pose.tipX-pose.hingeX)+r*2,h:Math.abs(pose.tipY-pose.hingeY)+r*2,source:d};doorCollisionShapes.set(d,{time,open:d.open,changedAt:d.changedAt,swing:d.swing,turnFrom:d.turnFrom,shape});return shape}
 function collisionObjects(s,x,y,w,h){const ordinary=s.index.query(x,y,w,h).filter(o=>o.kind!=='door'||o.hingeX===undefined);const doors=s.doors||[];if(!doors.length)return ordinary;let broad=doorBroadphases.get(s);if(!broad||broad.list!==doors||broad.count!==doors.length){const entries=doors.filter(d=>d.hingeX!==undefined).map(d=>({id:d.id,x:d.hingeX-d.length-9,y:d.hingeY-d.length-9,w:d.length*2+18,h:d.length*2+18,door:d}));broad={list:doors,count:doors.length,index:new SpatialIndex(entries)};doorBroadphases.set(s,broad)}for(const entry of broad.index.query(x,y,w,h)){const panel=doorPanel(entry.door,s.time);if(panel.x+panel.w>=x&&panel.x<=x+w&&panel.y+panel.h>=y&&panel.y<=y+h)ordinary.push(panel)}return ordinary}
 function activeSolid(o){return !o.destroyed&&o.solid&&!(o.kind==='door'&&o.open&&o.hingeX===undefined)&&!(o.lootContainer&&o.open)}
-function blocked(s,x,y,r=PLAYER_RADIUS){if(!playable(s,x,y,r))return true;return collisionObjects(s,x-r,y-r,r*2,r*2).some(o=>activeSolid(o)&&solidHit(o,x,y,r))}
+function blocked(s,x,y,r=PLAYER_RADIUS,actor=null){if(!playable(s,x,y,r))return true;return collisionObjects(s,x-r,y-r,r*2,r*2).some(o=>activeSolid(o)&&!actor?.doorPasses?.includes(o.id)&&solidHit(o,x,y,r))}
 function findValid(s,p,r=PLAYER_RADIUS,avoidRoof=false,avoidBridges=false,avoidBushes=false){
  const valid=(x,y)=>(!avoidBushes||!s.index.query(x-r-100,y-r-100,(r+100)*2,(r+100)*2).some(o=>o.kind==='bush'&&hyp(o,{x,y})<o.r+r+24))&&(!avoidBridges||!s.bridges.some(b=>pointSegment(x,y,b.ax,b.ay,b.bx,b.by)<b.width/2+60))&&!blocked(s,x,y,r)&&(!avoidRoof||!s.buildings.some(b=>circleRect(x,y,r,b)||b.entryPoints.some(p=>Math.hypot(x-p.x,y-p.y)<90)));
  if(valid(p.x,p.y))return {x:p.x,y:p.y};
@@ -598,7 +598,7 @@ function findValid(s,p,r=PLAYER_RADIUS,avoidRoof=false,avoidBridges=false,avoidB
  throw Error('No valid island position');
 }
 function resolveActorOverlap(s,a){
- const r=a.r||PLAYER_RADIUS;if(!blocked(s,a.x,a.y,r)||!playable(s,a.x,a.y,r))return false;
+ const r=a.r||PLAYER_RADIUS;if(!blocked(s,a.x,a.y,r,a)||!playable(s,a.x,a.y,r))return false;
  // Use the panel's nearest surface before considering a general escape search.
  // This keeps contact on the same side instead of hopping around a door endpoint.
  const panels=collisionObjects(s,a.x-r,a.y-r,r*2,r*2).filter(o=>o.kind==='door'&&o.shape==='segment'&&activeSolid(o)&&solidHit(o,a.x,a.y,r));
@@ -611,12 +611,12 @@ function resolveActorOverlap(s,a){
   else{nx=-dy/length;ny=dx/length;const intent=nx*(a.doorMoveX||0)+ny*(a.doorMoveY||0);if(intent>0){nx=-nx;ny=-ny}}
   const separation=r+(panel.r||0)-distance+.02;
   const x=a.x+nx*separation,y=a.y+ny*separation;
-  if(!blocked(s,x,y,r)){a.x=x;a.y=y;return true}
+  if(!blocked(s,x,y,r,a)){a.x=x;a.y=y;return true}
  }
 
  for(let radius=2;radius<=r*2+12;radius+=2)for(let i=0;i<40;i++){
   const angle=i/40*Math.PI*2,x=a.x+Math.cos(angle)*radius,y=a.y+Math.sin(angle)*radius;
-  if(!blocked(s,x,y,r)){a.x=x;a.y=y;return true}
+  if(!blocked(s,x,y,r,a)){a.x=x;a.y=y;return true}
  }return false;
 }
 function contactNormal(o,x,y){
@@ -628,20 +628,21 @@ function contactNormal(o,x,y){
 }
 function slideStep(s,a,vx,vy,radius){
  for(let pass=0;pass<4&&Math.hypot(vx,vy)>1e-7;pass++){
-  const x=a.x,y=a.y;if(!blocked(s,x+vx,y+vy,radius)){a.x+=vx;a.y+=vy;return}
-  let lo=0,hi=1;for(let i=0;i<14;i++){const mid=(lo+hi)/2;if(blocked(s,x+vx*mid,y+vy*mid,radius))hi=mid;else lo=mid}
+  const x=a.x,y=a.y;if(!blocked(s,x+vx,y+vy,radius,a)){a.x+=vx;a.y+=vy;return}
+  let lo=0,hi=1;for(let i=0;i<14;i++){const mid=(lo+hi)/2;if(blocked(s,x+vx*mid,y+vy*mid,radius,a))hi=mid;else lo=mid}
   a.x=x+vx*lo;a.y=y+vy*lo;vx*=1-lo;vy*=1-lo;
-  const contacts=collisionObjects(s,a.x-radius-1,a.y-radius-1,radius*2+2,radius*2+2).filter(o=>activeSolid(o)&&solidHit(o,a.x,a.y,radius+.06));let projected=false;
+  const contacts=collisionObjects(s,a.x-radius-1,a.y-radius-1,radius*2+2,radius*2+2).filter(o=>activeSolid(o)&&!a.doorPasses?.includes(o.id)&&solidHit(o,a.x,a.y,radius+.06));let projected=false;
   for(const o of contacts){const n=contactNormal(o,a.x,a.y);if(!n)continue;const budget=Math.hypot(vx,vy),into=vx*n.x+vy*n.y;if(into< -1e-8){vx-=n.x*into;vy-=n.y*into;
    if(o.kind==='tree'&&Math.hypot(vx,vy)<budget*.45){const cross=n.x*(a.doorMoveY||0)-n.y*(a.doorMoveX||0),side=Math.abs(cross)>1e-6?Math.sign(cross):a.treeSlideId===o.id?a.treeSlideSide:1;a.treeSlideId=o.id;a.treeSlideSide=side;vx=-n.y*side*budget*.8;vy=n.x*side*budget*.8}
    projected=true}}
   if(!projected){
    // Preserve sliding along coastline/bridge boundaries, which have no object normal.
-   for(const [axis,amount]of [['x',vx],['y',vy]]){if(!amount)continue;const before=a[axis];let l=0,h=1;for(let j=0;j<12;j++){const m=(l+h)/2;a[axis]=before+amount*m;if(blocked(s,a.x,a.y,radius))h=m;else l=m}a[axis]=before+amount*l}return;
+   for(const [axis,amount]of [['x',vx],['y',vy]]){if(!amount)continue;const before=a[axis];let l=0,h=1;for(let j=0;j<12;j++){const m=(l+h)/2;a[axis]=before+amount*m;if(blocked(s,a.x,a.y,radius,a))h=m;else l=m}a[axis]=before+amount*l}return;
   }
  }
 }
 function moveActor(s,a,dx,dy,dt,speed=a.speed||205){
+ if(a.doorPasses?.length)a.doorPasses=a.doorPasses.filter(id=>{const door=(s.doors||[]).find(d=>d.id===id);return door&&solidHit(doorPanel(door,s.time),a.x,a.y,a.r||PLAYER_RADIUS)});
  a.doorMoveX=dx;a.doorMoveY=dy;a.doorMoveAt=s.time;resolveActorOverlap(s,a);
  const n=Math.hypot(dx,dy);if(n>1){dx/=n;dy/=n}const radius=a.r||PLAYER_RADIUS,steps=Math.max(1,Math.ceil(speed*dt/(radius*.4)));
  for(let i=0;i<steps;i++)slideStep(s,a,dx*speed*dt/steps,dy*speed*dt/steps,radius);
@@ -680,13 +681,12 @@ function interactDoor(s,door,a,actors=[],desiredOpen){
  const turnFrom=doorAngleAt(door,s.time);
  if(!door.open&&door.hingeX!==undefined)door.swing=doorSwingAway(door,a);
  door.open=!door.open;door.turnFrom=turnFrom;door.lastUse=s.time;door.changedAt=s.time;if(!bot)door.manualUntil=s.time+1.2;
- // Settle only actual overlap with the final panel, once per toggle.
- // The animated sweep cannot carry or repeatedly push an actor.
+ // A toggled panel passes through occupants without moving them. They retain
+ // passage until they leave its final footprint, so contact cannot trap them.
  const panel=doorPanel(door,s.time);
  for(const actor of new Set([a,...actors])){
   if(actor.hp<=0||actor.phase&&actor.phase!=='ground'||!solidHit(panel,actor.x,actor.y,actor.r||PLAYER_RADIUS))continue;
-  const fromX=actor.x,fromY=actor.y;
-  if(resolveActorOverlap(s,actor))moved.push({id:actor.id,x:actor.x,y:actor.y,fromX,fromY});
+  actor.doorPasses=[...new Set([...(actor.doorPasses||[]),door.id])];
  }
  s.events.push({kind:'door',x:door.x,y:door.y,open:door.open});return{ok:true,moved};
 }

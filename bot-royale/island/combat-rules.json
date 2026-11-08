@@ -41,6 +41,15 @@
       "speed": 1100,
       "ammoFamily": "smg",
       "color": "#8fdba0"
+    },
+    {
+      "name": "Pulse Sniper",
+      "clip": 5,
+      "damage": 100,
+      "rate": 1,
+      "speed": 3000,
+      "ammoFamily": "sniper",
+      "color": "#36e4ef"
     }
   ],
   "cooldowns": {
@@ -62,7 +71,8 @@
     "AK-Style Rifle",
     "Pump Shotgun",
     "Bolt-Action Sniper",
-    "P90"
+    "P90",
+    "Pulse Sniper"
   ],
   "reloadMs": 1150,
   "rarity": [
@@ -132,6 +142,12 @@
         "lifeMs": 1000,
         "spreadRadians": 0.16,
         "muzzleOffset": 45
+      },
+      "pulse": {
+        "speed": 3000,
+        "lifeMs": 1650,
+        "spreadRadians": 0,
+        "muzzleOffset": 100
       }
     },
     "variants": {
@@ -267,6 +283,18 @@
         "projectile": "p90",
         "muzzleFlashMs": 30,
         "recoilMs": 65
+      },
+      "PULSE_SNIPER": {
+        "type": 5,
+        "ammoFamily": "sniper",
+        "magazine": 5,
+        "damage": 100,
+        "cooldownMs": 1000,
+        "reloadMs": 1150,
+        "trigger": "hold",
+        "projectile": "pulse",
+        "muzzleFlashMs": 100,
+        "recoilMs": 150
       }
     },
     "sniperViewMultiplier": 1.35

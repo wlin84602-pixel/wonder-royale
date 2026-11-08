@@ -57,6 +57,12 @@
       "lifeMs": 1000,
       "spreadRadians": 0.16,
       "muzzleOffset": 45
+    },
+    "pulse": {
+      "speed": 3000,
+      "lifeMs": 1650,
+      "spreadRadians": 0,
+      "muzzleOffset": 100
     }
   },
   "variants": {
@@ -192,6 +198,18 @@
       "projectile": "p90",
       "muzzleFlashMs": 30,
       "recoilMs": 65
+    },
+    "PULSE_SNIPER": {
+      "type": 5,
+      "ammoFamily": "sniper",
+      "magazine": 5,
+      "damage": 100,
+      "cooldownMs": 1000,
+      "reloadMs": 1150,
+      "trigger": "hold",
+      "projectile": "pulse",
+      "muzzleFlashMs": 100,
+      "recoilMs": 150
     }
   },
   "sniperViewMultiplier": 1.35

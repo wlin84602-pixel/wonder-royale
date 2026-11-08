@@ -1,5 +1,5 @@
 'use strict';
-const BotAI=require('./bot-ai.js');
+const BotAI=require('./bot-ai.js'),Pulse=require('./pulse-rules.js');
 const CosmeticCollection=require('./cosmetic-collection.json');
 function cosmeticIndex(group,id,index){if(id===null)return -1;const items=CosmeticCollection[group];if(typeof id==='string')return items.findIndex(item=>item.id===id);return Number.isInteger(index)&&index>=0&&index<items.length?index:-1}
 
@@ -7,7 +7,7 @@ const C=require('./world.js'),I=require('./inventory.js'),E=require('./emote-rul
 class Session{
  constructor(seed,rules,options={}){this.world=options.world||C.buildWorld(seed);this.rules=rules;this.actors=new Map();this.inputs=new Map();this.bullets=[];this.markers=new Map();this.time=0;this.tick=0;this.nextActor=0;this.nextBullet=0;this.nextShot=0;this.damageEvents=[];this.nextDamageId=0;this.route=C.planeRoute(seed);this.maxPlayers=options.maxPlayers||25;this.botCount=options.bots??24;this.lastActions=new Map();this.addBots()}
  clip(g){return WeaponStats.magazineFor(g,this.rules.types[g.type].clip)}
- gun(type,rarity=0){rarity=Math.min(type===2?4:5,WeaponStats.rarityIndex(rarity));const t=this.rules.types[type],variant=WeaponStats.variantFor({type,rarity});return{type,rarity,weaponId:WeaponStats.idFor(type,rarity),ammo:this.clip({type,rarity}),reserve:this.clip({type,rarity})*4,reload:0,reloading:false,reloadEndsAtMs:0,nextFireAtMs:0,lastShotAtMs:null,burstRemaining:0,equipReadyAtMs:0,fireProfile:this.rules.profiles[type],triggerMode:variant?.trigger||(type===0||type===2?'press':'hold')}}
+ gun(type,rarity=0){if(type===5)rarity=4;rarity=Math.min(type===2?4:5,WeaponStats.rarityIndex(rarity));const t=this.rules.types[type],variant=WeaponStats.variantFor({type,rarity});return{type,rarity,weaponId:WeaponStats.idFor(type,rarity),ammo:this.clip({type,rarity}),reserve:this.clip({type,rarity})*4,reload:0,reloading:false,reloadEndsAtMs:0,nextFireAtMs:0,lastShotAtMs:null,burstRemaining:0,equipReadyAtMs:0,fireProfile:this.rules.profiles[type],triggerMode:variant?.trigger||(type===0||type===2?'press':'hold')}}
  addBots(){for(let i=0;i<this.botCount;i++){const l=this.world.locations[i%8],p=C.findValid(this.world,{x:l.x-500+this.world.random()*1000,y:l.y-500+this.world.random()*1000},26,true),id='bot-'+i;this.actors.set(id,{id,...p,hp:75,shield:10,r:26,speed:245,skin:i%CosmeticCollection.skins.length,backpack:-1,melee:0,parachute:i%CosmeticCollection.parachutes.length,angle:0,phase:'plane',bot:true,dropRemaining:C.DROP_SECONDS,dropFast:false,jumpAt:this.route.duration*(.18+this.world.random()*.62),dropTarget:p,slot:1,med:0,inventory:[null,this.gun(1),null,null,null,null],nextBotShot:0,turnUntil:0,steer:0})}}
  join(name,look={}){
  const humans=[...this.actors.values()].filter(p=>!p.bot);if(humans.length>=this.maxPlayers)throw Error('Room is full');
@@ -23,7 +23,7 @@ class Session{
  if(![m.dx,m.dy,m.aim].every(Number.isFinite))return false;
  const previous=this.inputs.get(id),oldSlot=p.slot;p.sequence=m.seq;p.lastInputAt=this.time;
  if(Number.isInteger(m.slot)&&m.slot>=0&&m.slot<6)p.slot=m.slot;
- const switched=p.slot!==oldSlot,g=p.inventory[p.slot];if(switched){p.equipReadyAtMs=this.time*1000+WeaponStats.data.equipDelayMs;if(g)g.equipReadyAtMs=p.equipReadyAtMs}if(g)g.triggerMode=WeaponStats.variantFor(g)?.trigger||g.triggerMode;
+ const switched=p.slot!==oldSlot,g=p.inventory[p.slot];if(switched&&p.inventory[oldSlot]?.type===5){p.inventory[oldSlot].pulseStart=null;p.pulseCharge=0}if(switched){p.equipReadyAtMs=this.time*1000+WeaponStats.data.equipDelayMs;if(g)g.equipReadyAtMs=p.equipReadyAtMs}if(g)g.triggerMode=WeaponStats.variantFor(g)?.trigger||g.triggerMode;
  if(m.fire===false){p.blockFireUntilRelease=false;p.pressWeaponNeedsRelease=false}
  const next={dx:C.clamp(m.dx,-1,1),dy:C.clamp(m.dy,-1,1),aim:m.aim,dive:m.dive===true,fire:m.fire===true&&!p.blockFireUntilRelease};
  if(switched&&g?.triggerMode==='press'&&next.fire)p.pressWeaponNeedsRelease=true;
@@ -52,7 +52,7 @@ class Session{
  reload(g,at){this.finishReload(g,at);if(g.reloading||g.ammo>=this.clip(g)||g.reserve<=0)return false;if(g.type===1)g.burstRemaining=0;g.reloading=true;g.reloadEndsAtMs=at+(WeaponStats.variantFor(g)?.reloadMs??WeaponStats.data.reloadMs);g.reload=(WeaponStats.variantFor(g)?.reloadMs??WeaponStats.data.reloadMs)/1000;return true}
  finishReload(g,at){if(g.reloading&&at+1e-7>=g.reloadEndsAtMs){const add=Math.min(this.clip(g)-g.ammo,g.reserve);g.ammo+=add;g.reserve-=add;g.reloading=false}g.reload=g.reloading?Math.max(0,(g.reloadEndsAtMs-at)/1000):0}
  fire(p,at,enemy=false){
- const g=p.inventory[p.slot];if(p.phase!=='ground'||!I.isGun(g)||at+1e-7<(p.equipReadyAtMs||0))return false;I.feedGun(p,g);this.finishReload(g,at);if(g.reloading||at+1e-7<g.nextFireAtMs)return false;
+ const g=p.inventory[p.slot];if(g?.type===5&&!p.pulseReleasing)return false;if(p.phase!=='ground'||!I.isGun(g)||at+1e-7<(p.equipReadyAtMs||0))return false;I.feedGun(p,g);this.finishReload(g,at);if(g.reloading||at+1e-7<g.nextFireAtMs)return false;
  if(g.ammo<=0){this.reload(g,at);return false}
  const t=this.rules.types[g.type],variant=WeaponStats.variantFor(g),projectileStats=WeaponStats.projectileFor(g),pumpOffsets=g.type===2?WeaponStats.data.projectiles.pump.pelletOffsetsDeg:null,count=pumpOffsets?.length||1,aim=p.angle,muzzle=projectileStats?.muzzleOffset??38,muzzleX=p.x+Math.cos(aim)*muzzle,muzzleY=p.y+Math.sin(aim)*muzzle;
  g.ammo--;g.lastShotAtMs=at;if(g.type===1)g.burstRemaining=(g.burstRemaining>0?g.burstRemaining:WeaponStats.data.burst.size)-1;g.nextFireAtMs=at+WeaponStats.cooldownFor(g,this.rules.cooldowns[g.fireProfile]||500);p.revealedUntil=this.time+1.5;
@@ -98,7 +98,7 @@ class Session{
   if(p.bot){this.botInput(p,dt);C.stepKnockback(this.world,p,dt);continue}
   const input=this.time-(p.lastInputAt??this.time)>.35?{dx:0,dy:0,aim:p.angle,fire:false}:this.inputs.get(p.id)||{dx:0,dy:0,aim:p.angle,fire:false};p.angle=input.aim;C.moveActor(this.world,p,input.dx,input.dy,dt);
   C.stepKnockback(this.world,p,dt);
-  I.autoAmmo(this.world,p);const g=p.inventory[p.slot];if(input.fire&&!g)this.melee(p);
+  if(this.time-(p.lastInputAt??this.time)>.35&&p.inventory[p.slot]?.type===5)p.inventory[p.slot].pulseStart=null;Pulse.tick(p,input.fire,this.time*1000,()=>this.fire(p,this.time*1000));I.autoAmmo(this.world,p);const g=p.inventory[p.slot];if(input.fire&&!g)this.melee(p);
   if((g?.triggerMode==='press'?input.pressed:input.fire||g?.type===1&&g.burstRemaining>0)&&I.isGun(g)){input.pressed=false;I.feedGun(p,g);let at=Math.max(start,g.nextFireAtMs,p.equipReadyAtMs||0);for(let n=0;n<8&&at<=this.time*1000+1e-7;n++){this.finishReload(g,at);if(g.reloading){at=Math.max(at,g.reloadEndsAtMs);continue}if(!this.fire(p,at))break;if(g.triggerMode==='press')break;at=Math.max(g.nextFireAtMs,g.reloading?g.reloadEndsAtMs:0,p.equipReadyAtMs||0)}}
   for(const gun of p.inventory)if(gun)this.finishReload(gun,this.time*1000);
  }
@@ -113,7 +113,7 @@ class Session{
  }
  snapshot(id){
  const self=this.actors.get(id);if(!self)return null;
- const actors=[...this.actors.values()].filter(a=>a.id!==id&&a.hp>0&&(a.bot||C.canSee(this.world,self,a))).map(p=>({id:p.id,name:p.name,chatText:p.chatText,chatUntil:p.chatUntil,emoteIndex:p.emoteIndex,emoteUntil:p.emoteUntil,x:p.x,y:p.y,hp:p.hp,shield:p.shield,angle:p.angle,phase:p.phase,dropRemaining:p.dropRemaining,skin:p.skin,skinId:CosmeticCollection.skins[p.skin]?.id||null,backpack:p.backpack,backpackId:CosmeticCollection.backpacks[p.backpack]?.id||null,melee:p.melee,meleeId:CosmeticCollection.melees[p.melee]?.id||null,parachute:p.parachute,parachuteId:CosmeticCollection.parachutes[p.parachute]?.id||null,slot:p.slot,weaponType:p.inventory[p.slot]?.type??1,weaponRarity:p.inventory[p.slot]?.rarity??0,weaponLastShotAtMs:p.inventory[p.slot]?.lastShotAtMs??null,itemKind:!p.inventory[p.slot]?'melee':I.isMed(p.inventory[p.slot])?p.inventory[p.slot].kind:p.inventory[p.slot]?'gun':'empty',bot:p.bot,meleeSwing:p.meleeSwing,punchHand:p.punchHand,revealedUntil:p.revealedUntil}));
+ const actors=[...this.actors.values()].filter(a=>a.id!==id&&a.hp>0&&(a.bot||C.canSee(this.world,self,a))).map(p=>({id:p.id,name:p.name,chatText:p.chatText,chatUntil:p.chatUntil,emoteIndex:p.emoteIndex,emoteUntil:p.emoteUntil,x:p.x,y:p.y,hp:p.hp,shield:p.shield,angle:p.angle,phase:p.phase,dropRemaining:p.dropRemaining,skin:p.skin,skinId:CosmeticCollection.skins[p.skin]?.id||null,backpack:p.backpack,backpackId:CosmeticCollection.backpacks[p.backpack]?.id||null,melee:p.melee,meleeId:CosmeticCollection.melees[p.melee]?.id||null,pulseCharge:p.pulseCharge||0,parachute:p.parachute,parachuteId:CosmeticCollection.parachutes[p.parachute]?.id||null,slot:p.slot,weaponType:p.inventory[p.slot]?.type??1,weaponRarity:p.inventory[p.slot]?.rarity??0,weaponLastShotAtMs:p.inventory[p.slot]?.lastShotAtMs??null,itemKind:!p.inventory[p.slot]?'melee':I.isMed(p.inventory[p.slot])?p.inventory[p.slot].kind:p.inventory[p.slot]?'gun':'empty',bot:p.bot,meleeSwing:p.meleeSwing,punchHand:p.punchHand,revealedUntil:p.revealedUntil}));
  const alive=[...this.actors.values()].filter(p=>p.hp>0).length;
  return {damageEvents:this.damageEvents.filter(e=>e.source===id&&this.time-e.at<1.2),tick:this.tick,actionSeq:this.lastActions.get(id)??-1,time:this.time,seed:this.world.seed,self:JSON.parse(JSON.stringify(self)),actors,alive,zone:this.world.zone,plane:{route:this.route,position:C.planePosition(this.route,this.time)},doors:this.world.doors.filter(d=>C.hyp(self,{x:d.x+d.w/2,y:d.y+d.h/2})<3500).map(d=>({id:d.id,open:d.open,changedAt:d.changedAt,turnFrom:d.turnFrom??0,swing:d.swing||1})),destroyed:this.world.objects.filter(o=>o.destroyed).map(o=>o.id),containers:this.world.containers.filter(c=>c.open).map(c=>c.id),loot:this.world.loot.filter(l=>!l.taken&&C.hyp(l,self)<3300&&(!C.buildingAt(this.world,l)||C.canViewInterior(this.world,C.buildingAt(this.world,l),self))),bullets:this.bullets.filter(b=>C.hyp(b,self)<3400).map(b=>({...b})),marker:this.markers.get(id)||null};
  }

@@ -322,7 +322,7 @@ function openContainer(s,c,a,weaponCount=4){
  for(let i=0;i<drops.length;i++){
   const p=findValid(s,{x:c.x+(i-(drops.length-1)/2)*46,y:c.y+(drops.length>1?42:0)},13),q={id:'loot-'+s.nextId++,...p,type:drops[i],amount:drops[i]==='ammo'?45:1,taken:false};
   if(q.type==='ammo')q.ammoFamily=['smg','shotgun','sniper','p90'][Math.floor(random()*4)];
-  if(q.type==='gun'){q.weapon=Math.floor(random()*5);const roll=random();q.rarity=c.kind==='ultimate'?5:c.kind==='gold'?(roll<.6?2:roll<.85?3:roll<.97?4:5):(roll<.6?0:roll<.85?1:roll<.95?2:roll<.985?3:roll<.998?4:5);if(q.rarity===5&&q.weapon===2)q.weapon=3}
+  if(q.type==='gun'){q.weapon=Math.floor(random()*6);const roll=random();q.rarity=c.kind==='ultimate'?5:c.kind==='gold'?(roll<.6?2:roll<.85?3:roll<.97?4:5):(roll<.6?0:roll<.85?1:roll<.95?2:roll<.985?3:roll<.998?4:5);if(q.rarity===5&&q.weapon===2)q.weapon=3;if(q.weapon===5){if(c.kind==='ultimate')q.weapon=3;else q.rarity=4}}
   s.loot.push(q);out.push(q);
  }s.events.push({kind:'crate',x:c.x,y:c.y});return out;
 }

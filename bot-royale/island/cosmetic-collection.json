@@ -685,5 +685,163 @@
         0.22
       ]
     }
+  ],
+  "parachutes": [
+    {
+      "id": "parachute-phoenix",
+      "name": "Phoenix Wings",
+      "file": "assets/parachutes/phoenix.png",
+      "width": 542,
+      "height": 283,
+      "visibleBounds": {
+        "x": 4,
+        "y": 4,
+        "w": 534,
+        "h": 275
+      }
+    },
+    {
+      "id": "parachute-void-manta",
+      "name": "Void Manta",
+      "file": "assets/parachutes/void-manta.png",
+      "width": 586,
+      "height": 297,
+      "visibleBounds": {
+        "x": 4,
+        "y": 4,
+        "w": 578,
+        "h": 289
+      }
+    },
+    {
+      "id": "parachute-jade-beetle",
+      "name": "Jade Beetle",
+      "file": "assets/parachutes/jade-beetle.png",
+      "width": 551,
+      "height": 263,
+      "visibleBounds": {
+        "x": 4,
+        "y": 4,
+        "w": 543,
+        "h": 255
+      }
+    },
+    {
+      "id": "parachute-frost-wyvern",
+      "name": "Frost Wyvern",
+      "file": "assets/parachutes/frost-wyvern.png",
+      "width": 587,
+      "height": 302,
+      "visibleBounds": {
+        "x": 4,
+        "y": 4,
+        "w": 579,
+        "h": 294
+      }
+    },
+    {
+      "id": "parachute-clockwork",
+      "name": "Clockwork Wings",
+      "file": "assets/parachutes/clockwork.png",
+      "width": 586,
+      "height": 266,
+      "visibleBounds": {
+        "x": 4,
+        "y": 4,
+        "w": 578,
+        "h": 258
+      }
+    },
+    {
+      "id": "parachute-raven",
+      "name": "Twilight Raven",
+      "file": "assets/parachutes/raven.png",
+      "width": 612,
+      "height": 300,
+      "visibleBounds": {
+        "x": 4,
+        "y": 4,
+        "w": 604,
+        "h": 292
+      }
+    },
+    {
+      "id": "parachute-cyber-wing",
+      "name": "Cyber Wing",
+      "file": "assets/parachutes/cyber-wing.png",
+      "width": 522,
+      "height": 229,
+      "visibleBounds": {
+        "x": 4,
+        "y": 4,
+        "w": 514,
+        "h": 221
+      }
+    },
+    {
+      "id": "parachute-jade-dragon",
+      "name": "Jade Dragon",
+      "file": "assets/parachutes/jade-dragon.png",
+      "width": 546,
+      "height": 326,
+      "visibleBounds": {
+        "x": 4,
+        "y": 4,
+        "w": 538,
+        "h": 318
+      }
+    },
+    {
+      "id": "parachute-golden-moth",
+      "name": "Golden Moth",
+      "file": "assets/parachutes/golden-moth.png",
+      "width": 468,
+      "height": 246,
+      "visibleBounds": {
+        "x": 4,
+        "y": 4,
+        "w": 460,
+        "h": 238
+      }
+    },
+    {
+      "id": "parachute-storm-hawk",
+      "name": "Storm Hawk",
+      "file": "assets/parachutes/storm-hawk.png",
+      "width": 558,
+      "height": 297,
+      "visibleBounds": {
+        "x": 4,
+        "y": 4,
+        "w": 550,
+        "h": 289
+      }
+    },
+    {
+      "id": "parachute-molten-jet",
+      "name": "Molten Jet",
+      "file": "assets/parachutes/molten-jet.png",
+      "width": 572,
+      "height": 218,
+      "visibleBounds": {
+        "x": 4,
+        "y": 4,
+        "w": 564,
+        "h": 210
+      }
+    },
+    {
+      "id": "parachute-moon-bat",
+      "name": "Moon Bat",
+      "file": "assets/parachutes/moon-bat.png",
+      "width": 569,
+      "height": 258,
+      "visibleBounds": {
+        "x": 4,
+        "y": 4,
+        "w": 561,
+        "h": 250
+      }
+    }
   ]
 }

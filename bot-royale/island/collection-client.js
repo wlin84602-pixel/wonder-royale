@@ -1,7 +1,7 @@
 /* Load and equip the supplied collection by stable, independent IDs. */
 (function(){
- const data=COSMETIC_COLLECTION_DATA,groups=['skins','melees','backpacks'];
- const idFields={skins:'skinId',melees:'meleeId',backpacks:'backpackId'};
+ const data=COSMETIC_COLLECTION_DATA,groups=['skins','melees','backpacks','parachutes'];
+ const idFields={skins:'skinId',melees:'meleeId',backpacks:'backpackId',parachutes:'parachuteId'};
  for(const group of groups){
   cosmetics[group]=data[group].map(item=>[item.name,'#d4ecdf',0,item.id]);
   cosmeticSprites[group]=[];
@@ -32,7 +32,7 @@
   const preview=$('#home-skin-image');preview.src=canvas.toDataURL();preview.style.visibility='visible';
  };
  equipLobbySet=function(){
-  for(const group of groups)progression.selected[group]=0;
+  for(const group of ['skins','melees','backpacks'])progression.selected[group]=0;
   saveProgress();refreshHomePreview();toastLobby('Candy set equipped');
  };
  renderLobbyShop=function(){

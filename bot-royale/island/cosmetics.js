@@ -52,7 +52,7 @@
   const punch=swing>0?attackReach(swing)*8:0;
   ctx.save();fist(ctx,23+(info.punchHand===1?0:punch),-18);fist(ctx,23+(info.punchHand===1?punch:0),18);ctx.restore();
  }
- function drawGunHands(ctx,info,type=0){ctx.save();fist(ctx,info.mouth+4,9);fist(ctx,info.mouth+(type===0?15:type===2?35:23),-7,7.5);ctx.restore()}
+ function drawGunHands(ctx,info,type=0,weaponScale=1){ctx.save();fist(ctx,info.mouth+4,9);fist(ctx,info.mouth+(type===0?15:type===2?35:23)*weaponScale,-7*weaponScale,7.5);ctx.restore()}
  function drawMelee(ctx,info){
   if(!info)return false;
   if(info.meta.kind==='gloves'){

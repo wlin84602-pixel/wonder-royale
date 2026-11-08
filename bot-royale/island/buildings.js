@@ -120,7 +120,7 @@ function populate(s,random,tools){
  }
  addPalace(s);return {make};
 }
-return {TYPES,ROOM_SCALE,BUILDING_COUNT,MIN_GAP,populate};
+return {TYPES,ROOM_SCALE,BUILDING_COUNT,MIN_GAP,populate,addPalace};
 });
 
 

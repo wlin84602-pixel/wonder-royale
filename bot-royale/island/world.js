@@ -116,7 +116,7 @@ function buildWorld(seed=1){
  const woodenBoxes=s.objects.filter(o=>o.kind==='woodcrate');s.objects=s.objects.filter(o=>o.kind!=='woodcrate');
  for(const box of woodenBoxes)s.containers.push({...box,x:box.x+box.w/2,y:box.y+box.h/2,kind:'basic',shape:'circle',r:18,lootContainer:true,open:false,hp:70,destructible:true});
  const plots=new SpatialIndex(s.buildings.map(b=>({...b,shape:'rect'})));
- const occupied=(x,y,r)=>plots.query(x-r-180,y-r-180,2*r+360,2*r+360).some(b=>circleRect(x,y,r+45,b)||b.entryPoints.some(p=>Math.hypot(x-p.x,y-p.y)<r+90))||s.bridges.some(b=>pointSegment(x,y,b.ax,b.ay,b.bx,b.by)<b.width/2+r)||s.roads.some(road=>road.points.slice(1).some((p,i)=>pointSegment(x,y,...road.points[i],...p)<road.width/2+r*.35));
+ const occupied=(x,y,r)=>(s.palace&&x>s.palace.x-r&&x<s.palace.x+s.palace.w+r&&y>s.palace.y-r&&y<s.palace.y+s.palace.h+r)||plots.query(x-r-180,y-r-180,2*r+360,2*r+360).some(b=>circleRect(x,y,r+45,b)||b.entryPoints.some(p=>Math.hypot(x-p.x,y-p.y)<r+90))||s.bridges.some(b=>pointSegment(x,y,b.ax,b.ay,b.bx,b.by)<b.width/2+r)||s.roads.some(road=>road.points.slice(1).some((p,i)=>pointSegment(x,y,...road.points[i],...p)<road.width/2+r*.35));
  for(const o of outdoor){const b=bounds(o),cx=o.shape==='circle'?o.x:o.x+o.w/2,cy=o.shape==='circle'?o.y:o.y+o.h/2;if(playable(s,cx,cy,o.r||20)&&!occupied(cx,cy,Math.max(b.w,b.h)/2)){s.objects.push(o);if(o.kind==='bush')s.bushes.push(o)}}
  const id=p=>p+'-'+s.nextId++;
  for(let i=0;i<7600;i++){

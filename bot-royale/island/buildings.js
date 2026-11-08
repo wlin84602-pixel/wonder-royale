@@ -2,6 +2,25 @@
 'use strict';
 const ROOM_SCALE=1.4,BUILDING_COUNT=85,MIN_GAP=200;
 const TYPES=['house','market','garage','barn','poolhouse','kitchen','lounge','octagon','bedroom','diner','hall','warehouse'];
+
+function addPalace(s){
+ const F=4,ox=4200,oy=1600,X=v=>ox+v*F,Y=v=>oy+v*F;
+ s.palace={x:X(65),y:Y(140),w:1120*F,h:1015*F,scale:F,ox,oy};const p=s.palace;
+ const inside=(x,y)=>x>p.x-150&&x<p.x+p.w+150&&y>p.y-150&&y<p.y+p.h+150;
+ const removed=new Set(s.buildings.filter(b=>b.x<p.x+p.w+150&&b.x+b.w>p.x-150&&b.y<p.y+p.h+150&&b.y+b.h>p.y-150).map(b=>b.id));s.buildings=s.buildings.filter(b=>!removed.has(b.id));s.objects=s.objects.filter(o=>!removed.has(o.building));s.doors=s.doors.filter(o=>!removed.has(o.building));s.containers=s.containers.filter(o=>!removed.has(o.building));
+ s.water=s.water.filter(w=>{const x=w.kind==='lake'?w.x-w.rx:Math.min(w.ax,w.bx)-w.r,y=w.kind==='lake'?w.y-w.ry:Math.min(w.ay,w.by)-w.r,ww=w.kind==='lake'?w.rx*2:Math.abs(w.ax-w.bx)+w.r*2,hh=w.kind==='lake'?w.ry*2:Math.abs(w.ay-w.by)+w.r*2;return !(x<p.x+p.w+150&&x+ww>p.x-150&&y<p.y+p.h+150&&y+hh>p.y-150)});s.roads=s.roads.filter(r=>!r.points.some(([x,y])=>inside(x,y)));s.fields=s.fields.filter(f=>!inside(f.x,f.y));
+ const id=k=>'palace-'+k+'-'+s.nextId++,put=o=>{o.id=id(o.kind);s.objects.push(o);return o};
+ function line(kind,a,b,building){return put({kind,shape:'segment',ax:X(a[0]),ay:Y(a[1]),bx:X(b[0]),by:Y(b[1]),x:X(Math.min(a[0],b[0]))-9,y:Y(Math.min(a[1],b[1]))-9,w:Math.abs(a[0]-b[0])*F+18,h:Math.abs(a[1]-b[1])*F+18,r:9,solid:true,blocksShots:true,building,paint:'palace'})}
+ function edge(a,b,building,portal=false){const dx=b[0]-a[0],dy=b[1]-a[1],len=Math.hypot(dx,dy),at=t=>[a[0]+dx*t,b? a[1]+dy*t:0];if(!portal){line('wall',a,b,building);return}const rm=s.buildings.find(b=>b.id===building),mid=dy===0&&a[1]===((rm?.y||0)-oy)/F&&['West Hall','East Hall'].includes(rm?.name)?((rm.name==='West Hall'?252.5:1002.5)-a[0])/dx:.5;const gap=32/len,lo=mid-gap/2,hi=mid+gap/2;for(const [u,v] of [[0,lo],[hi,1]]){const pad=(v-u)*.24;line('wall',at(u),at(u+pad),building);line('window',at(u+pad),at(v-pad),building);line('wall',at(v-pad),at(v),building)}const h=at(lo),tip=at(hi),d=put({kind:'door',shape:'rect',x:X(h[0])-(dx===0?9:0),y:Y(h[1])-(dy===0?9:0),w:dx===0?18:128,h:dy===0?18:128,hingeX:X(h[0]),hingeY:Y(h[1]),closedAngle:Math.atan2(dy,dx),length:128,solid:true,blocksShots:true,building,exterior:true,open:false,lastUse:-100,changedAt:-1,angle:0,swing:1});s.doors.push(d);const room=s.buildings.find(b=>b.id===building);room?.entryPoints.push({x:(X(h[0])+X(tip[0]))/2+dy/len*70,y:(Y(h[1])+Y(tip[1]))/2-dx/len*70,door:d.id})}
+ const rooms=[[395,250,460,285,'Throne Hall','#87315e','#f4e4cb'],[140,350,255,200,'West Hall','#873caf','#e7aa5c'],[850,350,255,200,'East Hall','#873caf','#f1cfb3'],[170,185,165,165,'West Tower','#87315e','#d6b7e6'],[920,185,165,165,'East Tower','#87315e','#f4e4cb'],[175,670,165,140,'Jade Pavilion','#208e8c','#bde5be'],[915,670,165,140,'Azure Pavilion','#208e8c','#b6d7e8'],[408,875,135,110,'West Lodge','#ac65b3','#edba72'],[708,875,135,110,'East Lodge','#ac65b3','#b8e4d9'],[418,1040,108,110,'West Gate','#ac65b3','#f4e4cb'],[728,1040,108,110,'East Gate','#ac65b3','#f4e4cb']];
+ for(const [x,y,w,h,name,roof,floor]of rooms){const b={id:id('room'),loc:'palace',x:X(x),y:Y(y),w:w*F,h:h*F,style:'palace',palace:true,name,roofColor:roof,floorColor:floor,floor:'tile',entryPoints:[],rooms:[],wallThickness:18};const cut=name.includes('Tower')?35:0;b.outline=(cut?[[x+cut,y],[x+w-cut,y],[x+w,y+cut],[x+w,y+h-cut],[x+w-cut,y+h],[x+cut,y+h],[x,y+h-cut],[x,y+cut]]:[[x,y],[x+w,y],[x+w,y+h],[x,y+h]]).map(([a,b])=>[X(a),Y(b)]);s.buildings.push(b);for(let i=0;i<b.outline.length;i++){const a=b.outline[i],c=b.outline[(i+1)%b.outline.length];edge([(a[0]-ox)/F,(a[1]-oy)/F],[(c[0]-ox)/F,(c[1]-oy)/F],b.id,Math.abs(a[1]-c[1])<1&&(a[1]===Y(y+h)||name.endsWith('Hall')&&name!=='Throne Hall'&&a[1]===Y(y)))}}
+ // Perimeter has the existing hinged doors; the broad southern entrance stays open.
+ edge([85,165],[1170,165],null,true);for(const xx of [85,1170])for(const [a,b]of [[165,505],[505,810],[810,1085]])edge([xx,a],[xx,b],null,true);edge([85,1085],[418,1085],null,false);edge([836,1085],[1170,1085],null,false);
+ put({kind:'sofa',shape:'rect',x:X(600),y:Y(280),w:216,h:220,solid:true,blocksShots:true,building:s.buildings.find(b=>b.name==='Throne Hall').id,color:'#9a3675'});
+ put({kind:'rock',shape:'circle',x:X(627),y:Y(745),r:60*F,solid:true,blocksShots:true,palaceFountain:true});
+ s.locations.push({id:'palace',name:'Wonderlust Palace',x:X(627),y:Y(730),kind:'palace',color:'#e5c561',risk:'high'});
+}
+
 function populate(s,random,tools){
  const {playable,pointSegment,SpatialIndex}=tools,plots=new SpatialIndex();
  const id=p=>p+'-'+s.nextId++,put=o=>{o.id=o.id||id(o.kind);s.objects.push(o);return o};
@@ -98,7 +117,7 @@ function populate(s,random,tools){
   const loc=s.locations.reduce((a,b)=>Math.hypot(best.x-a.x,best.y-a.y)<Math.hypot(best.x-b.x,best.y-b.y)?a:b);
   make(best.x,best.y,type,n,loc.id);
  }
- return {make};
+ addPalace(s);return {make};
 }
 return {TYPES,ROOM_SCALE,BUILDING_COUNT,MIN_GAP,populate};
 });

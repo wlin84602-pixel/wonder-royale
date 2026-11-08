@@ -4,46 +4,8 @@ const previousApply=islandApplySnapshot,previousOnlineUpdate=islandOnlineUpdate,
 const lobbyHUD=$('#waiting-lobby'),roomInput=$('#lobby-room-input'),startButton=$('#lobby-start-match'),status=$('#lobby-status');
 const params=typeof URLSearchParams!=='undefined'?new URLSearchParams(typeof location!=='undefined'?location.search:''):{get(){return null}};
 roomInput.value=params.get('room')||'main';islandNetwork.room=roomInput.value;
-const arcadeStart=$('#lobby-arcade-start'),arcadeTiles=Array.from({length:6},(_,i)=>$('#lobby-tile-'+i));
-for(const button of [arcadeStart,...arcadeTiles])button.addEventListener('keydown',event=>{
- if(event.key==='Enter'||event.key===' ')event.stopPropagation();
-});
-let arcadeTimer=null,arcadeDeadline=0,arcadeTarget=-1,arcadeScore=0,arcadeBest=0;
-function paintArcade(){
- const active=arcadeTimer!==null,seconds=Math.max(0,Math.ceil((arcadeDeadline-performance.now())/1000));
- islandSetText('#lobby-personal-stats',`Score ${arcadeScore} · Best ${arcadeBest}`);
- islandSetText('#lobby-arcade-start',active?`${seconds}s left`:'Play 15-second round');
- arcadeStart.disabled=active||!islandNetwork.inLobby;
- for(const [i,tile] of arcadeTiles.entries()){
-  const lit=active&&i===arcadeTarget;
-  tile.disabled=!active;tile.className=lit?'is-lit':'';
-  tile.setAttribute('aria-label',`Tile ${i+1}${lit?' (lit)':''}`);
-  tile.textContent=lit?'◆':'·';
- }
-}
-function finishArcade(){
- clearInterval(arcadeTimer);arcadeTimer=null;arcadeTarget=-1;paintArcade();
-}
-arcadeStart.onclick=()=>{
- if(!islandNetwork.inLobby||matchMenuOpen||arcadeTimer!==null)return;
- arcadeScore=0;arcadeTarget=Math.floor(Math.random()*arcadeTiles.length);arcadeDeadline=performance.now()+15000;
- arcadeTimer=setInterval(()=>{
-  if(performance.now()>=arcadeDeadline)finishArcade();
-  else islandSetText('#lobby-arcade-start',`${Math.ceil((arcadeDeadline-performance.now())/1000)}s left`);
- },100);
- paintArcade();
-};
-for(const [i,tile] of arcadeTiles.entries())tile.onclick=()=>{
- if(!islandNetwork.inLobby||matchMenuOpen||arcadeTimer===null)return;
- if(performance.now()>=arcadeDeadline){finishArcade();return}
- if(i!==arcadeTarget)return;
- arcadeScore++;arcadeBest=Math.max(arcadeBest,arcadeScore);
- arcadeTarget=(i+1+Math.floor(Math.random()*(arcadeTiles.length-1)))%arcadeTiles.length;
- paintArcade();
-};
 function setWaiting(on){
- if(!on){globalThis.islandCloseLobbyChat?.();if(arcadeTimer!==null)finishArcade()}
- arcadeStart.disabled=!on||!islandNetwork.inLobby||arcadeTimer!==null;
+ if(!on)globalThis.islandCloseLobbyChat?.();
  document.body?.classList?.toggle('waiting-room',on);lobbyHUD.style.display=on?'block':'none';
 }
 function lobbyCamera(){const S=IslandLobby.SIZE;if(islandNetwork.lobbyOverview){cameraX=cameraY=S/2;cameraZoom=Math.min(innerWidth/(S+80),innerHeight/(S+80));return}cameraZoom=Math.max(innerWidth/(S+80),innerHeight/(S+80),innerWidth<700?.65:.8);const w=innerWidth/(2*cameraZoom),h=innerHeight/(2*cameraZoom);cameraX=innerWidth/cameraZoom>=S?S/2:Island.clamp(player.x,w,S-w);cameraY=innerHeight/cameraZoom>=S?S/2:Island.clamp(player.y,h,S-h)}

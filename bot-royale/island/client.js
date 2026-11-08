@@ -2,6 +2,9 @@
 let islandMeleeVisualUntil=0,islandMeleeVisualReady=0;
 let islandState=null,islandMarker=null,islandMapOpen=false,islandRenderCount=0,islandLastDt=.016,islandSound=null,islandInteractionNote='',islandNoteUntil=0;
 const Island=IslandCore,IslandDraw=IslandRender,ISLAND_GROUND_ZOOM=2.25/Math.sqrt(5),ISLAND_PARACHUTE_ZOOM=1/Math.sqrt(5);
+const ISLAND_FLIGHT_ART=Object.freeze({plane:450,parachuteMin:240,parachuteMax:310,remoteParachute:220});
+function islandParachuteDrawSize(remaining=dropRemaining){return ISLAND_FLIGHT_ART.parachuteMin+(ISLAND_FLIGHT_ART.parachuteMax-ISLAND_FLIGHT_ART.parachuteMin)*Island.clamp(remaining/DROP_SECONDS,0,1)}
+function islandPlaneDrawSize(){return Math.max(ISLAND_FLIGHT_ART.plane,ISLAND_FLIGHT_ART.parachuteMax*ISLAND_PARACHUTE_ZOOM*1.1/Math.max(.001,cameraZoom))}
 const islandOriginal={newGame,goHome,end,update,draw,shoot,reload,swingMelee,interact,finishLanding,createPlaneRoute,useSelectedMedkit,onkeydown,onmousedown,oncontextmenu};
 let islandNetwork={enabled:typeof location!=='undefined'&&/^https?:/.test(location.protocol)&&new URLSearchParams(location.search).get('online')==='1',ready:false,token:null,id:null,last:null,receivedAt:0,sequence:0,actionSeq:0,timer:null,stream:null,joining:false,generation:0,error:'',snapshots:[]};
 // Selected cameras: ground Extra-close (D), plane Wide (C), parachute Close (A).
@@ -154,9 +157,9 @@ function islandDrawReloadRing(){
  const progress=islandReloadProgress();if(progress===null)return;const sx=innerWidth/2+(player.x-cameraX)*cameraZoom,sy=innerHeight/2+(player.y-cameraY)*cameraZoom,r=Math.max(18,player.r*cameraZoom+10);
  x.save();x.lineWidth=3.5;x.lineCap='round';x.strokeStyle='#102630b8';x.beginPath();x.arc(sx,sy,r,0,Math.PI*2);x.stroke();x.strokeStyle='#ffffff';x.beginPath();x.arc(sx,sy,r,-Math.PI/2,-Math.PI/2+progress*Math.PI*2);x.stroke();x.restore()
 }
-function islandDrawPlaneAt(position){const art=planeSprites[planeVariant];x.save();x.translate(position.x,position.y);x.rotate(planeRoute.angle+Math.PI/2);if(art){const f=300/Math.max(art.width,art.height);x.drawImage(art,-art.width*f/2,-art.height*f/2,art.width*f,art.height*f)}else{x.fillStyle='#f3efdc';x.strokeStyle='#294847';x.lineWidth=4;x.beginPath();x.moveTo(0,-95);x.lineTo(18,-10);x.lineTo(90,28);x.lineTo(90,40);x.lineTo(12,20);x.lineTo(8,80);x.lineTo(-8,80);x.lineTo(-12,20);x.lineTo(-90,40);x.lineTo(-90,28);x.lineTo(-18,-10);x.closePath();x.fill();x.stroke()}x.restore()}
+function islandDrawPlaneAt(position){const art=planeSprites[planeVariant];x.save();x.translate(position.x,position.y);x.rotate(planeRoute.angle+Math.PI/2);if(art){const f=islandPlaneDrawSize()/Math.max(art.width,art.height);x.drawImage(art,-art.width*f/2,-art.height*f/2,art.width*f,art.height*f)}else{const size=islandPlaneDrawSize()/180;x.scale(size,size);x.fillStyle='#f3efdc';x.strokeStyle='#294847';x.lineWidth=4;x.beginPath();x.moveTo(0,-95);x.lineTo(18,-10);x.lineTo(90,28);x.lineTo(90,40);x.lineTo(12,20);x.lineTo(8,80);x.lineTo(-8,80);x.lineTo(-12,20);x.lineTo(-90,40);x.lineTo(-90,28);x.lineTo(-18,-10);x.closePath();x.fill();x.stroke()}x.restore()}
 function islandDrawRemote(a){
- if(a.phase&&a.phase!=='ground'){const chute=cosmeticSprite('parachutes',a.parachute??0);if(chute){x.save();x.translate(a.x,a.y);x.rotate(a.angle+Math.PI/2);const f=110/Math.max(chute.width,chute.height);x.drawImage(chute,-chute.width*f/2,-chute.height*f/2,chute.width*f,chute.height*f);x.restore()}return}
+ if(a.phase&&a.phase!=='ground'){const chute=cosmeticSprite('parachutes',a.parachute??0);if(chute){x.save();x.translate(a.x,a.y);x.rotate(a.angle+Math.PI/2);const f=ISLAND_FLIGHT_ART.remoteParachute/Math.max(chute.width,chute.height);x.drawImage(chute,-chute.width*f/2,-chute.height*f/2,chute.width*f,chute.height*f);x.restore()}return}
  if(!islandNetwork.ready)return drawCharacter(a);
  drawCharacter(a);
 }

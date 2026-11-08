@@ -63,6 +63,12 @@
       "lifeMs": 1650,
       "spreadRadians": 0,
       "muzzleOffset": 100
+    },
+    "rocket": {
+      "speed": 650,
+      "lifeMs": 2500,
+      "spreadRadians": 0,
+      "muzzleOffset": 85
     }
   },
   "variants": {
@@ -222,6 +228,18 @@
       "projectile": "pulse",
       "muzzleFlashMs": 100,
       "recoilMs": 150
+    },
+    "RPG": {
+      "type": 6,
+      "ammoFamily": "sniper",
+      "magazine": 1,
+      "damage": 100,
+      "cooldownMs": 1000,
+      "reloadMs": 1800,
+      "trigger": "press",
+      "projectile": "rocket",
+      "muzzleFlashMs": 100,
+      "recoilMs": 180
     }
   },
   "sniperViewMultiplier": 1.35

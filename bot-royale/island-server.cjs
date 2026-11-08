@@ -39,8 +39,8 @@ function createServer(options={}){
    }
    if(req.method!=='GET'&&req.method!=='HEAD')return json(res,405,{error:'Unsupported method'});
    let pathname=decodeURIComponent(url.pathname),file=pathname==='/'?path.join(ROOT,'index.html'):path.resolve(ROOT,'.'+pathname);
-   if(!file.startsWith(ROOT+path.sep)||!/\.(html|js|css|json|png|svg)$/i.test(file)||!fs.existsSync(file))return json(res,404,{error:'Not found'});
-   const ext=path.extname(file),mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.json':'application/json','.css':'text/css','.png':'image/png','.svg':'image/svg+xml'}[ext];
+   if(!file.startsWith(ROOT+path.sep)||!/\.(html|js|css|json|png|webp|svg)$/i.test(file)||!fs.existsSync(file))return json(res,404,{error:'Not found'});
+   const ext=path.extname(file),mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.json':'application/json','.css':'text/css','.webp':'image/webp','.png':'image/png','.svg':'image/svg+xml'}[ext];
    res.writeHead(200,{'Content-Type':mime,'Cache-Control':url.pathname.startsWith('/assets/')?'public, max-age=31536000, immutable':'no-cache'});if(req.method==='HEAD')return res.end();fs.createReadStream(file).pipe(res);
   }catch(e){json(res,400,{error:e.message})}
  });

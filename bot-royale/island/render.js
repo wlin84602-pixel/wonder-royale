@@ -2,7 +2,7 @@
 'use strict';
 const palaceArt={};if(typeof Image!=='undefined'){palaceArt.floor=new Image();palaceArt.roof=new Image();palaceArt.floor.src='__PALACE_INTERIOR__';palaceArt.roof.src='__PALACE_ROOF__'}
 function palaceReady(){return palaceArt.floor?.complete&&palaceArt.floor.width>0}
-function palaceDoorPatches(z,s){const p=s.palace;if(!p)return;z.save();z.translate(p.ox,p.oy);z.scale(p.scale,p.scale);z.fillStyle='#f4e7d0';for(const d of s.doors.filter(d=>d.id.startsWith('palace-'))){const a=(d.hingeX-p.ox)/p.scale,b=(d.hingeY-p.oy)/p.scale,dx=Math.cos(d.closedAngle),dy=Math.sin(d.closedAngle),len=d.length/p.scale;z.save();z.translate(a,b);z.rotate(d.closedAngle);z.fillRect(-3,-9,len+6,18);z.restore()}z.restore()}
+function palaceDoorPatches(z,s){const p=s.palace;if(!p)return;z.save();z.translate(p.ox,p.oy);z.scale(p.scale,p.scale);z.fillStyle='#65bc38';z.fillRect(50,95,795,35);z.fillRect(50,95,45,690);z.fillRect(805,95,45,690);z.fillRect(50,740,250,45);z.fillRect(610,740,240,45);z.fillStyle='#f4e7d0';for(const d of s.doors.filter(d=>d.id.startsWith('palace-'))){const a=(d.hingeX-p.ox)/p.scale,b=(d.hingeY-p.oy)/p.scale,dx=Math.cos(d.closedAngle),dy=Math.sin(d.closedAngle),len=d.length/p.scale;z.save();z.translate(a,b);z.rotate(d.closedAngle);z.fillRect(-3,-9,len+6,18);z.restore()}z.restore()}
 
 function poly(z,points){z.beginPath();points.forEach((p,i)=>i?z.lineTo(p[0],p[1]):z.moveTo(p[0],p[1]));z.closePath()}
 function round(z,x,y,w,h,r=8){z.beginPath();z.roundRect(x,y,w,h,r)}
@@ -29,7 +29,7 @@ function floors(z,s,visible){
  for(const b of s.buildings)if(visible(b)&&!(b.palace&&palaceReady())){const original=Theme.at(b.x+b.w/2,b.y+b.h/2,s.size),t=b.palace?{...original,tile:b.floorColor,floor:b.floorColor}:original;z.save();poly(z,b.outline||[[b.x,b.y],[b.x+b.w,b.y],[b.x+b.w,b.y+b.h],[b.x,b.y+b.h]]);z.clip();floor(b.x,b.y,b.w,b.h,b.floor||'wood',t);for(const room of b.rooms||[])floor(room.x,room.y,room.w,room.h,room.floor,t);z.restore()}
 }
 function architectureObject(z,o,time){
- if(palaceReady()&&(o.paint==='palace'||o.palaceFountain||o.building?.startsWith('palace-')&&o.kind!=='door'))return true;
+ if(palaceReady()&&(o.paint==='palace'&&o.building||o.palaceFountain||o.building?.startsWith('palace-')&&o.kind!=='door'))return true;
  if(o.palaceFountain){z.save();for(const [r,c]of [[o.r,'#f7e5ba'],[o.r-22,'#d5a445'],[o.r-40,'#1dc3d1'],[o.r*.25,'#fff1ce']]){z.fillStyle=c;z.strokeStyle='#664c30';z.lineWidth=6;z.beginPath();z.arc(o.x,o.y,r,0,7);z.fill();z.stroke()}z.restore();return true}
 
  if(o.kind==='door'&&o.hingeX!==undefined){

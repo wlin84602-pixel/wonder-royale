@@ -195,7 +195,7 @@ function buildWorld(seed=1){
  s.palace.x-=dx;s.palace.y-=dy;s.palace.ox-=dx;s.palace.oy-=dy;s.coast=COAST.map(([x,y])=>[x*MAP_SCALE,y*MAP_SCALE]);s.locations=[{id:'palace',name:'Wonderlust Palace',x:s.palace.x+s.palace.w/2,y:s.palace.y+s.palace.h/2,color:'#e5c561',risk:'high'}];s.index=new SpatialIndex(s.objects);s.random=random;
  const addCrate=(q,kind,building)=>{const c={id:'palace-loot-'+s.nextId++,x:q.x,y:q.y,kind,building,exterior:!building,shape:'circle',r:kind==='ammo'?12:18,solid:true,blocksShots:true,lootContainer:true,destructible:true,hp:kind==='ultimate'?120:60,open:false};s.containers.push(c);s.objects.push(c);s.index.add(c)};
  for(let i=0;i<s.buildings.length;i++){const b=s.buildings[i],q=findValid(s,{x:b.x+b.w*.6,y:b.y+b.h*.65},24);if(buildingAt(s,q)?.id===b.id)addCrate(q,i<3?'ultimate':i%2?'gold':'basic',b.id)}
- for(let i=0;i<30;i++){const q=findValid(s,{x:s.palace.x+80+random()*(s.palace.w-160),y:s.palace.y+80+random()*(s.palace.h-160)},24);if(!s.containers.some(c=>hyp(c,q)<100))addCrate(q,'ammo',buildingAt(s,q)?.id)}
+ for(let i=0;i<8;i++){const q=findValid(s,{x:s.palace.x+80+random()*(s.palace.w-160),y:s.palace.y+80+random()*(s.palace.h-160)},24);if(!s.containers.some(c=>hyp(c,q)<100))addCrate(q,'ammo',buildingAt(s,q)?.id)}
  for(let i=0;i<5;i++){const q=findValid(s,{x:s.palace.x+80+random()*(s.palace.w-160),y:s.palace.y+80+random()*(s.palace.h-160)},18);s.loot.push({id:'palace-ground-'+i,...q,type:'gun',weapon:i%5,rarity:i===4?1:0,taken:false})}
  s.zone=createZone(s,random);return s;
 }

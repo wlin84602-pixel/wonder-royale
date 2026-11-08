@@ -7,7 +7,7 @@ function inRange(p){return false}
 function area(id){return AREAS.find(a=>a.id===id)}
 function nearest(p){return inRange(p)?'range':null}
 function action(s,p,kind,m={}){
- if(kind==='lobby-chat'){if(typeof m.text!=='string'||s.time<(p.chatReadyAt||0))return{ok:false};const text=Array.from(m.text.replace(/[\u0000-\u001f\u007f]/g,' ').trim()).slice(0,120).join('');if(!text)return{ok:false};p.chatText=text;p.chatUntil=s.time+6;p.chatReadyAt=s.time+.8;return{ok:true}}
+ if(kind==='lobby-chat'){if(typeof m.text!=='string'||s.time<(p.chatReadyAt||0))return{ok:false};const text=Array.from(m.text.replace(/[\u0000-\u001f\u007f]/g,' ').trim()).slice(0,120).join('');if(!text)return{ok:false};p.chatText=text;p.chatUntil=s.time+5;p.emoteUntil=0;p.chatReadyAt=s.time+.8;return{ok:true}}
  return{ok:false};
 }
 

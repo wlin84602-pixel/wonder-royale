@@ -39,7 +39,7 @@ class Session{
  const p=this.actors.get(id);if(!p||p.hp<=0||!Number.isSafeInteger(m.seq)||m.seq<0||m.seq<=(this.lastActions.get(id)??-1))return{ok:false};
  this.lastActions.set(id,m.seq);
  if(m.kind==='emote'||m.kind==='equip-emotes')return E.action(p,m,this.time);
- if(m.kind==='chat'){if(typeof m.text!=='string'||this.time<(p.chatReadyAt||0))return{ok:false};const text=Array.from(m.text.replace(/[\u0000-\u001f\u007f]/g,' ').trim()).slice(0,120).join('');if(!text)return{ok:false};p.chatText=text;p.chatUntil=this.time+6;p.chatReadyAt=this.time+.8;return{ok:true}}
+ if(m.kind==='chat'){if(typeof m.text!=='string'||this.time<(p.chatReadyAt||0))return{ok:false};const text=Array.from(m.text.replace(/[\u0000-\u001f\u007f]/g,' ').trim()).slice(0,120).join('');if(!text)return{ok:false};p.chatText=text;p.chatUntil=this.time+5;p.emoteUntil=0;p.chatReadyAt=this.time+.8;return{ok:true}}
  if(m.kind==='jump'){if(p.phase==='plane'){p.phase='parachute';p.dropRemaining=C.DROP_SECONDS;return{ok:true}}else if(p.phase==='parachute'){p.dropFast=this.inputs.get(id)?.dive===true;return{ok:true}}return{ok:false}}
  if(m.kind==='marker'){if(m.remove)this.markers.delete(id);else if(Number.isFinite(m.x)&&Number.isFinite(m.y))this.markers.set(id,{x:C.clamp(m.x,0,C.SIZE),y:C.clamp(m.y,0,C.SIZE)});return{ok:true}}
  if(p.phase!=='ground')return{ok:false};

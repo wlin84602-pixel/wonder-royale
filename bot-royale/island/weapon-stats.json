@@ -210,6 +210,18 @@
       "projectile": "pulse",
       "muzzleFlashMs": 100,
       "recoilMs": 150
+    },
+    "PULSE_SNIPER_UE": {
+      "type": 5,
+      "ammoFamily": "sniper",
+      "magazine": 5,
+      "damage": 105,
+      "cooldownMs": 1000,
+      "reloadMs": 1150,
+      "trigger": "hold",
+      "projectile": "pulse",
+      "muzzleFlashMs": 100,
+      "recoilMs": 150
     }
   },
   "sniperViewMultiplier": 1.35

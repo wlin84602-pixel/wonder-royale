@@ -7,7 +7,7 @@
  'use strict';
  const rarityIndex=r=>Math.max(0,Math.min(5,Math.floor(Number(r)||0)));
  function idFor(type,rarity=0){
-  if(type===5)return 'PULSE_SNIPER';
+  if(type===5)return rarityIndex(rarity)===5?'PULSE_SNIPER_UE':'PULSE_SNIPER';
   if(type===0)return rarityIndex(rarity)===5?'DEAGLE_UE':'DEAGLE';
   if(type===1)return rarityIndex(rarity)===5?'AK_UE':'AK';
   if(type===2)return 'PUMP_SHOTGUN';

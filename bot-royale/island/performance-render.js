@@ -9,7 +9,7 @@ function get(key){const item=cache.get(key);if(item){item.used=++stamp;stats.hit
 function put(key,item){item.used=++stamp;item.bytes=item.canvas.width*item.canvas.height*4;cache.set(key,item);stats.bytes+=item.bytes;while(stats.bytes>MAX_BYTES&&cache.size>1){let oldest=null,k;for(const [key,q]of cache)if(q!==item&&(!oldest||q.used<oldest.used)){oldest=q;k=key}if(!oldest)break;stats.bytes-=oldest.bytes;cache.delete(k);oldest.canvas.width=oldest.canvas.height=1}return item}
 function sprite(z,key,b,paint,res=level(z)){
  const k=key+'@'+res;let item=get(k);
- if(!item){const width=Math.max(1,Math.ceil(b.w*res)),height=Math.max(1,Math.ceil(b.h*res));if(width*height>3*1024*1024)return false;const out=surface(width,height);if(!out)return false;out.ctx.scale(res,res);out.ctx.lineJoin='round';out.ctx.translate(-b.x,-b.y);paint(out.ctx);item=put(k,{...out});stats.spriteBuilds++}
+ if(!item){const width=Math.max(1,Math.ceil(b.w*res)),height=Math.max(1,Math.ceil(b.h*res));if(width*height>3*1024*1024&&!key.startsWith('royal-floor:'))return false;const out=surface(width,height);if(!out)return false;out.ctx.scale(res,res);out.ctx.lineJoin='round';out.ctx.translate(-b.x,-b.y);paint(out.ctx);item=put(k,{...out});stats.spriteBuilds++}
  z.drawImage(item.canvas,b.x,b.y,item.canvas.width/res,item.canvas.height/res);return true
 }
 function shake(z,o){const t=(performance.now()-(o.hitVisualAt??-10000))/1000;if(t>=0&&t<.22){const n=Math.sin(t*65)*4*(1-t/.22);z.translate((o.hitDX||1)*n,(o.hitDY||0)*n)}}
@@ -23,7 +23,7 @@ R.canopies=function(z,objects,local){for(const o of objects)if(o.kind==='tree'&&
 R.bushes=function(z,s,visible,local=null){for(const b of s.bushes)if(visible({x:b.x-b.r,y:b.y-b.r,w:b.r*2,h:b.r*2})){const biome=Theme.idAt(b.x,b.y,C.SIZE),radius=b.r+5,rect={x:-radius,y:-radius,w:radius*2,h:radius*2};z.save();z.translate(b.x,b.y);if(local&&Math.hypot(local.x-b.x,local.y-b.y)<(b.hideRadius??b.r*.83))z.globalAlpha=.55;if(!sprite(z,'bush:'+b.r+':'+biome,rect,ctx=>raw.bushes(ctx,{bushes:[{...b,x:0,y:0,visualBiome:biome}]},()=>true)))raw.bushes(z,{bushes:[{...b,x:0,y:0,visualBiome:biome}]},()=>true);z.restore()}};
 
 R.crate=function(z,c){if(c.open||c.destroyed)return;z.save();z.translate(c.x,c.y);shake(z,c);if(!sprite(z,'crate:'+c.kind,{x:-36,y:-36,w:72,h:72},ctx=>raw.crate(ctx,{...c,x:0,y:0})))raw.crate(z,{...c,x:0,y:0});z.restore()};
-R.floors=function(z,s,visible){if(s.palace)raw.floors(z,{...s,buildings:[]},()=>false);
+R.floors=function(z,s,visible){if(s.palace){const p=s.palace,F=p.scale,rect={x:p.ox+35*F,y:p.oy+70*F,w:830*F,h:730*F};if(!sprite(z,'royal-floor:'+id(s),rect,ctx=>raw.floors(ctx,s,()=>true),Math.min(1,level(z))))raw.floors(z,s,()=>true);}
  for(const building of s.buildings){
   if(building.palace)continue;
   if(!visible(building))continue;

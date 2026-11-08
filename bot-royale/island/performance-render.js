@@ -25,6 +25,7 @@ R.bushes=function(z,s,visible,local=null){for(const b of s.bushes)if(visible({x:
 R.crate=function(z,c){if(c.open||c.destroyed)return;z.save();z.translate(c.x,c.y);shake(z,c);if(!sprite(z,'crate:'+c.kind,{x:-36,y:-36,w:72,h:72},ctx=>raw.crate(ctx,{...c,x:0,y:0})))raw.crate(z,{...c,x:0,y:0});z.restore()};
 R.floors=function(z,s,visible){if(s.palace)raw.floors(z,{...s,buildings:[]},()=>false);
  for(const building of s.buildings){
+  if(building.palace)continue;
   if(!visible(building))continue;
   const rect={x:building.x,y:building.y,w:building.w,h:building.h};
   if(!sprite(z,'floor:'+id(s)+':'+building.id,rect,ctx=>raw.floors(ctx,{...s,buildings:[building]},()=>true)))raw.floors(z,{...s,buildings:[building]},()=>true);

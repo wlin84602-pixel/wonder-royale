@@ -786,11 +786,12 @@ function advanceZone(s,dt,actors=[]){
  return z;
 }
 function zoneCountdown(s){const z=s.zone;if(z.mode==='finished')return 0;const c=ZONE_PHASES[z.phase];return Math.max(0,Math.ceil((z.mode==='prepare'?c.prepare:c.shrink)-z.elapsed))}
-function planeRoute(seed){const r=rng(seed^0xabc143),horizontal=r()<.5,reverse=r()<.5,offset=2100+r()*1800,start=horizontal?{x:reverse?7000:3800,y:offset}:{x:offset,y:reverse?7000:3800},end=horizontal?{x:reverse?3800:7000,y:offset}:{x:offset,y:reverse?3800:7000};return{start,end,angle:Math.atan2(end.y-start.y,end.x-start.x),duration:hyp(start,end)/220}}
+function planeRoute(seed){const r=rng(seed^0xabc143),horizontal=r()<.5,reverse=r()<.5,offset=2100+r()*1800,start=horizontal?{x:reverse?7000:3800,y:offset}:{x:offset,y:reverse?7000:3800},end=horizontal?{x:reverse?3800:7000,y:offset}:{x:offset,y:reverse?3800:7000};return{start,end,angle:Math.atan2(end.y-start.y,end.x-start.x),duration:hyp(start,end)/330}}
 
 function planePosition(route,time){const f=clamp(time/route.duration,0,1);return{x:route.start.x+(route.end.x-route.start.x)*f,y:route.start.y+(route.end.y-route.start.y)*f}}
 return{softCover,projectileWall,pierceCover,separateActors,PROJECTILE_DRAG,projectileMotion,SIZE:SIZE*MAP_SCALE,MAP_SCALE,PLAYER_RADIUS,PLAYER_SPEED,PARACHUTE_SPEED,DROP_SECONDS,GROUND_GUN_COUNT,PUMP_FULL_HIT_DAMAGE,configurePumpShot,applyPumpHit,stepKnockback,solidHit,LOCATIONS:[{id:'palace',name:'Wonderlust Palace',x:1500,y:1500,color:'#e5c561'}],ZONE_PHASES,COAST:COAST.map(([x,y])=>[x*MAP_SCALE,y*MAP_SCALE]),SpatialIndex,rng,clamp,hyp,pointSegment,circleRect,buildWorld,playable,isWater,blocked,findValid,resolveActorOverlap,moveActor,raycast,segmentHitCircle,buildingAt,bushAt,apertureDistance,canViewInterior,doorSwingAway,doorPose,doorAngleAt,doorInteractionDistance,canSee,interactDoor,interactionTarget,openContainer,damageObject,advanceZone,zoneCountdown,planeRoute,planePosition,bounds};
 });
+
 
 
 

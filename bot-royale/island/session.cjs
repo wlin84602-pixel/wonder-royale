@@ -65,7 +65,7 @@ class Session{
  if(g.ammo===0&&g.reserve>0)this.reload(g,at);return true;
  }
  melee(p){
- if(p.phase!=='ground'||this.time<(p.meleeReadyAt||0))return false;p.meleeReadyAt=this.time+.42;p.meleeSwing=.18;p.punchHand=p.punchHand===0?1:0;p.revealedUntil=this.time+1.5;
+ if(p.phase!=='ground'||p.hp<=0||p.inventory[p.slot]||this.time<(p.meleeReadyAt||0))return false;p.meleeReadyAt=this.time+.42;p.meleeSwing=.18;p.punchHand=p.punchHand===0?1:0;p.revealedUntil=this.time+1.5;
  const range=p.melee<0?58:83,damage=p.melee<0?14:28;
  for(const other of this.actors.values())if(other!==p&&other.hp>0&&other.phase==='ground'&&C.hyp(p,other)<=range&&Math.cos(Math.atan2(other.y-p.y,other.x-p.x)-p.angle)>.15&&!C.raycast(this.world,p.x,p.y,other.x,other.y,0))this.damage(other,damage,p);
  for(const o of this.world.index.query(p.x-range,p.y-range,range*2,range*2))if(o.destructible&&!o.destroyed){const b=C.bounds(o),q={x:b.x+b.w/2,y:b.y+b.h/2};if(C.hyp(p,q)<range+20&&Math.cos(Math.atan2(q.y-p.y,q.x-p.x)-p.angle)>.15)C.damageObject(this.world,o,damage,p)}
@@ -98,7 +98,7 @@ class Session{
   if(p.bot){this.botInput(p,dt);C.stepKnockback(this.world,p,dt);continue}
   const input=this.time-(p.lastInputAt??this.time)>.35?{dx:0,dy:0,aim:p.angle,fire:false}:this.inputs.get(p.id)||{dx:0,dy:0,aim:p.angle,fire:false};p.angle=input.aim;C.moveActor(this.world,p,input.dx,input.dy,dt);
   C.stepKnockback(this.world,p,dt);
-  I.autoAmmo(this.world,p);const g=p.inventory[p.slot];if(input.fire&&p.slot===0)this.melee(p);
+  I.autoAmmo(this.world,p);const g=p.inventory[p.slot];if(input.fire&&!g)this.melee(p);
   if((g?.triggerMode==='press'?input.pressed:input.fire||g?.type===1&&g.burstRemaining>0)&&I.isGun(g)){input.pressed=false;I.feedGun(p,g);let at=Math.max(start,g.nextFireAtMs,p.equipReadyAtMs||0);for(let n=0;n<8&&at<=this.time*1000+1e-7;n++){this.finishReload(g,at);if(g.reloading){at=Math.max(at,g.reloadEndsAtMs);continue}if(!this.fire(p,at))break;if(g.triggerMode==='press')break;at=Math.max(g.nextFireAtMs,g.reloading?g.reloadEndsAtMs:0,p.equipReadyAtMs||0)}}
   for(const gun of p.inventory)if(gun)this.finishReload(gun,this.time*1000);
  }
@@ -113,7 +113,7 @@ class Session{
  }
  snapshot(id){
  const self=this.actors.get(id);if(!self)return null;
- const actors=[...this.actors.values()].filter(a=>a.id!==id&&a.hp>0&&(a.bot||C.canSee(this.world,self,a))).map(p=>({id:p.id,name:p.name,chatText:p.chatText,chatUntil:p.chatUntil,emoteIndex:p.emoteIndex,emoteUntil:p.emoteUntil,x:p.x,y:p.y,hp:p.hp,shield:p.shield,angle:p.angle,phase:p.phase,dropRemaining:p.dropRemaining,skin:p.skin,skinId:CosmeticCollection.skins[p.skin]?.id||null,backpack:p.backpack,backpackId:CosmeticCollection.backpacks[p.backpack]?.id||null,melee:p.melee,meleeId:CosmeticCollection.melees[p.melee]?.id||null,parachute:p.parachute,slot:p.slot,weaponType:p.inventory[p.slot]?.type??1,weaponRarity:p.inventory[p.slot]?.rarity??0,weaponLastShotAtMs:p.inventory[p.slot]?.lastShotAtMs??null,itemKind:p.slot===0?'melee':I.isMed(p.inventory[p.slot])?p.inventory[p.slot].kind:p.inventory[p.slot]?'gun':'empty',bot:p.bot,meleeSwing:p.meleeSwing,punchHand:p.punchHand,revealedUntil:p.revealedUntil}));
+ const actors=[...this.actors.values()].filter(a=>a.id!==id&&a.hp>0&&(a.bot||C.canSee(this.world,self,a))).map(p=>({id:p.id,name:p.name,chatText:p.chatText,chatUntil:p.chatUntil,emoteIndex:p.emoteIndex,emoteUntil:p.emoteUntil,x:p.x,y:p.y,hp:p.hp,shield:p.shield,angle:p.angle,phase:p.phase,dropRemaining:p.dropRemaining,skin:p.skin,skinId:CosmeticCollection.skins[p.skin]?.id||null,backpack:p.backpack,backpackId:CosmeticCollection.backpacks[p.backpack]?.id||null,melee:p.melee,meleeId:CosmeticCollection.melees[p.melee]?.id||null,parachute:p.parachute,slot:p.slot,weaponType:p.inventory[p.slot]?.type??1,weaponRarity:p.inventory[p.slot]?.rarity??0,weaponLastShotAtMs:p.inventory[p.slot]?.lastShotAtMs??null,itemKind:!p.inventory[p.slot]?'melee':I.isMed(p.inventory[p.slot])?p.inventory[p.slot].kind:p.inventory[p.slot]?'gun':'empty',bot:p.bot,meleeSwing:p.meleeSwing,punchHand:p.punchHand,revealedUntil:p.revealedUntil}));
  const alive=[...this.actors.values()].filter(p=>p.hp>0).length;
  return {damageEvents:this.damageEvents.filter(e=>e.source===id&&this.time-e.at<1.2),tick:this.tick,actionSeq:this.lastActions.get(id)??-1,time:this.time,seed:this.world.seed,self:JSON.parse(JSON.stringify(self)),actors,alive,zone:this.world.zone,plane:{route:this.route,position:C.planePosition(this.route,this.time)},doors:this.world.doors.filter(d=>C.hyp(self,{x:d.x+d.w/2,y:d.y+d.h/2})<3500).map(d=>({id:d.id,open:d.open,changedAt:d.changedAt,turnFrom:d.turnFrom??0,swing:d.swing||1})),destroyed:this.world.objects.filter(o=>o.destroyed).map(o=>o.id),containers:this.world.containers.filter(c=>c.open).map(c=>c.id),loot:this.world.loot.filter(l=>!l.taken&&C.hyp(l,self)<3300&&(!C.buildingAt(this.world,l)||C.canViewInterior(this.world,C.buildingAt(this.world,l),self))),bullets:this.bullets.filter(b=>C.hyp(b,self)<3400).map(b=>({...b})),marker:this.markers.get(id)||null};
  }

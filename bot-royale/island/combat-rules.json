@@ -163,7 +163,7 @@
         "speed": 650,
         "lifeMs": 2500,
         "spreadRadians": 0,
-        "muzzleOffset": 85
+        "muzzleOffset": 117
       }
     },
     "variants": {

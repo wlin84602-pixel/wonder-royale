@@ -141,6 +141,27 @@
 
 /* Enlarged radial emote selector. */
 .emote-wheel{width:408px;height:408px}.emote-wheel:before{inset:24px}.emote-wheel button{width:96px;height:100px;padding:6px}.emote-wheel img{width:68px;height:66px}.emote-wheel button small{font-size:12px;bottom:-18px}.emote-wheel>strong{top:-40px;font-size:14px}.emote-wheel strong small{font-size:11px}
+/* Gameplay footage study: clear rarity tiles and one compact reserve-ammo strip. */
+.bottom.inventory-bar{width:calc(6 * var(--slot-side) + 10px)!important;bottom:20px!important}
+.inventory-slots,#weapon-slots{gap:2px!important}
+.inventory-slot{position:relative;border:1px solid color-mix(in srgb,var(--rarity),#fff 22%)!important;border-radius:3px!important;background:color-mix(in srgb,var(--rarity) 62%,transparent)!important;box-shadow:0 1px 2px #07131a55!important;overflow:visible!important;transition:border-color 70ms ease,box-shadow 70ms ease}
+.inventory-slot.active{border:2px solid #fff!important;background:color-mix(in srgb,var(--rarity) 78%,transparent)!important;box-shadow:0 0 0 1px #12232e99,0 1px 3px #0005!important}
+.inventory-slot img,.inventory-slot>svg{width:94%!important;height:75%!important;margin:0 auto 7px!important;filter:drop-shadow(0 1px 1px #0005)}
+.inventory-slot .slot-key{top:auto!important;bottom:-15px!important;left:0!important;right:0!important;text-align:center;font:700 9px/12px system-ui!important;text-shadow:0 1px 2px #000}
+.inventory-slot .slot-ammo{font-size:10px!important;bottom:1px!important;text-shadow:0 1px 2px #000}
+.inventory-slot .slot-lock{font-size:7px;opacity:.7}
+.inventory-tools{margin-bottom:5px!important}
+.ammo-grid{gap:3px!important}
+.ammo-entry{width:auto!important;min-width:54px!important;height:24px!important;flex-direction:row!important;gap:5px!important;padding:2px 5px!important;border-radius:3px!important;background:#10232d66!important;border:1px solid #d3eaf025!important;box-shadow:none!important}
+.ammo-entry span{font-size:7px!important;line-height:1!important;letter-spacing:.02em}
+.ammo-entry b{font-size:11px!important;line-height:1!important;font-variant-numeric:tabular-nums}
+#island-vitals{gap:4px}
+.island-vital{height:18px;border-radius:3px;box-shadow:0 1px 2px #0004;background:#10232d66}
+.island-vital--shield{height:16px}
+.island-vital-value{font-size:11px}.island-vital-caption{font-size:8px}
+@media(prefers-reduced-motion:reduce){.inventory-slot{transition:none}}
+.ammo-entry .ammo-icon{width:19px;height:19px;object-fit:contain;pointer-events:none}.ammo-entry:has(.ammo-icon) span{display:none!important}
+.island-match .hint{display:none!important}
 
 </style></head><body><canvas id="game"></canvas><button class="match-menu-toggle" id="exit-match" type="button" aria-label="Open match menu" title="Match menu"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M18.84 9.17 L19.18 10.21 L21.36 10.35 L21.36 13.65 L19.18 13.79 L18.84 14.83 L18.34 15.81 L19.78 17.45 L17.45 19.78 L15.81 18.34 L14.83 18.84 L13.79 19.18 L13.65 21.36 L10.35 21.36 L10.21 19.18 L9.17 18.84 L8.19 18.34 L6.55 19.78 L4.22 17.45 L5.66 15.81 L5.16 14.83 L4.82 13.79 L2.64 13.65 L2.64 10.35 L4.82 10.21 L5.16 9.17 L5.66 8.19 L4.22 6.55 L6.55 4.22 L8.19 5.66 L9.17 5.16 L10.21 4.82 L10.35 2.64 L13.65 2.64 L13.79 4.82 L14.83 5.16 L15.81 5.66 L17.45 4.22 L19.78 6.55 L18.34 8.19 Z"/><circle cx="12" cy="12" r="3.1"/></svg></button><div class="performance-readout" id="performance-readout" title="Measured recent animation-frame rate and average frame time; not network ping">— FPS · — ms/frame</div><div class="home" id="home">
   <header class="lobby-topbar">
@@ -1072,14 +1093,15 @@ return{stats,raw,MAX_BYTES,clear(){for(const q of cache.values())q.canvas.width=
   return{art,b:bounds(art),meta,width,height:width*art.height/art.width,x:-meta.offset[1]*D,y:meta.offset[0]*D,angle:meta.rotation,pivot:meta.pivot};
  }
  function pack(art,index){return attachment(art,collection.backpacks[index])}
+ function attackReach(swing){return swing>0?Math.sin(Math.max(0,Math.min(1,1-swing/.18))*Math.PI)**2:0}
  function melee(art,index,bodyInfo,swing=0){
   const meta=collection.melees[index];if(!meta||!art)return null;
   const info=attachment(art,meta);
-  info.swing=swing;info.index=index;
+  info.swing=swing;info.index=index;info.punchHand=bodyInfo?.punchHand||0;
   // Both the resting pose and the swing use this asset's own local pivot.
   const progress=Math.max(0,Math.min(1,1-swing/.18));
-  const reach=swing>0?Math.sin(progress*Math.PI):0;
-  info.x+=reach*D*.25;
+  const reach=swing>0?attackReach(swing):0;
+  if(meta.kind!=='gloves')info.x+=reach*D*.25;
   info.angle-=reach*.42;
   info.grip=meta.pivot;
   return info;
@@ -1099,7 +1121,7 @@ return{stats,raw,MAX_BYTES,clear(){for(const q of cache.values())q.canvas.width=
  }
  function fist(ctx,x,y,r=8){ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fillStyle=HAND_COLOR;ctx.strokeStyle='#30302e';ctx.lineWidth=3;ctx.fill();ctx.stroke()}
  function drawFists(ctx,info,swing=0){
-  const punch=swing>0?Math.sin((1-swing/.18)*Math.PI)*8:0;
+  const punch=swing>0?attackReach(swing)*8:0;
   ctx.save();fist(ctx,23+(info.punchHand===1?0:punch),-18);fist(ctx,23+(info.punchHand===1?punch:0),18);ctx.restore();
  }
  function drawGunHands(ctx,info,type=0){ctx.save();fist(ctx,info.mouth+4,9);fist(ctx,info.mouth+(type===0?15:type===2?35:23),-7,7.5);ctx.restore()}
@@ -1109,7 +1131,7 @@ return{stats,raw,MAX_BYTES,clear(){for(const q of cache.values())q.canvas.width=
    const arts=info.art.gloves;if(!arts)return false;
    for(let i=0;i<arts.length;i++){
     const art=arts[i],visibleWidth=info.meta.parts[i].visibleBounds.w,width=D*info.meta.scale*art.width/visibleWidth,height=width*art.height/art.width;
-    const punch=info.swing>0?Math.sin((1-info.swing/.18)*Math.PI)*5:0;
+    const punch=info.swing>0&&i===info.punchHand?attackReach(info.swing)*8:0;
     sprite(ctx,{art,width,height,x:info.x+punch,y:(i===0?-1:1)*D*.36,angle:info.meta.rotation,pivot:info.meta.pivot});
    }
    return true;
@@ -1131,12 +1153,13 @@ return{stats,raw,MAX_BYTES,clear(){for(const q of cache.values())q.canvas.width=
  }
  function drawAssembly(ctx,look,getArt,swing=0,showMelee=true){
   const info=body(getArt('skins',look.skin),look.skin);
+  info.punchHand=look.punchHand||0;
   drawPack(ctx,pack(getArt('backpacks',look.backpack),look.backpack,info));
   drawBody(ctx,info);
   if(showMelee){const held=melee(getArt('melees',look.melee),look.melee,info,swing);if(!drawMelee(ctx,held))drawFists(ctx,info,swing)}
   return info;
  }
- return Object.freeze({bounds,body,pack,melee,drawPack,drawBody,drawMelee,drawFists,drawGunHands,drawAssembly,HAND_COLOR,collection});
+ return Object.freeze({bounds,body,pack,melee,attackReach,drawPack,drawBody,drawMelee,drawFists,drawGunHands,drawAssembly,HAND_COLOR,collection});
 });
 
 
@@ -1423,7 +1446,19 @@ return{plan};
 });
 
 // Screen-legible projectiles and short, attached weapon firing effects.
-function islandDrawProjectile(ctx,q,zoom){const deagle=q.kind===0,size=deagle?22:q.kind===2?13:11,z=Math.max(.12,zoom),tail=deagle?Math.max(40,19/z):Math.max(12,size*1.7),own=q.owner===player||q.owner===player?.id,gold=!!q.premium;ctx.save();ctx.translate(q.x,q.y);ctx.rotate(Math.atan2(q.vy,q.vx));if(!deagle)ctx.scale(Math.max(1,.7/z),Math.max(1,.7/z));ctx.lineCap='round';ctx.strokeStyle='#17191ddf';ctx.lineWidth=deagle?Math.max(7,3.2/z):q.kind===2?3.5:2.8;ctx.beginPath();ctx.moveTo(-tail,0);ctx.lineTo(size*.2,0);ctx.stroke();ctx.strokeStyle=gold?'#c89427':deagle?(own?'#edb352':'#d58d4e'):q.kind===2?'#d49531':'#66502e';ctx.lineWidth=deagle?Math.max(3.5,1.7/z):q.kind===2?2.3:1.8;ctx.beginPath();ctx.moveTo(-tail,0);ctx.lineTo(-size*.25,0);ctx.stroke();ctx.save();if(q.kind===1)ctx.scale(.68,.68);ctx.fillStyle='#202127';ctx.beginPath();ctx.roundRect(-size*.5,-(deagle?4:2.8),size*.9,deagle?8:5.6,2);ctx.fill();ctx.fillStyle=gold?'#a37720':deagle?'#c28e47':q.kind===2?'#ab7423':'#51422c';ctx.fillRect(-size*.4,-(deagle?2.7:1.8),size*.62,deagle?5.4:3.6);ctx.beginPath();ctx.moveTo(size*.2,-(deagle?3.3:2));ctx.quadraticCurveTo(size*.7,0,size*.2,deagle?3.3:2);ctx.closePath();ctx.fillStyle=gold?'#ffd76c':deagle?'#ffe0a1':q.kind===2?'#ffd270':'#96723b';ctx.fill();ctx.fillStyle=gold?'#fff1b7':deagle?'#fff0c5':q.kind===2?'#fff0b2':'#a27c42';ctx.fillRect(-size*.2,-(deagle?2:1.5),size*.43,deagle?1.4:.7);ctx.restore();ctx.restore()}
+function islandDrawProjectile(ctx,q,zoom){
+ const z=Math.max(.12,zoom),deagle=q.kind===0,pellet=q.kind===2,pulse=q.kind===5,gold=!!q.premium;
+ const speed=Math.hypot(q.vx,q.vy),tail=Math.min(100,Math.max(pellet?20:28,speed*.028)),tip=deagle?10:pellet?5:q.kind===1?5.5:7;
+ const width=Math.max(pellet?1.3:1.5,(deagle?2.2:1.25)/z);
+ ctx.save();ctx.translate(q.x,q.y);ctx.rotate(Math.atan2(q.vy,q.vx));
+ // Thin light streaks describe motion; the dark-edged tip remains a separate bullet.
+ const trail=ctx.createLinearGradient(-tail,0,0,0);
+ trail.addColorStop(0,'rgba(255,247,210,0)');trail.addColorStop(.4,gold?'rgba(255,220,115,.35)':'rgba(255,249,218,.3)');trail.addColorStop(1,pulse?'rgba(130,244,255,.92)':'rgba(255,250,222,.9)');
+ ctx.strokeStyle=trail;ctx.lineWidth=width;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(-tail,0);ctx.lineTo(0,0);ctx.stroke();
+ ctx.fillStyle='#302c28';ctx.beginPath();ctx.moveTo(-tip, -width*.8);ctx.lineTo(tip*.45,-width*.6);ctx.lineTo(tip,0);ctx.lineTo(tip*.45,width*.6);ctx.lineTo(-tip,width*.8);ctx.closePath();ctx.fill();
+ ctx.fillStyle=pulse?'#8cf1ff':gold?'#ffdf76':q.kind===1?'#a78247':'#e6ba70';ctx.fillRect(-tip*.7,-width*.43,tip*1.05,width*.86);
+ ctx.restore();
+}
 function islandMuzzleFlash(ctx,length,age,type,rarity){
  const duration=IslandWeaponStats.variantFor({type,rarity})?.muzzleFlashMs??40;
  if(!(age>=0&&age<duration))return;
@@ -1758,7 +1793,7 @@ drawCharacter=function(a){
  const local=a===player,skin=local?selectedCosmetic('skins'):a.skin,packIndex=local?selectedCosmetic('backpacks'):(a.backpack??-1),meleeIndex=local?selectedCosmetic('melees'):(a.melee??-1);
  const bodyInfo=islandCosmeticBody(skin),equippedSlot=local?slot:(a.slot??1),meleeSelected=equippedSlot===0||(local?!a.inventory[equippedSlot]:a.itemKind==='empty'||a.itemKind==='melee'),g=meleeSelected?null:local?a.inventory[equippedSlot]:{type:a.weaponType??1};
  x.save();x.imageSmoothingEnabled=true;x.imageSmoothingQuality='high';x.translate(a.x,a.y);x.rotate(a.angle||0);
- CosmeticRig.drawAssembly(x,{skin,backpack:packIndex,melee:meleeIndex},cosmeticSprite,islandRenderedMeleeSwing(a),meleeSelected);
+ CosmeticRig.drawAssembly(x,{skin,backpack:packIndex,melee:meleeIndex,punchHand:a.punchHand},cosmeticSprite,islandRenderedMeleeSwing(a),meleeSelected);
  if(local&&selectedItem==='medkit'||!local&&(a.itemKind==='med'||a.itemKind==='small-shield'||a.itemKind==='big-shield')){CosmeticRig.drawGunHands?.(x,bodyInfo,0);islandDrawHeldMedkit(x,bodyInfo.mouth,local?player.inventory[slot]?.kind:a.itemKind)}
  else if(g){const rarity=local?g.rarity:(a.weaponRarity||0),last=local?g.lastShotAtMs:a.weaponLastShotAtMs,clock=islandNetwork.ready?islandState.time*1000:combatTimeMs,age=last==null?Infinity:Math.max(0,clock-last),recoilMs=IslandWeaponStats.variantFor({type:g.type,rarity})?.recoilMs??85,kick=age<recoilMs?([7,4.2,9,8,3.6][g.type]||3)*Math.exp(-age/Math.max(18,recoilMs*.28)):0;x.save();x.translate(-kick,0);x.rotate(-kick*.006);CosmeticRig.drawGunHands?.(x,bodyInfo,g.type);drawHeldWeapon(g.type,bodyInfo.mouth,rarity,age);islandDrawGunCasing(x,bodyInfo.mouth,g.type,age);x.restore();}
  else if(meleeSelected){}
@@ -1785,7 +1820,7 @@ function command(kind,extra={}){if(!running||dropPhase!=='ground'||matchMenuOpen
  const pending={seq:net.actionSeq+1,before,serverSlot:net.loadoutPending?.serverSlot??net.last?.self?.slot??before.slot};net.loadoutPending=pending;net.pendingSlot=null;
  islandSendAction(kind,extra).then(reply=>{if(net.loadoutPending!==pending)return;if(reply?.loadout)Object.assign(player,reply.loadout);else Object.assign(player,before);net.loadoutPending=null;syncSelection();net.pendingSlot={slot,seq:net.sequence+1};islandSendInput()})}
 globalThis.islandLoadoutCommand=command;
-let gesture=null,ghost=null,suppressClickUntil=0;
+let gesture=null,ghost=null,suppressClickUntil=0,suppressClickSlot=null;
 const slots=$('#weapon-slots');
 function tileAt(e,selector){return e.target?.closest?.(selector)}
 slots.addEventListener('pointerdown',e=>{const tile=tileAt(e,'[data-slot]'),index=Number(tile?.dataset.slot);if(e.button!==0||!tile||index===0||!player?.inventory[index])return;gesture={kind:'weapon',index,x:e.clientX,y:e.clientY,tile,pointer:e.pointerId};slots.setPointerCapture?.(e.pointerId)});
@@ -1794,9 +1829,9 @@ ammoPanel?.addEventListener('pointerdown',e=>{const tile=tileAt(e,'[data-ammo-fa
 ammoPanel?.addEventListener('keydown',e=>{const tile=tileAt(e,'[data-ammo-family]');if(tile&&['Enter',' '].includes(e.key)){e.preventDefault();command('ammo-drop',{family:tile.dataset.ammoFamily})}});
 document.addEventListener('pointermove',e=>{if(!gesture)return;const d=Math.hypot(e.clientX-gesture.x,e.clientY-gesture.y);if(d>8&&!gesture.drag){gesture.drag=true;if(gesture.kind==='weapon'){ghost=document.createElement('div');ghost.className='loadout-drag-ghost';ghost.innerHTML=gesture.tile.innerHTML;document.body.appendChild(ghost);gesture.tile.classList.add('is-dragging')}}if(ghost){ghost.style.left=e.clientX+'px';ghost.style.top=e.clientY+'px'}});
 function clearGesture(){gesture?.tile.classList?.remove('is-dragging');ghost?.remove();ghost=null;gesture=null}
-document.addEventListener('pointerup',e=>{if(!gesture)return;const g=gesture;const up=e.clientY<g.y-18,dx=Math.abs(e.clientX-g.x),dy=Math.abs(e.clientY-g.y);if(g.kind==='ammo'){if(up||(!g.drag&&dx<8&&dy<8))command('ammo-drop',{family:g.family});suppressClickUntil=performance.now()+300}else if(g.drag){suppressClickUntil=performance.now()+300;if(e.clientY<slots.getBoundingClientRect().top-18)command('inventory-drop',{slot:g.index});else{const tile=document.elementFromPoint(e.clientX,e.clientY)?.closest?.('[data-slot]');const to=Number(tile?.dataset.slot);if(tile&&to>0&&to<6&&to!==g.index)command('inventory-move',{from:g.index,to})}}else{selectSlot(g.index);suppressClickUntil=performance.now()+300}clearGesture()});
+document.addEventListener('pointerup',e=>{if(!gesture)return;const g=gesture;suppressClickSlot=g.kind==='weapon'?g.index:null;const up=e.clientY<g.y-18,dx=Math.abs(e.clientX-g.x),dy=Math.abs(e.clientY-g.y);if(g.kind==='ammo'){if(up||(!g.drag&&dx<8&&dy<8))command('ammo-drop',{family:g.family});suppressClickUntil=performance.now()+300}else if(g.drag){suppressClickUntil=performance.now()+300;if(e.clientY<slots.getBoundingClientRect().top-18)command('inventory-drop',{slot:g.index});else{const tile=document.elementFromPoint(e.clientX,e.clientY)?.closest?.('[data-slot]');const to=Number(tile?.dataset.slot);if(tile&&to>0&&to<6&&to!==g.index)command('inventory-move',{from:g.index,to})}}else{selectSlot(g.index);suppressClickUntil=performance.now()+300}clearGesture()});
 document.addEventListener('pointercancel',clearGesture);
-slots.addEventListener('click',e=>{if(performance.now()<suppressClickUntil){e.preventDefault();e.stopImmediatePropagation();return}const tile=tileAt(e,'[data-slot]');if(tile){e.preventDefault();e.stopImmediatePropagation();selectSlot(Number(tile.dataset.slot))}},true);
+slots.addEventListener('click',e=>{if(performance.now()<suppressClickUntil&&Number(tileAt(e,'[data-slot]')?.dataset.slot)===suppressClickSlot){e.preventDefault();e.stopImmediatePropagation();return}const tile=tileAt(e,'[data-slot]');if(tile){e.preventDefault();e.stopImmediatePropagation();selectSlot(Number(tile.dataset.slot))}},true);
 ammoPanel?.addEventListener('click',e=>{e.preventDefault();e.stopPropagation()});
 })();
 
@@ -1962,12 +1997,22 @@ const islandOldSpriteURL=spriteURL;spriteURL=function(type,rarity=0){return type
 
 // All loose ammo uses the supplied compact cartridge artwork.
 let islandAmmoPickupArt=null,islandMediumAmmoArt=null,islandShotgunAmmoArt=null,islandSniperAmmoArt=null;
-const islandAmmoPickupImage=new Image();islandAmmoPickupImage.onload=()=>{islandAmmoPickupArt=islandExtractShotgun(islandAmmoPickupImage)};islandAmmoPickupImage.src='/assets/104d64308962945d2bca.png';
-const islandMediumAmmoImage=new Image();islandMediumAmmoImage.onload=()=>{islandMediumAmmoArt=islandExtractShotgun(islandMediumAmmoImage)};islandMediumAmmoImage.src='/assets/cb2d7c4083429b9ee1b9.png';
-const islandShotgunAmmoImage=new Image();islandShotgunAmmoImage.onload=()=>{islandShotgunAmmoArt=islandExtractShotgun(islandShotgunAmmoImage)};islandShotgunAmmoImage.src='/assets/4043436c5111ce3c2318.png';
-const islandSniperAmmoImage=new Image();islandSniperAmmoImage.onload=()=>{islandSniperAmmoArt=islandExtractShotgun(islandSniperAmmoImage)};islandSniperAmmoImage.src='/assets/ada025da91a4bc328e6f.png';
+const islandAmmoPickupImage=new Image();islandAmmoPickupImage.onload=()=>{islandAmmoPickupArt=islandExtractShotgun(islandAmmoPickupImage,true)};islandAmmoPickupImage.src='/assets/104d64308962945d2bca.png';
+const islandMediumAmmoImage=new Image();islandMediumAmmoImage.onload=()=>{islandMediumAmmoArt=islandExtractShotgun(islandMediumAmmoImage,true)};islandMediumAmmoImage.src='/assets/cb2d7c4083429b9ee1b9.png';
+const islandShotgunAmmoImage=new Image();islandShotgunAmmoImage.onload=()=>{islandShotgunAmmoArt=islandExtractShotgun(islandShotgunAmmoImage,true)};islandShotgunAmmoImage.src='/assets/4043436c5111ce3c2318.png';
+const islandSniperAmmoImage=new Image();islandSniperAmmoImage.onload=()=>{islandSniperAmmoArt=islandExtractShotgun(islandSniperAmmoImage,true)};islandSniperAmmoImage.src='/assets/ada025da91a4bc328e6f.png';
 const islandPreviousLootDraw=IslandDraw.loot;
 IslandDraw.loot=function(ctx,q,...args){if(q.type!=='ammo')return islandPreviousLootDraw(ctx,q,...args);if(q.taken)return;const art=q.ammoFamily==='sniper'?islandSniperAmmoArt:q.ammoFamily==='shotgun'?islandShotgunAmmoArt:q.ammoFamily==='p90'||q.ammoFamily==='medium'?islandMediumAmmoArt:islandAmmoPickupArt;if(!art)return islandPreviousLootDraw(ctx,q,...args);const factor=30/Math.max(art.width,art.height);ctx.save();ctx.drawImage(art,q.x-art.width*factor/2,q.y-art.height*factor/2,art.width*factor,art.height*factor);ctx.restore()};
+// Cache each supplied ammo icon once; reserve counts still update independently.
+const islandAmmoHUDCache=new WeakMap(),islandAmmoHUDPrevious=updateAmmoPanel;
+updateAmmoPanel=function(){
+ islandAmmoHUDPrevious();
+ for(const [family,art] of [['smg',islandAmmoPickupArt],['shotgun',islandShotgunAmmoArt],['sniper',islandSniperAmmoArt],['p90',islandMediumAmmoArt]]){
+  if(!art)continue;const tile=$('#ammo-'+family).closest?.('.ammo-entry');if(!tile?.querySelector)continue;
+  let icon=tile.querySelector('.ammo-icon');if(!icon){icon=document.createElement('img');icon.className='ammo-icon';icon.alt='';icon.draggable=false;tile.prepend(icon)}
+  if(!islandAmmoHUDCache.has(art))islandAmmoHUDCache.set(art,art.toDataURL());const url=islandAmmoHUDCache.get(art);if(icon.getAttribute('src')!==url)icon.src=url;
+ }
+};
 
 // Supplied Deagle side/overhead art, preserving visible pixels and proportions.
 const islandDeagleArt={standard:null,ultimate:null};

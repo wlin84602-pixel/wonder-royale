@@ -21,14 +21,15 @@
   return{art,b:bounds(art),meta,width,height:width*art.height/art.width,x:-meta.offset[1]*D,y:meta.offset[0]*D,angle:meta.rotation,pivot:meta.pivot};
  }
  function pack(art,index){return attachment(art,collection.backpacks[index])}
+ function attackReach(swing){return swing>0?Math.sin(Math.max(0,Math.min(1,1-swing/.18))*Math.PI)**2:0}
  function melee(art,index,bodyInfo,swing=0){
   const meta=collection.melees[index];if(!meta||!art)return null;
   const info=attachment(art,meta);
-  info.swing=swing;info.index=index;
+  info.swing=swing;info.index=index;info.punchHand=bodyInfo?.punchHand||0;
   // Both the resting pose and the swing use this asset's own local pivot.
   const progress=Math.max(0,Math.min(1,1-swing/.18));
-  const reach=swing>0?Math.sin(progress*Math.PI):0;
-  info.x+=reach*D*.25;
+  const reach=swing>0?attackReach(swing):0;
+  if(meta.kind!=='gloves')info.x+=reach*D*.25;
   info.angle-=reach*.42;
   info.grip=meta.pivot;
   return info;
@@ -48,7 +49,7 @@
  }
  function fist(ctx,x,y,r=8){ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fillStyle=HAND_COLOR;ctx.strokeStyle='#30302e';ctx.lineWidth=3;ctx.fill();ctx.stroke()}
  function drawFists(ctx,info,swing=0){
-  const punch=swing>0?Math.sin((1-swing/.18)*Math.PI)*8:0;
+  const punch=swing>0?attackReach(swing)*8:0;
   ctx.save();fist(ctx,23+(info.punchHand===1?0:punch),-18);fist(ctx,23+(info.punchHand===1?punch:0),18);ctx.restore();
  }
  function drawGunHands(ctx,info,type=0){ctx.save();fist(ctx,info.mouth+4,9);fist(ctx,info.mouth+(type===0?15:type===2?35:23),-7,7.5);ctx.restore()}
@@ -58,7 +59,7 @@
    const arts=info.art.gloves;if(!arts)return false;
    for(let i=0;i<arts.length;i++){
     const art=arts[i],visibleWidth=info.meta.parts[i].visibleBounds.w,width=D*info.meta.scale*art.width/visibleWidth,height=width*art.height/art.width;
-    const punch=info.swing>0?Math.sin((1-info.swing/.18)*Math.PI)*5:0;
+    const punch=info.swing>0&&i===info.punchHand?attackReach(info.swing)*8:0;
     sprite(ctx,{art,width,height,x:info.x+punch,y:(i===0?-1:1)*D*.36,angle:info.meta.rotation,pivot:info.meta.pivot});
    }
    return true;
@@ -80,10 +81,11 @@
  }
  function drawAssembly(ctx,look,getArt,swing=0,showMelee=true){
   const info=body(getArt('skins',look.skin),look.skin);
+  info.punchHand=look.punchHand||0;
   drawPack(ctx,pack(getArt('backpacks',look.backpack),look.backpack,info));
   drawBody(ctx,info);
   if(showMelee){const held=melee(getArt('melees',look.melee),look.melee,info,swing);if(!drawMelee(ctx,held))drawFists(ctx,info,swing)}
   return info;
  }
- return Object.freeze({bounds,body,pack,melee,drawPack,drawBody,drawMelee,drawFists,drawGunHands,drawAssembly,HAND_COLOR,collection});
+ return Object.freeze({bounds,body,pack,melee,attackReach,drawPack,drawBody,drawMelee,drawFists,drawGunHands,drawAssembly,HAND_COLOR,collection});
 });

@@ -1,5 +1,17 @@
 // Screen-legible projectiles and short, attached weapon firing effects.
-function islandDrawProjectile(ctx,q,zoom){const deagle=q.kind===0,size=deagle?22:q.kind===2?13:11,z=Math.max(.12,zoom),tail=deagle?Math.max(40,19/z):Math.max(12,size*1.7),own=q.owner===player||q.owner===player?.id,gold=!!q.premium;ctx.save();ctx.translate(q.x,q.y);ctx.rotate(Math.atan2(q.vy,q.vx));if(!deagle)ctx.scale(Math.max(1,.7/z),Math.max(1,.7/z));ctx.lineCap='round';ctx.strokeStyle='#17191ddf';ctx.lineWidth=deagle?Math.max(7,3.2/z):q.kind===2?3.5:2.8;ctx.beginPath();ctx.moveTo(-tail,0);ctx.lineTo(size*.2,0);ctx.stroke();ctx.strokeStyle=gold?'#c89427':deagle?(own?'#edb352':'#d58d4e'):q.kind===2?'#d49531':'#66502e';ctx.lineWidth=deagle?Math.max(3.5,1.7/z):q.kind===2?2.3:1.8;ctx.beginPath();ctx.moveTo(-tail,0);ctx.lineTo(-size*.25,0);ctx.stroke();ctx.save();if(q.kind===1)ctx.scale(.68,.68);ctx.fillStyle='#202127';ctx.beginPath();ctx.roundRect(-size*.5,-(deagle?4:2.8),size*.9,deagle?8:5.6,2);ctx.fill();ctx.fillStyle=gold?'#a37720':deagle?'#c28e47':q.kind===2?'#ab7423':'#51422c';ctx.fillRect(-size*.4,-(deagle?2.7:1.8),size*.62,deagle?5.4:3.6);ctx.beginPath();ctx.moveTo(size*.2,-(deagle?3.3:2));ctx.quadraticCurveTo(size*.7,0,size*.2,deagle?3.3:2);ctx.closePath();ctx.fillStyle=gold?'#ffd76c':deagle?'#ffe0a1':q.kind===2?'#ffd270':'#96723b';ctx.fill();ctx.fillStyle=gold?'#fff1b7':deagle?'#fff0c5':q.kind===2?'#fff0b2':'#a27c42';ctx.fillRect(-size*.2,-(deagle?2:1.5),size*.43,deagle?1.4:.7);ctx.restore();ctx.restore()}
+function islandDrawProjectile(ctx,q,zoom){
+ const z=Math.max(.12,zoom),deagle=q.kind===0,pellet=q.kind===2,pulse=q.kind===5,gold=!!q.premium;
+ const speed=Math.hypot(q.vx,q.vy),tail=Math.min(100,Math.max(pellet?20:28,speed*.028)),tip=deagle?10:pellet?5:q.kind===1?5.5:7;
+ const width=Math.max(pellet?1.3:1.5,(deagle?2.2:1.25)/z);
+ ctx.save();ctx.translate(q.x,q.y);ctx.rotate(Math.atan2(q.vy,q.vx));
+ // Thin light streaks describe motion; the dark-edged tip remains a separate bullet.
+ const trail=ctx.createLinearGradient(-tail,0,0,0);
+ trail.addColorStop(0,'rgba(255,247,210,0)');trail.addColorStop(.4,gold?'rgba(255,220,115,.35)':'rgba(255,249,218,.3)');trail.addColorStop(1,pulse?'rgba(130,244,255,.92)':'rgba(255,250,222,.9)');
+ ctx.strokeStyle=trail;ctx.lineWidth=width;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(-tail,0);ctx.lineTo(0,0);ctx.stroke();
+ ctx.fillStyle='#302c28';ctx.beginPath();ctx.moveTo(-tip, -width*.8);ctx.lineTo(tip*.45,-width*.6);ctx.lineTo(tip,0);ctx.lineTo(tip*.45,width*.6);ctx.lineTo(-tip,width*.8);ctx.closePath();ctx.fill();
+ ctx.fillStyle=pulse?'#8cf1ff':gold?'#ffdf76':q.kind===1?'#a78247':'#e6ba70';ctx.fillRect(-tip*.7,-width*.43,tip*1.05,width*.86);
+ ctx.restore();
+}
 function islandMuzzleFlash(ctx,length,age,type,rarity){
  const duration=IslandWeaponStats.variantFor({type,rarity})?.muzzleFlashMs??40;
  if(!(age>=0&&age<duration))return;

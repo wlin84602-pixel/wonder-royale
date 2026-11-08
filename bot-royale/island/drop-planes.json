@@ -1,0 +1,86 @@
+[
+  {
+    "id": "plane-anubis",
+    "name": "Anubis Transport",
+    "file": "assets/drop-planes/anubis.png",
+    "width": 488,
+    "height": 409,
+    "bounds": {
+      "left": 34,
+      "right": 513,
+      "top": 69,
+      "bottom": 469,
+      "count": 88389
+    }
+  },
+  {
+    "id": "plane-sakura-koi",
+    "name": "Sakura Koi Transport",
+    "file": "assets/drop-planes/sakura-koi.png",
+    "width": 492,
+    "height": 414,
+    "bounds": {
+      "left": 525,
+      "right": 1008,
+      "top": 74,
+      "bottom": 479,
+      "count": 89494
+    }
+  },
+  {
+    "id": "plane-pixel",
+    "name": "Pixel Transport",
+    "file": "assets/drop-planes/pixel.png",
+    "width": 486,
+    "height": 380,
+    "bounds": {
+      "left": 1018,
+      "right": 1495,
+      "top": 83,
+      "bottom": 454,
+      "count": 82403
+    }
+  },
+  {
+    "id": "plane-emerald-scarab",
+    "name": "Emerald Scarab Transport",
+    "file": "assets/drop-planes/emerald-scarab.png",
+    "width": 501,
+    "height": 415,
+    "bounds": {
+      "left": 26,
+      "right": 518,
+      "top": 550,
+      "bottom": 956,
+      "count": 97512
+    }
+  },
+  {
+    "id": "plane-frost-wolf",
+    "name": "Frost Wolf Transport",
+    "file": "assets/drop-planes/frost-wolf.png",
+    "width": 495,
+    "height": 418,
+    "bounds": {
+      "left": 520,
+      "right": 1006,
+      "top": 545,
+      "bottom": 954,
+      "count": 92678
+    }
+  },
+  {
+    "id": "plane-pirate",
+    "name": "Pirate Transport",
+    "file": "assets/drop-planes/pirate.png",
+    "width": 492,
+    "height": 416,
+    "bounds": {
+      "left": 1016,
+      "right": 1499,
+      "top": 546,
+      "bottom": 953,
+      "count": 91885
+    }
+  }
+]

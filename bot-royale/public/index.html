@@ -610,14 +610,14 @@ function buildExpandedWorld(seed=1){
 
 function buildWorld(seed=1){
  const random=rng(seed),s={seed:seed>>>0,size:SIZE*MAP_SCALE,time:0,locations:[],buildings:[],objects:[],doors:[],bushes:[],containers:[],loot:[],roads:[],bridges:[],water:[],fields:[],events:[],nextId:0,mapRevision:0};Buildings.addPalace(s);
- const dx=s.palace.x-300,dy=s.palace.y-300;s.size=3000;s.palaceOnly=true;
+ const dx=0,dy=0;s.size=SIZE*MAP_SCALE;s.palaceOnly=false;
  for(const b of s.buildings){b.artX=(b.x-s.palace.ox)/s.palace.scale;b.artY=(b.y-s.palace.oy)/s.palace.scale;b.x-=dx;b.y-=dy;b.outline=b.outline.map(([x,y])=>[x-dx,y-dy]);for(const e of b.entryPoints){e.x-=dx;e.y-=dy}}
  for(const o of s.objects){o.x-=dx;o.y-=dy;for(const k of ['ax','bx','hingeX'])if(o[k]!==undefined)o[k]-=dx;for(const k of ['ay','by','hingeY'])if(o[k]!==undefined)o[k]-=dy}
- s.palace.x-=dx;s.palace.y-=dy;s.palace.ox-=dx;s.palace.oy-=dy;s.coast=[[60,60],[2940,60],[2940,2940],[60,2940]];s.locations=[{id:'palace',name:'Wonderlust Palace',x:1500,y:1500,color:'#e5c561',risk:'high'}];s.index=new SpatialIndex(s.objects);s.random=random;
+ s.palace.x-=dx;s.palace.y-=dy;s.palace.ox-=dx;s.palace.oy-=dy;s.coast=COAST.map(([x,y])=>[x*MAP_SCALE,y*MAP_SCALE]);s.locations=[{id:'palace',name:'Wonderlust Palace',x:s.palace.x+s.palace.w/2,y:s.palace.y+s.palace.h/2,color:'#e5c561',risk:'high'}];s.index=new SpatialIndex(s.objects);s.random=random;
  const addCrate=(q,kind,building)=>{const c={id:'palace-loot-'+s.nextId++,x:q.x,y:q.y,kind,building,exterior:!building,shape:'circle',r:kind==='ammo'?12:18,solid:true,blocksShots:true,lootContainer:true,destructible:true,hp:kind==='ultimate'?120:60,open:false};s.containers.push(c);s.objects.push(c);s.index.add(c)};
  for(let i=0;i<s.buildings.length;i++){const b=s.buildings[i],q=findValid(s,{x:b.x+b.w*.6,y:b.y+b.h*.65},24);if(buildingAt(s,q)?.id===b.id)addCrate(q,i<3?'ultimate':i%2?'gold':'basic',b.id)}
- for(let i=0;i<30;i++){const q=findValid(s,{x:350+random()*2200,y:350+random()*2200},24);if(!s.containers.some(c=>hyp(c,q)<100))addCrate(q,'ammo',buildingAt(s,q)?.id)}
- for(let i=0;i<5;i++){const q=findValid(s,{x:400+random()*2100,y:400+random()*2100},18);s.loot.push({id:'palace-ground-'+i,...q,type:'gun',weapon:i%5,rarity:i===4?1:0,taken:false})}
+ for(let i=0;i<30;i++){const q=findValid(s,{x:s.palace.x+80+random()*(s.palace.w-160),y:s.palace.y+80+random()*(s.palace.h-160)},24);if(!s.containers.some(c=>hyp(c,q)<100))addCrate(q,'ammo',buildingAt(s,q)?.id)}
+ for(let i=0;i<5;i++){const q=findValid(s,{x:s.palace.x+80+random()*(s.palace.w-160),y:s.palace.y+80+random()*(s.palace.h-160)},18);s.loot.push({id:'palace-ground-'+i,...q,type:'gun',weapon:i%5,rarity:i===4?1:0,taken:false})}
  s.zone=createZone(s,random);return s;
 }
 const PUMP_FULL_HIT_DAMAGE=Object.freeze([...WeaponStats.data.projectiles.pump.damageByRarity]),pumpPelletGroups=new WeakMap(),remotePumpHits=new WeakMap();
@@ -767,7 +767,7 @@ function pierceCover(s,b,nx,ny,limit=1,actor){if(b.kind===6)return;b.coverHits=b
 function separateActors(s,actors){const live=actors.filter(a=>a.hp>0&&['ground','lobby'].includes(a.phase));for(let pass=0;pass<3;pass++)for(let i=0;i<live.length;i++)for(let j=i+1;j<live.length;j++){const a=live[i],b=live[j],dx=b.x-a.x,dy=b.y-a.y,n=Math.hypot(dx,dy),min=(a.r||26)+(b.r||26);if(n>=min)continue;const ux=n?dx/n:1,uy=n?dy/n:0,push=(min-n+.1)/2;for(const [q,sign]of [[a,-1],[b,1]]){const x=q.x+ux*push*sign,y=q.y+uy*push*sign;if(!blocked(s,x,y,q.r||26,q)){q.x=x;q.y=y}}}}
 
 function damageObject(s,o,damage,actor){if(!o||o.destroyed||!o.destructible)return false;o.hitAt=s.time;o.hitVisualAt=typeof performance!=='undefined'?performance.now():0;o.hp-=damage;if(o.hp<=0){o.destroyed=true;s.mapRevision=(s.mapRevision||0)+1;s.events.push({kind:'break',x:o.x,y:o.y});if(o.lootContainer)openContainer(s,o,{x:o.x,y:o.y,phase:'ground'})}return true}
-function createZone(s,random){const first={x:(.4+random()*.2)*s.size,y:(.4+random()*.2)*s.size,r:ZONE_PHASES[0].radius};return {phase:0,mode:'prepare',elapsed:0,current:{x:s.size/2,y:s.size/2,r:s.size*4100/6000},from:{x:s.size/2,y:s.size/2,r:s.size*4100/6000},next:first,damageTick:0}}
+function createZone(s,random){if(s.palace){const p=s.palace,c={x:p.x+p.w/2,y:p.y+p.h/2,r:Math.max(p.w,p.h)*.9};return{phase:0,mode:'prepare',elapsed:0,current:{...c},from:{...c},next:{x:c.x,y:c.y,r:1250},damageTick:0}}const first={x:(.4+random()*.2)*s.size,y:(.4+random()*.2)*s.size,r:ZONE_PHASES[0].radius};return {phase:0,mode:'prepare',elapsed:0,current:{x:s.size/2,y:s.size/2,r:s.size*4100/6000},from:{x:s.size/2,y:s.size/2,r:s.size*4100/6000},next:first,damageTick:0}}
 function nextCircle(s,previous,radius){const random=s.random||rng(s.seed),travel=Math.max(0,previous.r-radius);for(let i=0;i<300;i++){const a=random()*Math.PI*2,d=Math.sqrt(random())*travel*.82,p={x:previous.x+Math.cos(a)*d,y:previous.y+Math.sin(a)*d,r:radius};if(playable(s,p.x,p.y,40)&&(radius>650||Array.from({length:8},(_,k)=>{const a=k*Math.PI/4;return playable(s,p.x+Math.cos(a)*radius*.55,p.y+Math.sin(a)*radius*.55,0)}).every(Boolean)))return p}return{x:previous.x,y:previous.y,r:radius}}
 function advanceZone(s,dt,actors=[]){
  const z=s.zone;let remain=dt;
@@ -786,10 +786,10 @@ function advanceZone(s,dt,actors=[]){
  return z;
 }
 function zoneCountdown(s){const z=s.zone;if(z.mode==='finished')return 0;const c=ZONE_PHASES[z.phase];return Math.max(0,Math.ceil((z.mode==='prepare'?c.prepare:c.shrink)-z.elapsed))}
-function planeRoute(seed){const r=rng(seed^0xabc143),horizontal=r()<.5,reverse=r()<.5,offset=600+r()*1800,start=horizontal?{x:reverse?2800:200,y:offset}:{x:offset,y:reverse?2800:200},end=horizontal?{x:reverse?200:2800,y:offset}:{x:offset,y:reverse?200:2800};return{start,end,angle:Math.atan2(end.y-start.y,end.x-start.x),duration:hyp(start,end)/220}}
+function planeRoute(seed){const r=rng(seed^0xabc143),horizontal=r()<.5,reverse=r()<.5,offset=2100+r()*1800,start=horizontal?{x:reverse?7000:3800,y:offset}:{x:offset,y:reverse?7000:3800},end=horizontal?{x:reverse?3800:7000,y:offset}:{x:offset,y:reverse?3800:7000};return{start,end,angle:Math.atan2(end.y-start.y,end.x-start.x),duration:hyp(start,end)/220}}
 
 function planePosition(route,time){const f=clamp(time/route.duration,0,1);return{x:route.start.x+(route.end.x-route.start.x)*f,y:route.start.y+(route.end.y-route.start.y)*f}}
-return{softCover,projectileWall,pierceCover,separateActors,PROJECTILE_DRAG,projectileMotion,SIZE:3000,MAP_SCALE,PLAYER_RADIUS,PLAYER_SPEED,PARACHUTE_SPEED,DROP_SECONDS,GROUND_GUN_COUNT,PUMP_FULL_HIT_DAMAGE,configurePumpShot,applyPumpHit,stepKnockback,solidHit,LOCATIONS:[{id:'palace',name:'Wonderlust Palace',x:1500,y:1500,color:'#e5c561'}],ZONE_PHASES,COAST:COAST.map(([x,y])=>[x*MAP_SCALE,y*MAP_SCALE]),SpatialIndex,rng,clamp,hyp,pointSegment,circleRect,buildWorld,playable,isWater,blocked,findValid,resolveActorOverlap,moveActor,raycast,segmentHitCircle,buildingAt,bushAt,apertureDistance,canViewInterior,doorSwingAway,doorPose,doorAngleAt,doorInteractionDistance,canSee,interactDoor,interactionTarget,openContainer,damageObject,advanceZone,zoneCountdown,planeRoute,planePosition,bounds};
+return{softCover,projectileWall,pierceCover,separateActors,PROJECTILE_DRAG,projectileMotion,SIZE:SIZE*MAP_SCALE,MAP_SCALE,PLAYER_RADIUS,PLAYER_SPEED,PARACHUTE_SPEED,DROP_SECONDS,GROUND_GUN_COUNT,PUMP_FULL_HIT_DAMAGE,configurePumpShot,applyPumpHit,stepKnockback,solidHit,LOCATIONS:[{id:'palace',name:'Wonderlust Palace',x:1500,y:1500,color:'#e5c561'}],ZONE_PHASES,COAST:COAST.map(([x,y])=>[x*MAP_SCALE,y*MAP_SCALE]),SpatialIndex,rng,clamp,hyp,pointSegment,circleRect,buildWorld,playable,isWater,blocked,findValid,resolveActorOverlap,moveActor,raycast,segmentHitCircle,buildingAt,bushAt,apertureDistance,canViewInterior,doorSwingAway,doorPose,doorAngleAt,doorInteractionDistance,canSee,interactDoor,interactionTarget,openContainer,damageObject,advanceZone,zoneCountdown,planeRoute,planePosition,bounds};
 });
 
 

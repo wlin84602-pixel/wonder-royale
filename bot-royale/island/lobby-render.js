@@ -19,8 +19,8 @@
  let background;
  function draw(z,s,v){
   z.save();z.fillStyle='#0e4058';z.fillRect(v.x,v.y,v.w,v.h);
-  if(!background&&typeof OffscreenCanvas!=='undefined'){
-   const canvas=new OffscreenCanvas(L.SIZE,L.SIZE),context=canvas.getContext('2d');
+  if(!background&&(typeof OffscreenCanvas!=='undefined'||typeof document!=='undefined')){
+   const canvas=typeof OffscreenCanvas!=='undefined'?new OffscreenCanvas(L.SIZE,L.SIZE):document.createElement('canvas');canvas.width=canvas.height=L.SIZE;const context=canvas.getContext('2d');
    if(context){plaza(context);background=canvas}
   }
   if(background)z.drawImage(background,0,0);else plaza(z);

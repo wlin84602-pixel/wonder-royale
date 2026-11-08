@@ -181,8 +181,7 @@ draw=function(){
  for(const actor of bots){
   if(!pointVisible(actor,Math.max(120,80/cameraZoom)))continue;
   if(!actor.phase||actor.phase==='ground'){
-   if(!islandNetwork.ready&&!Island.canSee(islandState,player,actor))continue;
-   islandDrawRemote(actor);
+   if(islandNetwork.ready&&!actor.bot)islandDrawRemote(actor);
   }
   visibleActors.push(actor);
  }
@@ -190,6 +189,8 @@ draw=function(){
  if(!far)IslandDraw.bushes(x,islandState,visible,player);if(!far){IslandDraw.canopies(x,objects,player);IslandDraw.roofs(x,islandState,player,visible,islandLastDt)}for(const o of objects)if(!far&&o.kind==='door'&&(o.exterior||Island.canViewInterior(islandState,islandState.buildings.find(b=>b.id===o.building),player)))IslandDraw.object(x,o,islandState.time);IslandDraw.gas(x,islandState,view);if(islandState.time<planeRoute.duration)islandDrawPlaneAt(Island.planePosition(planeRoute,islandState.time));if(dropPhase==='parachute')drawDropVehicle();for(const a of visibleActors)if(a.phase==='parachute')islandDrawRemote(a);
  if(islandMarker){x.strokeStyle='#ffdc5e';x.lineWidth=3;x.beginPath();x.arc(islandMarker.x,islandMarker.y,24,0,7);x.moveTo(islandMarker.x,islandMarker.y-33);x.lineTo(islandMarker.x,islandMarker.y+33);x.stroke()}
  if(dropPhase==='ground'){const hint=islandState.time<islandNoteUntil?islandInteractionNote:islandNearestHint();if(hint){x.font='bold 12px sans-serif';x.textAlign='center';x.fillStyle='#092b36e8';x.beginPath();x.roundRect(player.x-105,player.y-79,210,25,6);x.fill();x.fillStyle='#eff9eb';x.fillText(hint,player.x,player.y-62);x.textAlign='start'}}
+ // Living bots stay above roofs and foliage so cover cannot hide them.
+ for(const actor of visibleActors)if((!islandNetwork.ready||actor.bot)&&(!actor.phase||actor.phase==='ground'))islandDrawRemote(actor);
  // Emotes are an overlay above roofs, canopies and every map prop.
  for(const actor of visibleActors)if(actor.emoteUntil>islandState.time)islandDrawPlayerEmote(x,actor,islandState.time,cameraZoom);
  if(player.emoteUntil>islandState.time)islandDrawPlayerEmote(x,player,islandState.time,cameraZoom);

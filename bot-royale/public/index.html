@@ -770,8 +770,8 @@ return{SIZE,SCALE,CENTER,AREAS,create,spawn,area,inRange,nearest,action,step,sna
  let background;
  function draw(z,s,v){
   z.save();z.fillStyle='#0e4058';z.fillRect(v.x,v.y,v.w,v.h);
-  if(!background&&typeof OffscreenCanvas!=='undefined'){
-   const canvas=new OffscreenCanvas(L.SIZE,L.SIZE),context=canvas.getContext('2d');
+  if(!background&&(typeof OffscreenCanvas!=='undefined'||typeof document!=='undefined')){
+   const canvas=typeof OffscreenCanvas!=='undefined'?new OffscreenCanvas(L.SIZE,L.SIZE):document.createElement('canvas');canvas.width=canvas.height=L.SIZE;const context=canvas.getContext('2d');
    if(context){plaza(context);background=canvas}
   }
   if(background)z.drawImage(background,0,0);else plaza(z);
@@ -1010,7 +1010,14 @@ R.canopies=function(z,objects,local){for(const o of objects)if(o.kind==='tree'&&
 R.bushes=function(z,s,visible,local=null){for(const b of s.bushes)if(visible({x:b.x-b.r,y:b.y-b.r,w:b.r*2,h:b.r*2})){const biome=Theme.idAt(b.x,b.y,C.SIZE),radius=b.r+5,rect={x:-radius,y:-radius,w:radius*2,h:radius*2};z.save();z.translate(b.x,b.y);if(local&&Math.hypot(local.x-b.x,local.y-b.y)<(b.hideRadius??b.r*.83))z.globalAlpha=.55;if(!sprite(z,'bush:'+b.r+':'+biome,rect,ctx=>raw.bushes(ctx,{bushes:[{...b,x:0,y:0,visualBiome:biome}]},()=>true)))raw.bushes(z,{bushes:[{...b,x:0,y:0,visualBiome:biome}]},()=>true);z.restore()}};
 
 R.crate=function(z,c){if(c.open||c.destroyed)return;z.save();z.translate(c.x,c.y);if(!sprite(z,'crate:'+c.kind,{x:-36,y:-36,w:72,h:72},ctx=>raw.crate(ctx,{...c,x:0,y:0})))raw.crate(z,{...c,x:0,y:0});z.restore()};
-R.floors=raw.floors;R.roofs=raw.roofs;
+R.floors=function(z,s,visible){
+ for(const building of s.buildings){
+  if(!visible(building))continue;
+  const rect={x:building.x,y:building.y,w:building.w,h:building.h};
+  if(!sprite(z,'floor:'+id(s)+':'+building.id,rect,ctx=>raw.floors(ctx,{...s,buildings:[building]},()=>true)))raw.floors(z,{...s,buildings:[building]},()=>true);
+ }
+};
+R.roofs=raw.roofs;
 function intersects(a,b,pad=0){return a.x+a.w+pad>=b.x&&a.x-pad<=b.x+b.w&&a.y+a.h+pad>=b.y&&a.y-pad<=b.y+b.h}
 function paintFar(ctx,s,v){
  ctx.save();ctx.beginPath();ctx.rect(v.x,v.y,v.w,v.h);ctx.clip();raw.terrain(ctx,s,v);
@@ -1602,8 +1609,7 @@ draw=function(){
  for(const actor of bots){
   if(!pointVisible(actor,Math.max(120,80/cameraZoom)))continue;
   if(!actor.phase||actor.phase==='ground'){
-   if(!islandNetwork.ready&&!Island.canSee(islandState,player,actor))continue;
-   islandDrawRemote(actor);
+   if(islandNetwork.ready&&!actor.bot)islandDrawRemote(actor);
   }
   visibleActors.push(actor);
  }
@@ -1611,6 +1617,8 @@ draw=function(){
  if(!far)IslandDraw.bushes(x,islandState,visible,player);if(!far){IslandDraw.canopies(x,objects,player);IslandDraw.roofs(x,islandState,player,visible,islandLastDt)}for(const o of objects)if(!far&&o.kind==='door'&&(o.exterior||Island.canViewInterior(islandState,islandState.buildings.find(b=>b.id===o.building),player)))IslandDraw.object(x,o,islandState.time);IslandDraw.gas(x,islandState,view);if(islandState.time<planeRoute.duration)islandDrawPlaneAt(Island.planePosition(planeRoute,islandState.time));if(dropPhase==='parachute')drawDropVehicle();for(const a of visibleActors)if(a.phase==='parachute')islandDrawRemote(a);
  if(islandMarker){x.strokeStyle='#ffdc5e';x.lineWidth=3;x.beginPath();x.arc(islandMarker.x,islandMarker.y,24,0,7);x.moveTo(islandMarker.x,islandMarker.y-33);x.lineTo(islandMarker.x,islandMarker.y+33);x.stroke()}
  if(dropPhase==='ground'){const hint=islandState.time<islandNoteUntil?islandInteractionNote:islandNearestHint();if(hint){x.font='bold 12px sans-serif';x.textAlign='center';x.fillStyle='#092b36e8';x.beginPath();x.roundRect(player.x-105,player.y-79,210,25,6);x.fill();x.fillStyle='#eff9eb';x.fillText(hint,player.x,player.y-62);x.textAlign='start'}}
+ // Living bots stay above roofs and foliage so cover cannot hide them.
+ for(const actor of visibleActors)if((!islandNetwork.ready||actor.bot)&&(!actor.phase||actor.phase==='ground'))islandDrawRemote(actor);
  // Emotes are an overlay above roofs, canopies and every map prop.
  for(const actor of visibleActors)if(actor.emoteUntil>islandState.time)islandDrawPlayerEmote(x,actor,islandState.time,cameraZoom);
  if(player.emoteUntil>islandState.time)islandDrawPlayerEmote(x,player,islandState.time,cameraZoom);
@@ -1816,7 +1824,7 @@ function setWaiting(on){
 }
 function lobbyCamera(){const S=IslandLobby.SIZE;if(islandNetwork.lobbyOverview){cameraX=cameraY=S/2;cameraZoom=Math.min(innerWidth/(S+80),innerHeight/(S+80));return}cameraZoom=Math.max(innerWidth/(S+80),innerHeight/(S+80),innerWidth<700?.65:.8);const w=innerWidth/(2*cameraZoom),h=innerHeight/(2*cameraZoom);cameraX=innerWidth/cameraZoom>=S?S/2:Island.clamp(player.x,w,S-w);cameraY=innerHeight/cameraZoom>=S?S/2:Island.clamp(player.y,h,S-h)}
 
-function lobbyUI(snapshot){const host=snapshot.hostId===player.id,hostName=snapshot.roster.find(p=>p.id===snapshot.hostId)?.name||'Host';islandSetText('#lobby-room-title','ROOM · '+snapshot.room);islandSetText('#lobby-player-count',snapshot.alive+' / 25 PLAYERS');status.textContent=host?'You are the host. Start whenever you are ready.':'Waiting for '+hostName+' to start the match.';startButton.disabled=!host;startButton.textContent=host?'START MATCH →':'WAITING FOR HOST';const rosterKey=JSON.stringify(snapshot.roster)+'|'+snapshot.hostId+'|'+player.id;if(islandNetwork.rosterKey!==rosterKey){islandNetwork.rosterKey=rosterKey;$('#lobby-roster').innerHTML=snapshot.roster.map(p=>'<li><span>'+htmlText(p.name)+(p.id===player.id?' (you)':'')+'</span><b>'+(p.id===snapshot.hostId?'HOST':'READY')+'</b></li>').join('')}const u=new URL(typeof location!=='undefined'&&/^https?:/.test(location.protocol)?location.href:'https://bot-royale-production.up.railway.app/');u.search='';u.searchParams.set('room',snapshot.room);$('#lobby-invite-link').value=u.href}
+function lobbyUI(snapshot){const uiKey=JSON.stringify([snapshot.room,snapshot.hostId,player.id,snapshot.alive,snapshot.roster]);if(islandNetwork.lobbyUIKey===uiKey)return;islandNetwork.lobbyUIKey=uiKey;const host=snapshot.hostId===player.id,hostName=snapshot.roster.find(p=>p.id===snapshot.hostId)?.name||'Host';islandSetText('#lobby-room-title','ROOM · '+snapshot.room);islandSetText('#lobby-player-count',snapshot.alive+' / 25 PLAYERS');status.textContent=host?'You are the host. Start whenever you are ready.':'Waiting for '+hostName+' to start the match.';startButton.disabled=!host;startButton.textContent=host?'START MATCH →':'WAITING FOR HOST';const rosterKey=JSON.stringify(snapshot.roster)+'|'+snapshot.hostId+'|'+player.id;if(islandNetwork.rosterKey!==rosterKey){islandNetwork.rosterKey=rosterKey;$('#lobby-roster').innerHTML=snapshot.roster.map(p=>'<li><span>'+htmlText(p.name)+(p.id===player.id?' (you)':'')+'</span><b>'+(p.id===snapshot.hostId?'HOST':'READY')+'</b></li>').join('')}const u=new URL(typeof location!=='undefined'&&/^https?:/.test(location.protocol)?location.href:'https://bot-royale-production.up.railway.app/');u.search='';u.searchParams.set('room',snapshot.room);$('#lobby-invite-link').value=u.href}
 islandApplySnapshot=function(snapshot){if(snapshot)islandNetwork.enteringLobby=false;if(snapshot?.matchState==='waiting'){
  const net=islandNetwork;if(net.last&&snapshot.tick<=net.last.tick)return;if(snapshot.seed!==islandState?.seed)initializeIsland(snapshot.seed);const first=!net.inLobby,before=player?{x:player.x,y:player.y}:null;net.inLobby=true;net.lobbyWorld=net.lobbyWorld||IslandLobby.create(snapshot.seed);net.last=snapshot;net.receivedAt=performance.now();Object.assign(net.lobbyWorld,snapshot.lobby);if(first)net.lobbyOverview=false;Object.assign(player,snapshot.self);bots=snapshot.actors;slot=0;selectedItem='weapon';dropPhase='lobby';bullets=[];time=0;kills=0;net.pendingDropCount=0;setWaiting(true);lobbyCamera();lobbyUI(snapshot);if(first)clearInput();return
  }if(islandNetwork.inLobby){islandNetwork.inLobby=false;islandNetwork.lobbyWorld=null;islandNetwork.last=null;setWaiting(false);clearInput()}return previousApply(snapshot)};
@@ -1840,7 +1848,7 @@ function lobbyShot(){if(!islandNetwork.inLobby||matchMenuOpen||!IslandLobby.inRa
 function lobbyUse(){if(!islandNetwork.inLobby||matchMenuOpen)return;updatePlayerAim();islandSendAction('lobby-use',{aim:player.angle})}
 onkeydown=function(e){if(!islandNetwork.inLobby)return previousKeyDown(e);const k=e.key.toLowerCase();if(matchMenuOpen){if(k==='escape')stayInMatch();return}if(k==='escape'||k===bindings.exit){e.preventDefault?.();openMatchMenu();return}if(!e.ctrlKey&&!e.altKey&&!e.metaKey){keys[k]=true;if(Object.values(bindings).includes(k))e.preventDefault?.();if(!e.repeat){if(k===bindings.interact)lobbyUse();if(k===bindings.map){islandNetwork.lobbyOverview=!islandNetwork.lobbyOverview;e.preventDefault?.()}if(k===bindings.fire)lobbyShot()}islandSendInput()}};
 onmousedown=function(e){if(!islandNetwork.inLobby)return previousMouseDown(e);if(matchMenuOpen||e.target!==c)return;const key='mouse'+(e.button||0);keys[key]=true;if(key===bindings.fire){e.preventDefault?.();lobbyShot()}if(key===bindings.interact){e.preventDefault?.();lobbyUse()}islandSendInput()};
-islandDisconnect=function(){setWaiting(false);islandNetwork.enteringLobby=false;islandNetwork.inLobby=false;islandNetwork.lobbyWorld=null;return previousDisconnect()};
+islandDisconnect=function(){setWaiting(false);islandNetwork.enteringLobby=false;islandNetwork.inLobby=false;islandNetwork.lobbyWorld=null;islandNetwork.lobbyUIKey=null;return previousDisconnect()};
 startButton.onclick=async()=>{if(!islandNetwork.inLobby||islandNetwork.last.hostId!==player.id)return;startButton.disabled=true;const reply=await islandSendAction('start-match');if(!reply?.ok&&islandNetwork.inLobby){startButton.disabled=false;status.textContent=reply?.error||'Could not start. Try again.'}};
 $('#lobby-copy-link').onclick=async()=>{try{await navigator.clipboard.writeText($('#lobby-invite-link').value);$('#lobby-copy-link').textContent='COPIED ✓'}catch{$('#lobby-invite-link').select?.();status.textContent='Copy the room link above to invite a friend.'}};
 $('#lobby-new-room').onclick=()=>{roomInput.value='room-'+Math.random().toString(36).slice(2,8);islandNetwork.room=roomInput.value};

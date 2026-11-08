@@ -1,5 +1,5 @@
 'use strict';
-const http=require('http'),fs=require('fs'),path=require('path'),crypto=require('crypto');
+const http=require('http'),fs=require('fs'),path=require('path'),crypto=require('crypto'),zlib=require('zlib');
 const {Session}=require('./island/session.cjs'),{LobbySession}=require('./island/lobby-session.cjs');
 const ROOT=path.join(__dirname,'public'),RULES=JSON.parse(fs.readFileSync(path.join(__dirname,'island/combat-rules.json'),'utf8'));
 function createServer(options={}){
@@ -25,7 +25,11 @@ function createServer(options={}){
     if(!client)return json(res,401,{error:'Join the room first'});client.lastSeen=Date.now();
     const session=sessions.get(client.room);
     if(req.method==='GET'&&url.pathname==='/api/events'){if([...connections].filter(c=>c.token===token).length>=2)return json(res,429,{error:'Too many streams'});
-     res.writeHead(200,{'Content-Type':'text/event-stream','Cache-Control':'no-store','Connection':'keep-alive','X-Accel-Buffering':'no'});res.write(': connected\n\n');const c={res,token,client};connections.add(c);req.on('close',()=>connections.delete(c));return;
+     const compressed=/\bgzip\b/.test(req.headers['accept-encoding']||'');
+     res.writeHead(200,{'Content-Type':'text/event-stream','Cache-Control':'no-store','Connection':'keep-alive','X-Accel-Buffering':'no',Vary:'Accept-Encoding',...(compressed?{'Content-Encoding':'gzip'}:{})});
+     const stream=compressed?zlib.createGzip({level:1,flush:zlib.constants.Z_SYNC_FLUSH}):res;
+     if(compressed){stream.on('error',()=>res.destroy());stream.pipe(res)}
+     stream.write(': connected\n\n');const c={res,stream,token,client};connections.add(c);req.on('close',()=>{connections.delete(c);if(compressed)stream.destroy()});return;
     }
     const now=Math.floor(Date.now()/1000);if(client.lastSecond!==now){client.lastSecond=now;client.requests=0}if(++client.requests>90)return json(res,429,{error:'Too many inputs'});
     if(req.method==='POST'&&url.pathname==='/api/input')return json(res,200,{ok:session.input(client.id,await body(req))});
@@ -37,14 +41,14 @@ function createServer(options={}){
    let pathname=decodeURIComponent(url.pathname),file=pathname==='/'?path.join(ROOT,'index.html'):path.resolve(ROOT,'.'+pathname);
    if(!file.startsWith(ROOT+path.sep)||!/\.(html|js|css|json|png|svg)$/i.test(file)||!fs.existsSync(file))return json(res,404,{error:'Not found'});
    const ext=path.extname(file),mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.json':'application/json','.css':'text/css','.png':'image/png','.svg':'image/svg+xml'}[ext];
-   res.writeHead(200,{'Content-Type':mime,'Cache-Control':'no-store'});if(req.method==='HEAD')return res.end();fs.createReadStream(file).pipe(res);
+   res.writeHead(200,{'Content-Type':mime,'Cache-Control':url.pathname.startsWith('/assets/')?'public, max-age=31536000, immutable':'no-cache'});if(req.method==='HEAD')return res.end();fs.createReadStream(file).pipe(res);
   }catch(e){json(res,400,{error:e.message})}
  });
  let accumulator=0,last=performance.now(),frames=0,lastBroadcast=-1;
  const timer=setInterval(()=>{
   const now=performance.now();accumulator+=Math.min(250,now-last)/1000;last=now;
   while(accumulator>=1/30){for(const session of sessions.values())session.step(1/30);accumulator-=1/30;frames++}
-  if(frames%2===0&&frames!==lastBroadcast)for(const c of connections){const session=sessions.get(c.client.room),snapshot=session?.snapshot(c.client.id);if(snapshot&&!c.res.destroyed){if(c.res.writableLength>524288){c.res.destroy();continue}c.res.write('data: '+JSON.stringify(snapshot)+'\n\n');c.client.lastSeen=Date.now()}}
+  if(frames%2===0&&frames!==lastBroadcast)for(const c of connections){const session=sessions.get(c.client.room),snapshot=session?.snapshot(c.client.id);if(snapshot&&!c.res.destroyed){if(c.res.writableLength>524288){c.res.destroy();continue}if(c.res.writableLength<65536&&c.stream.writableLength<65536)c.stream.write('data: '+JSON.stringify(snapshot)+'\n\n');c.client.lastSeen=Date.now()}}
   lastBroadcast=frames;for(const [token,client]of clients)if(Date.now()-client.lastSeen>30000){sessions.get(client.room)?.remove(client.id);clients.delete(token)}
   for(const [name,s]of sessions)if(![...s.actors.values()].some(p=>!p.bot))sessions.delete(name);
  },1000/60);

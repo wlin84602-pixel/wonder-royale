@@ -99,7 +99,7 @@ function buildLegacyWorld(seed=1){
   }
   for(let i=0;i<4;i++){const spot=findValid(state,{x:loc.x-560+random()*1120,y:loc.y-500+random()*1000},24,true,true);state.containers.push({id:id('chest'),x:spot.x,y:spot.y,kind:i===0?'gold':i===1?'ammo':'basic',open:false,hp:60})}
  }
- for(const c of state.containers){Object.assign(c,{shape:'circle',r:18,solid:true,blocksShots:true,lootContainer:true,destructible:c.kind==='basic'});state.objects.push(c)}state.index=new SpatialIndex(state.objects);for(const q of state.loot){if(q.type==='gun'&&q.weapon===2&&q.rarity>4)q.rarity=4;Object.assign(q,findValid(state,q,15))}state.zone=createZone(state,random);state.random=random;return state;
+ for(const c of state.containers){Object.assign(c,{shape:'circle',r:18,solid:true,blocksShots:true,lootContainer:true,destructible:true});state.objects.push(c)}state.index=new SpatialIndex(state.objects);for(const q of state.loot){if(q.type==='gun'&&q.weapon===2&&q.rarity>4)q.rarity=4;Object.assign(q,findValid(state,q,15))}state.zone=createZone(state,random);state.random=random;return state;
 }
 function buildWorld(seed=1){
  const s=buildLegacyWorld(seed),F=MAP_SCALE,random=rng(seed^0x6ce9b6),point=p=>({x:p.x*F,y:p.y*F});
@@ -171,7 +171,7 @@ function buildWorld(seed=1){
   }
  }
  const specialRandom=rng(seed^0x5171ab1e),pool=s.containers.slice();for(let i=pool.length-1;i>0;i--){const j=Math.floor(specialRandom()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]]}
- if(pool.length<33)throw Error('Insufficient wall-side crate locations');for(let i=0;i<3;i++){pool[i].kind='ultimate';pool[i].hp=120}for(let i=3;i<33;i++)pool[i].kind='ammo';
+ if(pool.length<33)throw Error('Insufficient wall-side crate locations');for(let i=0;i<30;i++)pool[i].kind='ammo';s.containers=s.containers.filter(c=>c.kind==='ammo'||specialRandom()<.45);const rooms=s.buildings.slice().sort(()=>0);let placed=0;for(const b of rooms){if(placed>=3)break;const q=findValid(s,{x:b.x+b.w*.65,y:b.y+b.h*.65},24);if(buildingAt(s,q)?.id!==b.id||blocked(s,q.x,q.y,24))continue;s.containers.push({id:id('ultimate'),...q,building:b.id,exterior:false,kind:'ultimate',hp:120,open:false});placed++}
  for(const c of s.containers){Object.assign(c,{shape:'circle',r:c.kind==='ammo'?12:18,solid:true,blocksShots:true,lootContainer:true,destructible:c.kind==='basic'});s.objects.push(c)}
  s.index=new SpatialIndex(s.objects);for(const q of s.loot)Object.assign(q,findValid(s,q,15));
  const lootRandom=rng(seed^0x1007a11);let groundGunCount=0;
@@ -326,7 +326,13 @@ function openContainer(s,c,a,weaponCount=4){
   s.loot.push(q);out.push(q);
  }s.events.push({kind:'crate',x:c.x,y:c.y});return out;
 }
-function damageObject(s,o,damage,actor){if(!o||o.destroyed||!o.destructible)return false;o.hp-=damage;if(o.hp<=0){o.destroyed=true;s.mapRevision=(s.mapRevision||0)+1;s.events.push({kind:'break',x:o.x,y:o.y});if(o.kind==='basic')openContainer(s,o,{x:o.x,y:o.y,phase:'ground'})}return true}
+
+function softCover(o){return o.destructible&&o.kind!=='door'&&o.kind!=='wall'}
+function projectileWall(s,b,nx,ny){return raycast(s,b.x,b.y,nx,ny,1,o=>o.kind==='window'||b.kind!==6&&softCover(o))}
+function pierceCover(s,b,nx,ny,limit=1,actor){if(b.kind===6)return;b.coverHits=b.coverHits||[];const ignored=new Set(b.coverHits);for(let i=0;i<64;i++){const hit=raycast(s,b.x,b.y,nx,ny,1,o=>o.kind==='window'||!softCover(o)||ignored.has(o.id));if(!hit||hit.t>limit)break;ignored.add(hit.object.id);b.coverHits.push(hit.object.id);const n=Math.hypot(b.vx,b.vy)||1;hit.object.hitDX=b.vx/n;hit.object.hitDY=b.vy/n;damageObject(s,hit.object,b.damage,actor)}}
+function separateActors(s,actors){const live=actors.filter(a=>a.hp>0&&['ground','lobby'].includes(a.phase));for(let pass=0;pass<3;pass++)for(let i=0;i<live.length;i++)for(let j=i+1;j<live.length;j++){const a=live[i],b=live[j],dx=b.x-a.x,dy=b.y-a.y,n=Math.hypot(dx,dy),min=(a.r||26)+(b.r||26);if(n>=min)continue;const ux=n?dx/n:1,uy=n?dy/n:0,push=(min-n+.1)/2;for(const [q,sign]of [[a,-1],[b,1]]){const x=q.x+ux*push*sign,y=q.y+uy*push*sign;if(!blocked(s,x,y,q.r||26,q)){q.x=x;q.y=y}}}}
+
+function damageObject(s,o,damage,actor){if(!o||o.destroyed||!o.destructible)return false;o.hitAt=s.time;o.hitVisualAt=typeof performance!=='undefined'?performance.now():0;o.hp-=damage;if(o.hp<=0){o.destroyed=true;s.mapRevision=(s.mapRevision||0)+1;s.events.push({kind:'break',x:o.x,y:o.y});if(o.lootContainer)openContainer(s,o,{x:o.x,y:o.y,phase:'ground'})}return true}
 function createZone(s,random){const first={x:(.4+random()*.2)*s.size,y:(.4+random()*.2)*s.size,r:ZONE_PHASES[0].radius};return {phase:0,mode:'prepare',elapsed:0,current:{x:s.size/2,y:s.size/2,r:s.size*4100/6000},from:{x:s.size/2,y:s.size/2,r:s.size*4100/6000},next:first,damageTick:0}}
 function nextCircle(s,previous,radius){const random=s.random||rng(s.seed),travel=Math.max(0,previous.r-radius);for(let i=0;i<300;i++){const a=random()*Math.PI*2,d=Math.sqrt(random())*travel*.82,p={x:previous.x+Math.cos(a)*d,y:previous.y+Math.sin(a)*d,r:radius};if(playable(s,p.x,p.y,40)&&(radius>650||Array.from({length:8},(_,k)=>{const a=k*Math.PI/4;return playable(s,p.x+Math.cos(a)*radius*.55,p.y+Math.sin(a)*radius*.55,0)}).every(Boolean)))return p}return{x:previous.x,y:previous.y,r:radius}}
 function advanceZone(s,dt,actors=[]){
@@ -348,7 +354,7 @@ function advanceZone(s,dt,actors=[]){
 function zoneCountdown(s){const z=s.zone;if(z.mode==='finished')return 0;const c=ZONE_PHASES[z.phase];return Math.max(0,Math.ceil((z.mode==='prepare'?c.prepare:c.shrink)-z.elapsed))}
 function planeRoute(seed){const r=rng(seed^0xabc143),edge=Math.floor(r()*4),offset=650+r()*4700,end=650+r()*4700,a=edge===0?{x:160,y:offset}:edge===1?{x:5840,y:offset}:edge===2?{x:offset,y:160}:{x:offset,y:5840},b=edge===0?{x:5840,y:end}:edge===1?{x:160,y:end}:edge===2?{x:end,y:5840}:{x:end,y:160};a.x*=MAP_SCALE;a.y*=MAP_SCALE;b.x*=MAP_SCALE;b.y*=MAP_SCALE;return{start:a,end:b,angle:Math.atan2(b.y-a.y,b.x-a.x),duration:hyp(a,b)/(220*MAP_SCALE)}}
 function planePosition(route,time){const f=clamp(time/route.duration,0,1);return{x:route.start.x+(route.end.x-route.start.x)*f,y:route.start.y+(route.end.y-route.start.y)*f}}
-return{PROJECTILE_DRAG,projectileMotion,SIZE:SIZE*MAP_SCALE,MAP_SCALE,PLAYER_RADIUS,PLAYER_SPEED,PARACHUTE_SPEED,DROP_SECONDS,GROUND_GUN_COUNT,PUMP_FULL_HIT_DAMAGE,configurePumpShot,applyPumpHit,stepKnockback,solidHit,LOCATIONS:LOCATIONS.map(l=>({...l,x:l.x*MAP_SCALE,y:l.y*MAP_SCALE})),ZONE_PHASES,COAST:COAST.map(([x,y])=>[x*MAP_SCALE,y*MAP_SCALE]),SpatialIndex,rng,clamp,hyp,pointSegment,circleRect,buildWorld,playable,isWater,blocked,findValid,resolveActorOverlap,moveActor,raycast,segmentHitCircle,buildingAt,bushAt,apertureDistance,canViewInterior,doorSwingAway,doorPose,doorAngleAt,doorInteractionDistance,canSee,interactDoor,interactionTarget,openContainer,damageObject,advanceZone,zoneCountdown,planeRoute,planePosition,bounds};
+return{softCover,projectileWall,pierceCover,separateActors,PROJECTILE_DRAG,projectileMotion,SIZE:SIZE*MAP_SCALE,MAP_SCALE,PLAYER_RADIUS,PLAYER_SPEED,PARACHUTE_SPEED,DROP_SECONDS,GROUND_GUN_COUNT,PUMP_FULL_HIT_DAMAGE,configurePumpShot,applyPumpHit,stepKnockback,solidHit,LOCATIONS:LOCATIONS.map(l=>({...l,x:l.x*MAP_SCALE,y:l.y*MAP_SCALE})),ZONE_PHASES,COAST:COAST.map(([x,y])=>[x*MAP_SCALE,y*MAP_SCALE]),SpatialIndex,rng,clamp,hyp,pointSegment,circleRect,buildWorld,playable,isWater,blocked,findValid,resolveActorOverlap,moveActor,raycast,segmentHitCircle,buildingAt,bushAt,apertureDistance,canViewInterior,doorSwingAway,doorPose,doorAngleAt,doorInteractionDistance,canSee,interactDoor,interactionTarget,openContainer,damageObject,advanceZone,zoneCountdown,planeRoute,planePosition,bounds};
 });
 
 

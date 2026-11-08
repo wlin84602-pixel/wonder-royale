@@ -12,16 +12,17 @@ function sprite(z,key,b,paint,res=level(z)){
  if(!item){const width=Math.max(1,Math.ceil(b.w*res)),height=Math.max(1,Math.ceil(b.h*res));if(width*height>3*1024*1024)return false;const out=surface(width,height);if(!out)return false;out.ctx.scale(res,res);out.ctx.lineJoin='round';out.ctx.translate(-b.x,-b.y);paint(out.ctx);item=put(k,{...out});stats.spriteBuilds++}
  z.drawImage(item.canvas,b.x,b.y,item.canvas.width/res,item.canvas.height/res);return true
 }
+function shake(z,o){const t=(performance.now()-(o.hitVisualAt??-10000))/1000;if(t>=0&&t<.22){const n=Math.sin(t*65)*4*(1-t/.22);z.translate((o.hitDX||1)*n,(o.hitDY||0)*n)}}
 R.terrain=raw.terrain;
-R.object=function(z,o,time){if(o.destroyed||o.lootContainer||o.kind==='bush')return;if(o.kind==='door'||o.shape==='segment'||o.kind==='tree'||o.kind==='rock'||o.kind==='barrel'||o.kind==='fence')return raw.object(z,o,time);const b=C.bounds(o),pad=o.shape==='segment'?18:6,rect={x:b.x-pad,y:b.y-pad,w:b.w+pad*2,h:b.h+pad*2};
+R.object=function(z,o,time){if(o.destroyed||o.lootContainer||o.kind==='bush')return;if(o.kind==='door'||o.shape==='segment'||o.kind==='tree'||o.kind==='rock'||o.kind==='barrel'||o.kind==='fence'){z.save();shake(z,o);raw.object(z,o,time);z.restore();return}const b=C.bounds(o),pad=o.shape==='segment'?18:6,rect={x:b.x-pad,y:b.y-pad,w:b.w+pad*2,h:b.h+pad*2};
  // Normalize the source position, so repeated shelves/windows share one image.
  const key='object:'+JSON.stringify([o.kind,o.shape,o.w,o.h,o.r,o.trunkRadius,o.paint,o.color,o.bx-o.ax,o.by-o.ay]);
- const local={...o,x:o.x-b.x,y:o.y-b.y,ax:o.ax-b.x,bx:o.bx-b.x,ay:o.ay-b.y,by:o.by-b.y};const origin={x:-pad,y:-pad,w:rect.w,h:rect.h};z.save();z.translate(b.x,b.y);if(!sprite(z,key,origin,ctx=>raw.object(ctx,local,time)))raw.object(z,local,time);z.restore()
+ const local={...o,x:o.x-b.x,y:o.y-b.y,ax:o.ax-b.x,bx:o.bx-b.x,ay:o.ay-b.y,by:o.by-b.y};const origin={x:-pad,y:-pad,w:rect.w,h:rect.h};z.save();z.translate(b.x,b.y);shake(z,o);if(!sprite(z,key,origin,ctx=>raw.object(ctx,local,time)))raw.object(z,local,time);z.restore()
 };
-R.canopies=function(z,objects,local){for(const o of objects)if(o.kind==='tree'&&!o.destroyed){const biome=Theme.idAt(o.x,o.y,C.SIZE),r=o.canopy+6,b={x:-r,y:-r,w:r*2,h:r*2},key='canopy:'+o.canopy+':'+(o.tint||0)+':'+biome;z.save();z.translate(o.x,o.y);if(!sprite(z,key,b,ctx=>raw.canopies(ctx,[{...o,x:0,y:0,visualBiome:biome}],local)))raw.canopies(z,[{...o,x:0,y:0,visualBiome:biome}],local);z.restore()}};
+R.canopies=function(z,objects,local){for(const o of objects)if(o.kind==='tree'&&!o.destroyed){const biome=Theme.idAt(o.x,o.y,C.SIZE),r=o.canopy+6,b={x:-r,y:-r,w:r*2,h:r*2},key='canopy:'+o.canopy+':'+(o.tint||0)+':'+biome;z.save();z.translate(o.x,o.y);shake(z,o);if(!sprite(z,key,b,ctx=>raw.canopies(ctx,[{...o,x:0,y:0,visualBiome:biome}],local)))raw.canopies(z,[{...o,x:0,y:0,visualBiome:biome}],local);z.restore()}};
 R.bushes=function(z,s,visible,local=null){for(const b of s.bushes)if(visible({x:b.x-b.r,y:b.y-b.r,w:b.r*2,h:b.r*2})){const biome=Theme.idAt(b.x,b.y,C.SIZE),radius=b.r+5,rect={x:-radius,y:-radius,w:radius*2,h:radius*2};z.save();z.translate(b.x,b.y);if(local&&Math.hypot(local.x-b.x,local.y-b.y)<(b.hideRadius??b.r*.83))z.globalAlpha=.55;if(!sprite(z,'bush:'+b.r+':'+biome,rect,ctx=>raw.bushes(ctx,{bushes:[{...b,x:0,y:0,visualBiome:biome}]},()=>true)))raw.bushes(z,{bushes:[{...b,x:0,y:0,visualBiome:biome}]},()=>true);z.restore()}};
 
-R.crate=function(z,c){if(c.open||c.destroyed)return;z.save();z.translate(c.x,c.y);if(!sprite(z,'crate:'+c.kind,{x:-36,y:-36,w:72,h:72},ctx=>raw.crate(ctx,{...c,x:0,y:0})))raw.crate(z,{...c,x:0,y:0});z.restore()};
+R.crate=function(z,c){if(c.open||c.destroyed)return;z.save();z.translate(c.x,c.y);shake(z,c);if(!sprite(z,'crate:'+c.kind,{x:-36,y:-36,w:72,h:72},ctx=>raw.crate(ctx,{...c,x:0,y:0})))raw.crate(z,{...c,x:0,y:0});z.restore()};
 R.floors=function(z,s,visible){if(s.palace)raw.floors(z,{...s,buildings:[]},()=>false);
  for(const building of s.buildings){
   if(!visible(building))continue;

@@ -520,7 +520,7 @@ function buildLegacyWorld(seed=1){
   }
   for(let i=0;i<4;i++){const spot=findValid(state,{x:loc.x-560+random()*1120,y:loc.y-500+random()*1000},24,true,true);state.containers.push({id:id('chest'),x:spot.x,y:spot.y,kind:i===0?'gold':i===1?'ammo':'basic',open:false,hp:60})}
  }
- for(const c of state.containers){Object.assign(c,{shape:'circle',r:18,solid:true,blocksShots:true,lootContainer:true,destructible:c.kind==='basic'});state.objects.push(c)}state.index=new SpatialIndex(state.objects);for(const q of state.loot){if(q.type==='gun'&&q.weapon===2&&q.rarity>4)q.rarity=4;Object.assign(q,findValid(state,q,15))}state.zone=createZone(state,random);state.random=random;return state;
+ for(const c of state.containers){Object.assign(c,{shape:'circle',r:18,solid:true,blocksShots:true,lootContainer:true,destructible:true});state.objects.push(c)}state.index=new SpatialIndex(state.objects);for(const q of state.loot){if(q.type==='gun'&&q.weapon===2&&q.rarity>4)q.rarity=4;Object.assign(q,findValid(state,q,15))}state.zone=createZone(state,random);state.random=random;return state;
 }
 function buildWorld(seed=1){
  const s=buildLegacyWorld(seed),F=MAP_SCALE,random=rng(seed^0x6ce9b6),point=p=>({x:p.x*F,y:p.y*F});
@@ -592,7 +592,7 @@ function buildWorld(seed=1){
   }
  }
  const specialRandom=rng(seed^0x5171ab1e),pool=s.containers.slice();for(let i=pool.length-1;i>0;i--){const j=Math.floor(specialRandom()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]]}
- if(pool.length<33)throw Error('Insufficient wall-side crate locations');for(let i=0;i<3;i++){pool[i].kind='ultimate';pool[i].hp=120}for(let i=3;i<33;i++)pool[i].kind='ammo';
+ if(pool.length<33)throw Error('Insufficient wall-side crate locations');for(let i=0;i<30;i++)pool[i].kind='ammo';s.containers=s.containers.filter(c=>c.kind==='ammo'||specialRandom()<.45);const rooms=s.buildings.slice().sort(()=>0);let placed=0;for(const b of rooms){if(placed>=3)break;const q=findValid(s,{x:b.x+b.w*.65,y:b.y+b.h*.65},24);if(buildingAt(s,q)?.id!==b.id||blocked(s,q.x,q.y,24))continue;s.containers.push({id:id('ultimate'),...q,building:b.id,exterior:false,kind:'ultimate',hp:120,open:false});placed++}
  for(const c of s.containers){Object.assign(c,{shape:'circle',r:c.kind==='ammo'?12:18,solid:true,blocksShots:true,lootContainer:true,destructible:c.kind==='basic'});s.objects.push(c)}
  s.index=new SpatialIndex(s.objects);for(const q of s.loot)Object.assign(q,findValid(s,q,15));
  const lootRandom=rng(seed^0x1007a11);let groundGunCount=0;
@@ -747,7 +747,13 @@ function openContainer(s,c,a,weaponCount=4){
   s.loot.push(q);out.push(q);
  }s.events.push({kind:'crate',x:c.x,y:c.y});return out;
 }
-function damageObject(s,o,damage,actor){if(!o||o.destroyed||!o.destructible)return false;o.hp-=damage;if(o.hp<=0){o.destroyed=true;s.mapRevision=(s.mapRevision||0)+1;s.events.push({kind:'break',x:o.x,y:o.y});if(o.kind==='basic')openContainer(s,o,{x:o.x,y:o.y,phase:'ground'})}return true}
+
+function softCover(o){return o.destructible&&o.kind!=='door'&&o.kind!=='wall'}
+function projectileWall(s,b,nx,ny){return raycast(s,b.x,b.y,nx,ny,1,o=>o.kind==='window'||b.kind!==6&&softCover(o))}
+function pierceCover(s,b,nx,ny,limit=1,actor){if(b.kind===6)return;b.coverHits=b.coverHits||[];const ignored=new Set(b.coverHits);for(let i=0;i<64;i++){const hit=raycast(s,b.x,b.y,nx,ny,1,o=>o.kind==='window'||!softCover(o)||ignored.has(o.id));if(!hit||hit.t>limit)break;ignored.add(hit.object.id);b.coverHits.push(hit.object.id);const n=Math.hypot(b.vx,b.vy)||1;hit.object.hitDX=b.vx/n;hit.object.hitDY=b.vy/n;damageObject(s,hit.object,b.damage,actor)}}
+function separateActors(s,actors){const live=actors.filter(a=>a.hp>0&&['ground','lobby'].includes(a.phase));for(let pass=0;pass<3;pass++)for(let i=0;i<live.length;i++)for(let j=i+1;j<live.length;j++){const a=live[i],b=live[j],dx=b.x-a.x,dy=b.y-a.y,n=Math.hypot(dx,dy),min=(a.r||26)+(b.r||26);if(n>=min)continue;const ux=n?dx/n:1,uy=n?dy/n:0,push=(min-n+.1)/2;for(const [q,sign]of [[a,-1],[b,1]]){const x=q.x+ux*push*sign,y=q.y+uy*push*sign;if(!blocked(s,x,y,q.r||26,q)){q.x=x;q.y=y}}}}
+
+function damageObject(s,o,damage,actor){if(!o||o.destroyed||!o.destructible)return false;o.hitAt=s.time;o.hitVisualAt=typeof performance!=='undefined'?performance.now():0;o.hp-=damage;if(o.hp<=0){o.destroyed=true;s.mapRevision=(s.mapRevision||0)+1;s.events.push({kind:'break',x:o.x,y:o.y});if(o.lootContainer)openContainer(s,o,{x:o.x,y:o.y,phase:'ground'})}return true}
 function createZone(s,random){const first={x:(.4+random()*.2)*s.size,y:(.4+random()*.2)*s.size,r:ZONE_PHASES[0].radius};return {phase:0,mode:'prepare',elapsed:0,current:{x:s.size/2,y:s.size/2,r:s.size*4100/6000},from:{x:s.size/2,y:s.size/2,r:s.size*4100/6000},next:first,damageTick:0}}
 function nextCircle(s,previous,radius){const random=s.random||rng(s.seed),travel=Math.max(0,previous.r-radius);for(let i=0;i<300;i++){const a=random()*Math.PI*2,d=Math.sqrt(random())*travel*.82,p={x:previous.x+Math.cos(a)*d,y:previous.y+Math.sin(a)*d,r:radius};if(playable(s,p.x,p.y,40)&&(radius>650||Array.from({length:8},(_,k)=>{const a=k*Math.PI/4;return playable(s,p.x+Math.cos(a)*radius*.55,p.y+Math.sin(a)*radius*.55,0)}).every(Boolean)))return p}return{x:previous.x,y:previous.y,r:radius}}
 function advanceZone(s,dt,actors=[]){
@@ -769,7 +775,7 @@ function advanceZone(s,dt,actors=[]){
 function zoneCountdown(s){const z=s.zone;if(z.mode==='finished')return 0;const c=ZONE_PHASES[z.phase];return Math.max(0,Math.ceil((z.mode==='prepare'?c.prepare:c.shrink)-z.elapsed))}
 function planeRoute(seed){const r=rng(seed^0xabc143),edge=Math.floor(r()*4),offset=650+r()*4700,end=650+r()*4700,a=edge===0?{x:160,y:offset}:edge===1?{x:5840,y:offset}:edge===2?{x:offset,y:160}:{x:offset,y:5840},b=edge===0?{x:5840,y:end}:edge===1?{x:160,y:end}:edge===2?{x:end,y:5840}:{x:end,y:160};a.x*=MAP_SCALE;a.y*=MAP_SCALE;b.x*=MAP_SCALE;b.y*=MAP_SCALE;return{start:a,end:b,angle:Math.atan2(b.y-a.y,b.x-a.x),duration:hyp(a,b)/(220*MAP_SCALE)}}
 function planePosition(route,time){const f=clamp(time/route.duration,0,1);return{x:route.start.x+(route.end.x-route.start.x)*f,y:route.start.y+(route.end.y-route.start.y)*f}}
-return{PROJECTILE_DRAG,projectileMotion,SIZE:SIZE*MAP_SCALE,MAP_SCALE,PLAYER_RADIUS,PLAYER_SPEED,PARACHUTE_SPEED,DROP_SECONDS,GROUND_GUN_COUNT,PUMP_FULL_HIT_DAMAGE,configurePumpShot,applyPumpHit,stepKnockback,solidHit,LOCATIONS:LOCATIONS.map(l=>({...l,x:l.x*MAP_SCALE,y:l.y*MAP_SCALE})),ZONE_PHASES,COAST:COAST.map(([x,y])=>[x*MAP_SCALE,y*MAP_SCALE]),SpatialIndex,rng,clamp,hyp,pointSegment,circleRect,buildWorld,playable,isWater,blocked,findValid,resolveActorOverlap,moveActor,raycast,segmentHitCircle,buildingAt,bushAt,apertureDistance,canViewInterior,doorSwingAway,doorPose,doorAngleAt,doorInteractionDistance,canSee,interactDoor,interactionTarget,openContainer,damageObject,advanceZone,zoneCountdown,planeRoute,planePosition,bounds};
+return{softCover,projectileWall,pierceCover,separateActors,PROJECTILE_DRAG,projectileMotion,SIZE:SIZE*MAP_SCALE,MAP_SCALE,PLAYER_RADIUS,PLAYER_SPEED,PARACHUTE_SPEED,DROP_SECONDS,GROUND_GUN_COUNT,PUMP_FULL_HIT_DAMAGE,configurePumpShot,applyPumpHit,stepKnockback,solidHit,LOCATIONS:LOCATIONS.map(l=>({...l,x:l.x*MAP_SCALE,y:l.y*MAP_SCALE})),ZONE_PHASES,COAST:COAST.map(([x,y])=>[x*MAP_SCALE,y*MAP_SCALE]),SpatialIndex,rng,clamp,hyp,pointSegment,circleRect,buildWorld,playable,isWater,blocked,findValid,resolveActorOverlap,moveActor,raycast,segmentHitCircle,buildingAt,bushAt,apertureDistance,canViewInterior,doorSwingAway,doorPose,doorAngleAt,doorInteractionDistance,canSee,interactDoor,interactionTarget,openContainer,damageObject,advanceZone,zoneCountdown,planeRoute,planePosition,bounds};
 });
 
 
@@ -1058,16 +1064,17 @@ function sprite(z,key,b,paint,res=level(z)){
  if(!item){const width=Math.max(1,Math.ceil(b.w*res)),height=Math.max(1,Math.ceil(b.h*res));if(width*height>3*1024*1024)return false;const out=surface(width,height);if(!out)return false;out.ctx.scale(res,res);out.ctx.lineJoin='round';out.ctx.translate(-b.x,-b.y);paint(out.ctx);item=put(k,{...out});stats.spriteBuilds++}
  z.drawImage(item.canvas,b.x,b.y,item.canvas.width/res,item.canvas.height/res);return true
 }
+function shake(z,o){const t=(performance.now()-(o.hitVisualAt??-10000))/1000;if(t>=0&&t<.22){const n=Math.sin(t*65)*4*(1-t/.22);z.translate((o.hitDX||1)*n,(o.hitDY||0)*n)}}
 R.terrain=raw.terrain;
-R.object=function(z,o,time){if(o.destroyed||o.lootContainer||o.kind==='bush')return;if(o.kind==='door'||o.shape==='segment'||o.kind==='tree'||o.kind==='rock'||o.kind==='barrel'||o.kind==='fence')return raw.object(z,o,time);const b=C.bounds(o),pad=o.shape==='segment'?18:6,rect={x:b.x-pad,y:b.y-pad,w:b.w+pad*2,h:b.h+pad*2};
+R.object=function(z,o,time){if(o.destroyed||o.lootContainer||o.kind==='bush')return;if(o.kind==='door'||o.shape==='segment'||o.kind==='tree'||o.kind==='rock'||o.kind==='barrel'||o.kind==='fence'){z.save();shake(z,o);raw.object(z,o,time);z.restore();return}const b=C.bounds(o),pad=o.shape==='segment'?18:6,rect={x:b.x-pad,y:b.y-pad,w:b.w+pad*2,h:b.h+pad*2};
  // Normalize the source position, so repeated shelves/windows share one image.
  const key='object:'+JSON.stringify([o.kind,o.shape,o.w,o.h,o.r,o.trunkRadius,o.paint,o.color,o.bx-o.ax,o.by-o.ay]);
- const local={...o,x:o.x-b.x,y:o.y-b.y,ax:o.ax-b.x,bx:o.bx-b.x,ay:o.ay-b.y,by:o.by-b.y};const origin={x:-pad,y:-pad,w:rect.w,h:rect.h};z.save();z.translate(b.x,b.y);if(!sprite(z,key,origin,ctx=>raw.object(ctx,local,time)))raw.object(z,local,time);z.restore()
+ const local={...o,x:o.x-b.x,y:o.y-b.y,ax:o.ax-b.x,bx:o.bx-b.x,ay:o.ay-b.y,by:o.by-b.y};const origin={x:-pad,y:-pad,w:rect.w,h:rect.h};z.save();z.translate(b.x,b.y);shake(z,o);if(!sprite(z,key,origin,ctx=>raw.object(ctx,local,time)))raw.object(z,local,time);z.restore()
 };
-R.canopies=function(z,objects,local){for(const o of objects)if(o.kind==='tree'&&!o.destroyed){const biome=Theme.idAt(o.x,o.y,C.SIZE),r=o.canopy+6,b={x:-r,y:-r,w:r*2,h:r*2},key='canopy:'+o.canopy+':'+(o.tint||0)+':'+biome;z.save();z.translate(o.x,o.y);if(!sprite(z,key,b,ctx=>raw.canopies(ctx,[{...o,x:0,y:0,visualBiome:biome}],local)))raw.canopies(z,[{...o,x:0,y:0,visualBiome:biome}],local);z.restore()}};
+R.canopies=function(z,objects,local){for(const o of objects)if(o.kind==='tree'&&!o.destroyed){const biome=Theme.idAt(o.x,o.y,C.SIZE),r=o.canopy+6,b={x:-r,y:-r,w:r*2,h:r*2},key='canopy:'+o.canopy+':'+(o.tint||0)+':'+biome;z.save();z.translate(o.x,o.y);shake(z,o);if(!sprite(z,key,b,ctx=>raw.canopies(ctx,[{...o,x:0,y:0,visualBiome:biome}],local)))raw.canopies(z,[{...o,x:0,y:0,visualBiome:biome}],local);z.restore()}};
 R.bushes=function(z,s,visible,local=null){for(const b of s.bushes)if(visible({x:b.x-b.r,y:b.y-b.r,w:b.r*2,h:b.r*2})){const biome=Theme.idAt(b.x,b.y,C.SIZE),radius=b.r+5,rect={x:-radius,y:-radius,w:radius*2,h:radius*2};z.save();z.translate(b.x,b.y);if(local&&Math.hypot(local.x-b.x,local.y-b.y)<(b.hideRadius??b.r*.83))z.globalAlpha=.55;if(!sprite(z,'bush:'+b.r+':'+biome,rect,ctx=>raw.bushes(ctx,{bushes:[{...b,x:0,y:0,visualBiome:biome}]},()=>true)))raw.bushes(z,{bushes:[{...b,x:0,y:0,visualBiome:biome}]},()=>true);z.restore()}};
 
-R.crate=function(z,c){if(c.open||c.destroyed)return;z.save();z.translate(c.x,c.y);if(!sprite(z,'crate:'+c.kind,{x:-36,y:-36,w:72,h:72},ctx=>raw.crate(ctx,{...c,x:0,y:0})))raw.crate(z,{...c,x:0,y:0});z.restore()};
+R.crate=function(z,c){if(c.open||c.destroyed)return;z.save();z.translate(c.x,c.y);shake(z,c);if(!sprite(z,'crate:'+c.kind,{x:-36,y:-36,w:72,h:72},ctx=>raw.crate(ctx,{...c,x:0,y:0})))raw.crate(z,{...c,x:0,y:0});z.restore()};
 R.floors=function(z,s,visible){if(s.palace)raw.floors(z,{...s,buildings:[]},()=>false);
  for(const building of s.buildings){
   if(!visible(building))continue;
@@ -1618,8 +1625,9 @@ function islandBotStep(b,dt){
 }
 function islandStepBullets(dt,frameStartMs){
  for(const q of bullets){
-  const travelDt=q.spawnTimeMs===undefined?dt:Math.max(0,(combatTimeMs-Math.max(frameStartMs,q.spawnTimeMs))/1000),motion=Island.projectileMotion(q,travelDt),nx=motion.x,ny=motion.y,wall=Island.raycast(islandState,q.x,q.y,nx,ny,1);let collision=wall?{t:wall.t,object:wall.object}:null;
+  const travelDt=q.spawnTimeMs===undefined?dt:Math.max(0,(combatTimeMs-Math.max(frameStartMs,q.spawnTimeMs))/1000),motion=Island.projectileMotion(q,travelDt),nx=motion.x,ny=motion.y,wall=Island.projectileWall(islandState,q,nx,ny);let collision=wall?{t:wall.t,object:wall.object}:null;
   for(const target of islandCurrentActors())if(target!==q.owner&&target.hp>0&&target.phase==='ground'){const t=Island.segmentHitCircle(q.x,q.y,nx,ny,target);if(t!==null&&(!collision||t<collision.t))collision={t,target}}
+  Island.pierceCover(islandState,q,nx,ny,collision?.t??1,q.owner);
   if(collision){const impact=collision.t??0;q.x+=(nx-q.x)*impact;q.y+=(ny-q.y)*impact;q.life=0;if(q.kind===6){const hit=collision.target;if(hit){const hp=hit.hp,shield=hit.shield||0;damage(hit,100);if(q.owner===player){hit.hitByPlayer=true;islandAddDamageNumber(hit,hp-hit.hp,shield-hit.shield)}}else Island.damageObject(islandState,collision.object,100,q.owner);const n=Math.hypot(q.vx,q.vy)||1;q.x-=q.vx/n*2;q.y-=q.vy/n*2;IslandRPG.explode(Island,islandState,q,islandCurrentActors(),hit,q.owner,(target,amount,owner)=>{const hp=target.hp,shield=target.shield||0;damage(target,amount);if(owner===player){target.hitByPlayer=true;islandAddDamageNumber(target,hp-target.hp,shield-target.shield)}})}else if(collision.target){const t=collision.target;const oldHp=t.hp,oldShield=t.shield||0;damage(t,q.damage);if(q.owner===player){t.hitByPlayer=true;islandAddDamageNumber(t,Math.min(oldHp,Math.max(0,oldHp-t.hp)),Math.max(0,oldShield-t.shield))}Island.applyPumpHit(islandState,q,t,q.owner)}else Island.damageObject(islandState,collision.object,q.damage,q.owner)}
   else{q.x=nx;q.y=ny;q.vx=motion.vx;q.vy=motion.vy;q.life-=travelDt;if(q.kind===6&&q.life<=0)IslandRPG.explode(Island,islandState,q,islandCurrentActors(),null,q.owner,(target,amount)=>damage(target,amount))}
   q.position={x:q.x,y:q.y};q.velocity={x:q.vx,y:q.vy};
@@ -1635,7 +1643,7 @@ update=function(dt,frameWallMs=combatWallTimeMs()){
  if(islandNetwork.enabled){islandOnlineUpdate(dt);return}
  islandState.time+=dt;player.phase=dropPhase;IslandInventory.tickHealing(islandState,player);
  if(dropPhase!=='ground'){
-  islandOriginal.update(dt,frameWallMs);player.phase=dropPhase;for(const b of bots){if(!islandDeployBot(b,dt))islandBotStep(b,dt);if(b.phase==='ground')Island.stepKnockback(islandState,b,dt)}islandStepBullets(dt,combatTimeMs);islandResolveDeaths();Island.advanceZone(islandState,dt,bots);islandClampCamera();return;
+  islandOriginal.update(dt,frameWallMs);player.phase=dropPhase;for(const b of bots){if(!islandDeployBot(b,dt))islandBotStep(b,dt);if(b.phase==='ground')Island.stepKnockback(islandState,b,dt)}Island.separateActors(islandState,[player,...bots]);islandStepBullets(dt,combatTimeMs);islandResolveDeaths();Island.advanceZone(islandState,dt,bots);islandClampCamera();return;
  }
  const frameStartMs=combatTimeMs;combatTimeMs+=Math.max(0,dt)*1000;combatWallAnchorMs=frameWallMs;time+=dt;
  const smooth=Math.min(1,dt*10);cameraZoom+=(islandGroundZoom()-cameraZoom)*smooth;cameraX+=(player.x-cameraX)*smooth;cameraY+=(player.y-cameraY)*smooth;
@@ -1774,7 +1782,7 @@ function islandApplySnapshot(snapshot){
  const before={x:player.x,y:player.y},priorDropPhase=dropPhase,first=!net.last;net.previous=net.last;net.last=snapshot;net.receivedAt=performance.now();islandState.time=snapshot.time;islandState.zone=snapshot.zone;islandMarker=snapshot.marker;
  for(const e of snapshot.damageEvents||[])if(!islandSeenDamageEvents.has(e.id)){islandSeenDamageEvents.add(e.id);islandAddDamageNumber({id:e.target,x:e.x,y:e.y},e.hp,e.shield)}if(islandSeenDamageEvents.size>256){const ids=[...islandSeenDamageEvents];islandSeenDamageEvents=new Set(ids.slice(-128))}
  const doorById=new Map(snapshot.doors.map(d=>[d.id,d]));for(const door of islandState.doors){const next=doorById.get(door.id);if(next){const pending=net.doorPredictions?.get(door.id);if(pending&&snapshot.actionSeq<pending.seq)continue;if(pending)net.doorPredictions.delete(door.id);if(door.open!==next.open&&dist(door,player)<500)islandDoorSound(next.open);islandSyncDoor(door,next)}}
- islandSyncWorldSnapshot(islandState,snapshot);
+ islandSyncWorldSnapshot(islandState,snapshot);for(const h of snapshot.objectHits||[]){const o=islandState.objects.find(o=>o.id===h.id);if(o&&o.hitAt!==h.at)Object.assign(o,{hitAt:h.at,hitDX:h.dx,hitDY:h.dy,hitVisualAt:performance.now()})}
  const keptLoadout=net.loadoutPending&&snapshot.actionSeq<net.loadoutPending.seq?{inventory:player.inventory,ammoWallet:player.ammoWallet,med:player.med,slot}:null;if(net.loadoutPending&&snapshot.actionSeq>=net.loadoutPending.seq)net.loadoutPending=null;
  const pendingSlot=net.pendingSlot&&snapshot.self.sequence<net.pendingSlot.seq?net.pendingSlot.slot:null;if(net.pendingSlot&&snapshot.self.sequence>=net.pendingSlot.seq)net.pendingSlot=null;Object.assign(player,snapshot.self);if(keptLoadout)Object.assign(player,keptLoadout);
  if(selectedItem==='medkit'&&player.med===0){selectedItem='weapon';keys[bindings.fire]=false;mouse.down=false}player.r=26;dropPhase=player.phase;if(priorDropPhase!=='ground'&&dropPhase==='ground')clearDropActionInput();dropRemaining=player.dropRemaining||0;dropFast=dropPhase==='parachute'&&!!keys[' '];planeElapsed=snapshot.time;planeRoute=snapshot.plane.route;slot=keptLoadout?keptLoadout.slot:pendingSlot===null?player.slot:pendingSlot;selectedItem=IslandInventory.isMed(player.inventory[slot])?'medkit':'weapon';
@@ -1787,7 +1795,7 @@ function islandOnlineUpdate(dt){
  const net=islandNetwork;if(!net.ready||!net.last){islandClampCamera();return}
  islandState.time=Math.max(islandState.time,net.last.time+Math.min(.2,(performance.now()-net.receivedAt)/1000));player.phase=dropPhase;
  if(dropPhase==='ground'&&islandMeleeSelected()&&actionDown('fire')&&!matchMenuOpen&&!settingsOpen&&performance.now()>=islandMeleeVisualReady){islandBeginMeleeVisual()}
- updatePlayerAim();const fresh=performance.now()-net.receivedAt<1000;if(!fresh){$('#island-network-state').textContent='CONNECTION LOST · RETRYING';return}
+ Island.separateActors(islandState,[player,...bots]);updatePlayerAim();const fresh=performance.now()-net.receivedAt<1000;if(!fresh){$('#island-network-state').textContent='CONNECTION LOST · RETRYING';return}
  const movement=islandMapOpen||matchMenuOpen?{dx:0,dy:0}:movementVector();
  if(dropPhase==='ground')Island.moveActor(islandState,player,movement.dx,movement.dy,dt,player.speed);
  else if(dropPhase==='plane')Object.assign(player,Island.planePosition(planeRoute,islandState.time));

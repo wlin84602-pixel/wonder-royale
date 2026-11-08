@@ -107,8 +107,9 @@ function islandBotStep(b,dt){
 }
 function islandStepBullets(dt,frameStartMs){
  for(const q of bullets){
-  const travelDt=q.spawnTimeMs===undefined?dt:Math.max(0,(combatTimeMs-Math.max(frameStartMs,q.spawnTimeMs))/1000),motion=Island.projectileMotion(q,travelDt),nx=motion.x,ny=motion.y,wall=Island.raycast(islandState,q.x,q.y,nx,ny,1);let collision=wall?{t:wall.t,object:wall.object}:null;
+  const travelDt=q.spawnTimeMs===undefined?dt:Math.max(0,(combatTimeMs-Math.max(frameStartMs,q.spawnTimeMs))/1000),motion=Island.projectileMotion(q,travelDt),nx=motion.x,ny=motion.y,wall=Island.projectileWall(islandState,q,nx,ny);let collision=wall?{t:wall.t,object:wall.object}:null;
   for(const target of islandCurrentActors())if(target!==q.owner&&target.hp>0&&target.phase==='ground'){const t=Island.segmentHitCircle(q.x,q.y,nx,ny,target);if(t!==null&&(!collision||t<collision.t))collision={t,target}}
+  Island.pierceCover(islandState,q,nx,ny,collision?.t??1,q.owner);
   if(collision){const impact=collision.t??0;q.x+=(nx-q.x)*impact;q.y+=(ny-q.y)*impact;q.life=0;if(q.kind===6){const hit=collision.target;if(hit){const hp=hit.hp,shield=hit.shield||0;damage(hit,100);if(q.owner===player){hit.hitByPlayer=true;islandAddDamageNumber(hit,hp-hit.hp,shield-hit.shield)}}else Island.damageObject(islandState,collision.object,100,q.owner);const n=Math.hypot(q.vx,q.vy)||1;q.x-=q.vx/n*2;q.y-=q.vy/n*2;IslandRPG.explode(Island,islandState,q,islandCurrentActors(),hit,q.owner,(target,amount,owner)=>{const hp=target.hp,shield=target.shield||0;damage(target,amount);if(owner===player){target.hitByPlayer=true;islandAddDamageNumber(target,hp-target.hp,shield-target.shield)}})}else if(collision.target){const t=collision.target;const oldHp=t.hp,oldShield=t.shield||0;damage(t,q.damage);if(q.owner===player){t.hitByPlayer=true;islandAddDamageNumber(t,Math.min(oldHp,Math.max(0,oldHp-t.hp)),Math.max(0,oldShield-t.shield))}Island.applyPumpHit(islandState,q,t,q.owner)}else Island.damageObject(islandState,collision.object,q.damage,q.owner)}
   else{q.x=nx;q.y=ny;q.vx=motion.vx;q.vy=motion.vy;q.life-=travelDt;if(q.kind===6&&q.life<=0)IslandRPG.explode(Island,islandState,q,islandCurrentActors(),null,q.owner,(target,amount)=>damage(target,amount))}
   q.position={x:q.x,y:q.y};q.velocity={x:q.vx,y:q.vy};
@@ -124,7 +125,7 @@ update=function(dt,frameWallMs=combatWallTimeMs()){
  if(islandNetwork.enabled){islandOnlineUpdate(dt);return}
  islandState.time+=dt;player.phase=dropPhase;IslandInventory.tickHealing(islandState,player);
  if(dropPhase!=='ground'){
-  islandOriginal.update(dt,frameWallMs);player.phase=dropPhase;for(const b of bots){if(!islandDeployBot(b,dt))islandBotStep(b,dt);if(b.phase==='ground')Island.stepKnockback(islandState,b,dt)}islandStepBullets(dt,combatTimeMs);islandResolveDeaths();Island.advanceZone(islandState,dt,bots);islandClampCamera();return;
+  islandOriginal.update(dt,frameWallMs);player.phase=dropPhase;for(const b of bots){if(!islandDeployBot(b,dt))islandBotStep(b,dt);if(b.phase==='ground')Island.stepKnockback(islandState,b,dt)}Island.separateActors(islandState,[player,...bots]);islandStepBullets(dt,combatTimeMs);islandResolveDeaths();Island.advanceZone(islandState,dt,bots);islandClampCamera();return;
  }
  const frameStartMs=combatTimeMs;combatTimeMs+=Math.max(0,dt)*1000;combatWallAnchorMs=frameWallMs;time+=dt;
  const smooth=Math.min(1,dt*10);cameraZoom+=(islandGroundZoom()-cameraZoom)*smooth;cameraX+=(player.x-cameraX)*smooth;cameraY+=(player.y-cameraY)*smooth;
@@ -263,7 +264,7 @@ function islandApplySnapshot(snapshot){
  const before={x:player.x,y:player.y},priorDropPhase=dropPhase,first=!net.last;net.previous=net.last;net.last=snapshot;net.receivedAt=performance.now();islandState.time=snapshot.time;islandState.zone=snapshot.zone;islandMarker=snapshot.marker;
  for(const e of snapshot.damageEvents||[])if(!islandSeenDamageEvents.has(e.id)){islandSeenDamageEvents.add(e.id);islandAddDamageNumber({id:e.target,x:e.x,y:e.y},e.hp,e.shield)}if(islandSeenDamageEvents.size>256){const ids=[...islandSeenDamageEvents];islandSeenDamageEvents=new Set(ids.slice(-128))}
  const doorById=new Map(snapshot.doors.map(d=>[d.id,d]));for(const door of islandState.doors){const next=doorById.get(door.id);if(next){const pending=net.doorPredictions?.get(door.id);if(pending&&snapshot.actionSeq<pending.seq)continue;if(pending)net.doorPredictions.delete(door.id);if(door.open!==next.open&&dist(door,player)<500)islandDoorSound(next.open);islandSyncDoor(door,next)}}
- islandSyncWorldSnapshot(islandState,snapshot);
+ islandSyncWorldSnapshot(islandState,snapshot);for(const h of snapshot.objectHits||[]){const o=islandState.objects.find(o=>o.id===h.id);if(o&&o.hitAt!==h.at)Object.assign(o,{hitAt:h.at,hitDX:h.dx,hitDY:h.dy,hitVisualAt:performance.now()})}
  const keptLoadout=net.loadoutPending&&snapshot.actionSeq<net.loadoutPending.seq?{inventory:player.inventory,ammoWallet:player.ammoWallet,med:player.med,slot}:null;if(net.loadoutPending&&snapshot.actionSeq>=net.loadoutPending.seq)net.loadoutPending=null;
  const pendingSlot=net.pendingSlot&&snapshot.self.sequence<net.pendingSlot.seq?net.pendingSlot.slot:null;if(net.pendingSlot&&snapshot.self.sequence>=net.pendingSlot.seq)net.pendingSlot=null;Object.assign(player,snapshot.self);if(keptLoadout)Object.assign(player,keptLoadout);
  if(selectedItem==='medkit'&&player.med===0){selectedItem='weapon';keys[bindings.fire]=false;mouse.down=false}player.r=26;dropPhase=player.phase;if(priorDropPhase!=='ground'&&dropPhase==='ground')clearDropActionInput();dropRemaining=player.dropRemaining||0;dropFast=dropPhase==='parachute'&&!!keys[' '];planeElapsed=snapshot.time;planeRoute=snapshot.plane.route;slot=keptLoadout?keptLoadout.slot:pendingSlot===null?player.slot:pendingSlot;selectedItem=IslandInventory.isMed(player.inventory[slot])?'medkit':'weapon';
@@ -276,7 +277,7 @@ function islandOnlineUpdate(dt){
  const net=islandNetwork;if(!net.ready||!net.last){islandClampCamera();return}
  islandState.time=Math.max(islandState.time,net.last.time+Math.min(.2,(performance.now()-net.receivedAt)/1000));player.phase=dropPhase;
  if(dropPhase==='ground'&&islandMeleeSelected()&&actionDown('fire')&&!matchMenuOpen&&!settingsOpen&&performance.now()>=islandMeleeVisualReady){islandBeginMeleeVisual()}
- updatePlayerAim();const fresh=performance.now()-net.receivedAt<1000;if(!fresh){$('#island-network-state').textContent='CONNECTION LOST · RETRYING';return}
+ Island.separateActors(islandState,[player,...bots]);updatePlayerAim();const fresh=performance.now()-net.receivedAt<1000;if(!fresh){$('#island-network-state').textContent='CONNECTION LOST · RETRYING';return}
  const movement=islandMapOpen||matchMenuOpen?{dx:0,dy:0}:movementVector();
  if(dropPhase==='ground')Island.moveActor(islandState,player,movement.dx,movement.dy,dt,player.speed);
  else if(dropPhase==='plane')Object.assign(player,Island.planePosition(planeRoute,islandState.time));

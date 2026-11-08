@@ -7,3 +7,5 @@ const pulseDrawBefore=draw;draw=function(...args){pulseDrawBefore(...args);if(!r
 const pulseSelectBefore=selectSlot;selectSlot=function(i){if(i!==slot&&player.inventory[slot]?.type===5){player.inventory[slot].pulseStart=null;player.pulseCharge=0}return pulseSelectBefore(i)};
 
 let pulseRenderActor=null;const pulseCharacterBefore=drawCharacter;drawCharacter=function(a){const prev=pulseRenderActor;pulseRenderActor=a;try{return pulseCharacterBefore(a)}finally{pulseRenderActor=prev}};
+
+const pulseReloadBefore=reload;reload=function(){const g=player?.inventory?.[slot];if(g?.type!==5||g.ammo<=0||g.reloading)return pulseReloadBefore();if(!running||dropPhase!=='ground'||settingsOpen||matchMenuOpen)return false;if(islandNetwork.ready){islandSendAction('reload');return true}return IslandPulse.start(player,combatInputTimeMs())};

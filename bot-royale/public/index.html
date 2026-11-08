@@ -298,21 +298,22 @@ const ROOM_SCALE=1.4,BUILDING_COUNT=85,MIN_GAP=200;
 const TYPES=['house','market','garage','barn','poolhouse','kitchen','lounge','octagon','bedroom','diner','hall','warehouse'];
 
 function addPalace(s){
- const F=4,ox=4200,oy=1600,X=v=>ox+v*F,Y=v=>oy+v*F;
- s.palace={x:X(65),y:Y(140),w:1120*F,h:1015*F,scale:F,ox,oy};const p=s.palace;
+ const F=2.8,ox=4200,oy=1600,X=v=>ox+v*F,Y=v=>oy+v*F;
+ s.palace={x:X(60),y:Y(105),w:780*F,h:700*F,scale:F,ox,oy};const p=s.palace;
  const inside=(x,y)=>x>p.x-150&&x<p.x+p.w+150&&y>p.y-150&&y<p.y+p.h+150;
  const removed=new Set(s.buildings.filter(b=>b.x<p.x+p.w+150&&b.x+b.w>p.x-150&&b.y<p.y+p.h+150&&b.y+b.h>p.y-150).map(b=>b.id));s.buildings=s.buildings.filter(b=>!removed.has(b.id));s.objects=s.objects.filter(o=>!removed.has(o.building));s.doors=s.doors.filter(o=>!removed.has(o.building));s.containers=s.containers.filter(o=>!removed.has(o.building));
  s.water=s.water.filter(w=>{const x=w.kind==='lake'?w.x-w.rx:Math.min(w.ax,w.bx)-w.r,y=w.kind==='lake'?w.y-w.ry:Math.min(w.ay,w.by)-w.r,ww=w.kind==='lake'?w.rx*2:Math.abs(w.ax-w.bx)+w.r*2,hh=w.kind==='lake'?w.ry*2:Math.abs(w.ay-w.by)+w.r*2;return !(x<p.x+p.w+150&&x+ww>p.x-150&&y<p.y+p.h+150&&y+hh>p.y-150)});s.roads=s.roads.filter(r=>!r.points.some(([x,y])=>inside(x,y)));s.fields=s.fields.filter(f=>!inside(f.x,f.y));
  const id=k=>'palace-'+k+'-'+s.nextId++,put=o=>{o.id=id(o.kind);s.objects.push(o);return o};
  function line(kind,a,b,building){return put({kind,shape:'segment',ax:X(a[0]),ay:Y(a[1]),bx:X(b[0]),by:Y(b[1]),x:X(Math.min(a[0],b[0]))-9,y:Y(Math.min(a[1],b[1]))-9,w:Math.abs(a[0]-b[0])*F+18,h:Math.abs(a[1]-b[1])*F+18,r:9,solid:true,blocksShots:true,building,paint:'palace'})}
- function edge(a,b,building,portal=false){const dx=b[0]-a[0],dy=b[1]-a[1],len=Math.hypot(dx,dy),at=t=>[a[0]+dx*t,b? a[1]+dy*t:0];if(!portal){line('wall',a,b,building);return}const rm=s.buildings.find(b=>b.id===building),mid=dy===0&&a[1]===((rm?.y||0)-oy)/F&&['West Hall','East Hall'].includes(rm?.name)?((rm.name==='West Hall'?252.5:1002.5)-a[0])/dx:.5;const gap=32/len,lo=mid-gap/2,hi=mid+gap/2;for(const [u,v] of [[0,lo],[hi,1]]){const pad=(v-u)*.24;line('wall',at(u),at(u+pad),building);line('window',at(u+pad),at(v-pad),building);line('wall',at(v-pad),at(v),building)}const h=at(lo),tip=at(hi),d=put({kind:'door',shape:'rect',x:X(h[0])-(dx===0?9:0),y:Y(h[1])-(dy===0?9:0),w:dx===0?18:128,h:dy===0?18:128,hingeX:X(h[0]),hingeY:Y(h[1]),closedAngle:Math.atan2(dy,dx),length:128,solid:true,blocksShots:true,building,exterior:true,open:false,lastUse:-100,changedAt:-1,angle:0,swing:1});s.doors.push(d);const room=s.buildings.find(b=>b.id===building);room?.entryPoints.push({x:(X(h[0])+X(tip[0]))/2+dy/len*70,y:(Y(h[1])+Y(tip[1]))/2-dx/len*70,door:d.id})}
- const rooms=[[395,250,460,285,'Throne Hall','#87315e','#f4e4cb'],[140,350,255,200,'West Hall','#873caf','#e7aa5c'],[850,350,255,200,'East Hall','#873caf','#f1cfb3'],[170,185,165,165,'West Tower','#87315e','#d6b7e6'],[920,185,165,165,'East Tower','#87315e','#f4e4cb'],[175,670,165,140,'Jade Pavilion','#208e8c','#bde5be'],[915,670,165,140,'Azure Pavilion','#208e8c','#b6d7e8'],[408,875,135,110,'West Lodge','#ac65b3','#edba72'],[708,875,135,110,'East Lodge','#ac65b3','#b8e4d9'],[418,1040,108,110,'West Gate','#ac65b3','#f4e4cb'],[728,1040,108,110,'East Gate','#ac65b3','#f4e4cb']];
+ function edge(a,b,building,portal=false){const dx=b[0]-a[0],dy=b[1]-a[1],len=Math.hypot(dx,dy),at=t=>[a[0]+dx*t,b? a[1]+dy*t:0];if(!portal){line('wall',a,b,building);return}const rm=s.buildings.find(b=>b.id===building),mid=dy===0&&a[1]===((rm?.y||0)-oy)/F&&['West Hall','East Hall'].includes(rm?.name)?((rm.name==='West Hall'?190:710)-a[0])/dx:.5;const gap=(96/F)/len,lo=mid-gap/2,hi=mid+gap/2;for(const [u,v] of [[0,lo],[hi,1]]){const pad=(v-u)*.24;line('wall',at(u),at(u+pad),building);line('window',at(u+pad),at(v-pad),building);line('wall',at(v-pad),at(v),building)}const h=at(lo),tip=at(hi),d=put({kind:'door',shape:'rect',x:X(h[0])-(dx===0?9:0),y:Y(h[1])-(dy===0?9:0),w:dx===0?18:96,h:dy===0?18:96,hingeX:X(h[0]),hingeY:Y(h[1]),closedAngle:Math.atan2(dy,dx),length:96,solid:true,blocksShots:true,building,exterior:true,open:false,lastUse:-100,changedAt:-1,angle:0,swing:1});s.doors.push(d);const room=s.buildings.find(b=>b.id===building);room?.entryPoints.push({x:(X(h[0])+X(tip[0]))/2+dy/len*70,y:(Y(h[1])+Y(tip[1]))/2-dx/len*70,door:d.id})}
+ const rooms=[[295,182,305,225,'Throne Hall','#87315e','#f4e4cb'],[114,256,180,150,'West Hall','#873caf','#e7aa5c'],[600,256,185,150,'East Hall','#873caf','#f1cfb3'],[130,138,120,120,'West Tower','#87315e','#d6b7e6'],[650,138,120,120,'East Tower','#87315e','#f4e4cb'],[140,472,115,98,'Jade Pavilion','#208e8c','#bde5be'],[645,472,115,98,'Azure Pavilion','#208e8c','#b6d7e8'],[298,610,99,83,'West Lodge','#ac65b3','#edba72'],[508,610,99,83,'East Lodge','#ac65b3','#b8e4d9'],[308,728,67,72,'West Gate','#ac65b3','#f4e4cb'],[524,728,67,72,'East Gate','#ac65b3','#f4e4cb']];
  for(const [x,y,w,h,name,roof,floor]of rooms){const b={id:id('room'),loc:'palace',x:X(x),y:Y(y),w:w*F,h:h*F,style:'palace',palace:true,name,roofColor:roof,floorColor:floor,floor:'tile',entryPoints:[],rooms:[],wallThickness:18};const cut=name.includes('Tower')?35:0;b.outline=(cut?[[x+cut,y],[x+w-cut,y],[x+w,y+cut],[x+w,y+h-cut],[x+w-cut,y+h],[x+cut,y+h],[x,y+h-cut],[x,y+cut]]:[[x,y],[x+w,y],[x+w,y+h],[x,y+h]]).map(([a,b])=>[X(a),Y(b)]);s.buildings.push(b);for(let i=0;i<b.outline.length;i++){const a=b.outline[i],c=b.outline[(i+1)%b.outline.length];edge([(a[0]-ox)/F,(a[1]-oy)/F],[(c[0]-ox)/F,(c[1]-oy)/F],b.id,Math.abs(a[1]-c[1])<1&&(a[1]===Y(y+h)||name.endsWith('Hall')&&name!=='Throne Hall'&&a[1]===Y(y)))}}
  // Perimeter has the existing hinged doors; the broad southern entrance stays open.
- edge([85,165],[1170,165],null,true);for(const xx of [85,1170])for(const [a,b]of [[165,505],[505,810],[810,1085]])edge([xx,a],[xx,b],null,true);edge([85,1085],[418,1085],null,false);edge([836,1085],[1170,1085],null,false);
- put({kind:'sofa',shape:'rect',x:X(600),y:Y(280),w:216,h:220,solid:true,blocksShots:true,building:s.buildings.find(b=>b.name==='Throne Hall').id,color:'#9a3675'});
- put({kind:'rock',shape:'circle',x:X(627),y:Y(745),r:60*F,solid:true,blocksShots:true,palaceFountain:true});
- s.locations.push({id:'palace',name:'Wonderlust Palace',x:X(627),y:Y(730),kind:'palace',color:'#e5c561',risk:'high'});
+ edge([75,120],[825,120],null,true);for(const xx of [75,825])for(const [a,b,portal]of [[120,285,false],[285,360,true],[360,500,false],[500,575,true],[575,760,false]])edge([xx,a],[xx,b],null,portal);edge([75,760],[308,760],null,false);edge([591,760],[825,760],null,false);
+ put({kind:'sofa',shape:'rect',x:X(430),y:Y(210),w:100,h:100,solid:true,blocksShots:true,building:s.buildings.find(b=>b.name==='Throne Hall').id,color:'#9a3675'});
+ put({kind:'rock',shape:'circle',x:X(450),y:Y(525),r:48*F,solid:true,blocksShots:true,palaceFountain:true});
+ const unique=[];for(const d of s.doors.filter(d=>d.id.startsWith('palace-'))){const mx=d.hingeX+Math.cos(d.closedAngle)*d.length/2,my=d.hingeY+Math.sin(d.closedAngle)*d.length/2,existing=unique.find(o=>Math.hypot(o.mx-mx,o.my-my)<12);if(existing){s.objects=s.objects.filter(o=>o!==d);s.doors=s.doors.filter(o=>o!==d);for(const b of s.buildings)for(const e of b.entryPoints)if(e.door===d.id)e.door=existing.d.id}else unique.push({d,mx,my})}
+ s.locations.push({id:'palace',name:'Wonderlust Palace',x:X(450),y:Y(525),kind:'palace',color:'#e5c561',risk:'high'});
 }
 
 function populate(s,random,tools){
@@ -415,6 +416,7 @@ function populate(s,random,tools){
 }
 return {TYPES,ROOM_SCALE,BUILDING_COUNT,MIN_GAP,populate};
 });
+
 
 
 (function(root,factory){const api=factory(typeof module==="object"&&module.exports?require("./buildings.js"):root.IslandBuildings,typeof module==="object"&&module.exports?require("./weapon-rules.js"):root.IslandWeaponStats);if(typeof module==='object'&&module.exports)module.exports=api;else root.IslandCore=api})(typeof globalThis!=='undefined'?globalThis:this,function(Buildings,WeaponStats){
@@ -885,6 +887,10 @@ return{themes,regions,idAt,at,noise};
 });
 (function(root,factory){const api=factory(typeof module==='object'&&module.exports?require('./world.js'):root.IslandCore,typeof module==='object'&&module.exports?require('./map-theme.js'):root.IslandMapTheme);if(typeof module==='object'&&module.exports)module.exports=api;else root.IslandRender=api})(typeof globalThis!=='undefined'?globalThis:this,function(Core,Theme){
 'use strict';
+const palaceArt={};if(typeof Image!=='undefined'){palaceArt.floor=new Image();palaceArt.roof=new Image();palaceArt.floor.src='/assets/c0a634da13263ee64043.webp';palaceArt.roof.src='/assets/c0a634da13263ee64043.webp'}
+function palaceReady(){return palaceArt.floor?.complete&&palaceArt.floor.width>0}
+function palaceDoorPatches(z,s){const p=s.palace;if(!p)return;z.save();z.translate(p.ox,p.oy);z.scale(p.scale,p.scale);z.fillStyle='#f4e7d0';for(const d of s.doors.filter(d=>d.id.startsWith('palace-'))){const a=(d.hingeX-p.ox)/p.scale,b=(d.hingeY-p.oy)/p.scale,dx=Math.cos(d.closedAngle),dy=Math.sin(d.closedAngle),len=d.length/p.scale;z.save();z.translate(a,b);z.rotate(d.closedAngle);z.fillRect(-3,-9,len+6,18);z.restore()}z.restore()}
+
 function poly(z,points){z.beginPath();points.forEach((p,i)=>i?z.lineTo(p[0],p[1]):z.moveTo(p[0],p[1]));z.closePath()}
 function round(z,x,y,w,h,r=8){z.beginPath();z.roundRect(x,y,w,h,r)}
 function cloud(z,x,y,r,lobes=8){z.beginPath();for(let i=0;i<=96;i++){const a=i/96*Math.PI*2,d=r*(.88+.10*Math.cos(a*lobes));i?z.lineTo(x+Math.cos(a)*d,y+Math.sin(a)*d):z.moveTo(x+Math.cos(a)*d,y+Math.sin(a)*d)}z.closePath()}
@@ -902,12 +908,14 @@ function terrain(z,s,view={x:0,y:0,w:s.size,h:s.size},map=false){
  z.restore();
 }
 function floors(z,s,visible){
- if(s.palace){const p=s.palace,F=p.scale;z.save();z.translate(p.ox,p.oy);z.scale(F,F);z.fillStyle='#f6e8cf';z.fillRect(85,165,1085,920);z.strokeStyle='#cdbd9c55';z.lineWidth=.5;for(let a=85;a<1170;a+=50){z.beginPath();z.moveTo(a,165);z.lineTo(a,1085);z.stroke()}for(let a=165;a<1085;a+=50){z.beginPath();z.moveTo(85,a);z.lineTo(1170,a);z.stroke()}z.strokeStyle='#dcb77b';z.lineWidth=32;z.lineCap='round';for(const path of [[[627,550],[627,1150]],[[250,565],[280,620],[390,650],[390,745],[850,745],[850,650],[970,620],[980,565]],[[255,810],[275,1040],[475,1055],[475,985]],[[1000,810],[970,1040],[780,1055],[780,985]]]){z.beginPath();path.forEach(([x,y],i)=>i?z.lineTo(x,y):z.moveTo(x,y));z.stroke()}for(const x of [155,1035]){z.fillStyle='#81bd61';z.fillRect(x,880,65,120);for(let row=0;row<3;row++)for(let col=0;col<2;col++){z.fillStyle='#ee81b2';z.beginPath();z.arc(x+18+col*28,900+row*36,9,0,7);z.fill();z.fillStyle='#ffdb65';z.beginPath();z.arc(x+18+col*28,900+row*36,3,0,7);z.fill()}}z.restore()}
+ if(s.palace&&palaceReady()){const p=s.palace;z.drawImage(palaceArt.floor,870,90,887,730,p.ox,p.oy+90*p.scale,887*p.scale,730*p.scale);palaceDoorPatches(z,s)}
+ if(s.palace&&!palaceReady()){const p=s.palace,F=p.scale;z.save();z.translate(p.ox,p.oy);z.scale(F,F);z.fillStyle='#f6e8cf';z.fillRect(85,165,1085,920);z.strokeStyle='#cdbd9c55';z.lineWidth=.5;for(let a=85;a<1170;a+=50){z.beginPath();z.moveTo(a,165);z.lineTo(a,1085);z.stroke()}for(let a=165;a<1085;a+=50){z.beginPath();z.moveTo(85,a);z.lineTo(1170,a);z.stroke()}z.strokeStyle='#dcb77b';z.lineWidth=32;z.lineCap='round';for(const path of [[[627,550],[627,1150]],[[250,565],[280,620],[390,650],[390,745],[850,745],[850,650],[970,620],[980,565]],[[255,810],[275,1040],[475,1055],[475,985]],[[1000,810],[970,1040],[780,1055],[780,985]]]){z.beginPath();path.forEach(([x,y],i)=>i?z.lineTo(x,y):z.moveTo(x,y));z.stroke()}for(const x of [155,1035]){z.fillStyle='#81bd61';z.fillRect(x,880,65,120);for(let row=0;row<3;row++)for(let col=0;col<2;col++){z.fillStyle='#ee81b2';z.beginPath();z.arc(x+18+col*28,900+row*36,9,0,7);z.fill();z.fillStyle='#ffdb65';z.beginPath();z.arc(x+18+col*28,900+row*36,3,0,7);z.fill()}}z.restore()}
 
  function floor(x,y,w,h,type,t){z.fillStyle=type==='wood'?t.floor:type==='sand'?(t===Theme.themes.beach?'#e4d2a1':'#c8c3a5'):t.tile;z.fillRect(x,y,w,h);z.lineWidth=1;z.strokeStyle=type==='wood'?'#41352235':'#34475335';const pitch=type==='wood'?20:30;for(let yy=y+pitch;yy<y+h;yy+=pitch){z.beginPath();z.moveTo(x,yy);z.lineTo(x+w,yy);z.stroke()}if(type!=='wood')for(let xx=x+pitch;xx<x+w;xx+=pitch){z.beginPath();z.moveTo(xx,y);z.lineTo(xx,y+h);z.stroke()}else{z.strokeStyle='#efd2a323';for(let yy=y+7;yy<h+y;yy+=20){z.beginPath();z.moveTo(x+7,yy);z.lineTo(x+w-7,yy);z.stroke()}}}
- for(const b of s.buildings)if(visible(b)){const original=Theme.at(b.x+b.w/2,b.y+b.h/2,s.size),t=b.palace?{...original,tile:b.floorColor,floor:b.floorColor}:original;z.save();poly(z,b.outline||[[b.x,b.y],[b.x+b.w,b.y],[b.x+b.w,b.y+b.h],[b.x,b.y+b.h]]);z.clip();floor(b.x,b.y,b.w,b.h,b.floor||'wood',t);for(const room of b.rooms||[])floor(room.x,room.y,room.w,room.h,room.floor,t);z.restore()}
+ for(const b of s.buildings)if(visible(b)&&!(b.palace&&palaceReady())){const original=Theme.at(b.x+b.w/2,b.y+b.h/2,s.size),t=b.palace?{...original,tile:b.floorColor,floor:b.floorColor}:original;z.save();poly(z,b.outline||[[b.x,b.y],[b.x+b.w,b.y],[b.x+b.w,b.y+b.h],[b.x,b.y+b.h]]);z.clip();floor(b.x,b.y,b.w,b.h,b.floor||'wood',t);for(const room of b.rooms||[])floor(room.x,room.y,room.w,room.h,room.floor,t);z.restore()}
 }
 function architectureObject(z,o,time){
+ if(palaceReady()&&(o.paint==='palace'||o.palaceFountain||o.building?.startsWith('palace-')&&o.kind!=='door'))return true;
  if(o.palaceFountain){z.save();for(const [r,c]of [[o.r,'#f7e5ba'],[o.r-22,'#d5a445'],[o.r-40,'#1dc3d1'],[o.r*.25,'#fff1ce']]){z.fillStyle=c;z.strokeStyle='#664c30';z.lineWidth=6;z.beginPath();z.arc(o.x,o.y,r,0,7);z.fill();z.stroke()}z.restore();return true}
 
  if(o.kind==='door'&&o.hingeX!==undefined){
@@ -995,6 +1003,7 @@ function loot(z,q,art,tiers,near=false,key='E',weaponName=''){
  else{z.fillStyle=q.type==='med'?'#f2eee0':q.type==='shield'?'#82dbf0':'#c8b66c';z.strokeStyle='#385b48';z.lineWidth=3;round(z,q.x-13,q.y-13,26,26,5);z.fill();z.stroke();z.fillStyle=q.type==='med'?'#b44d4c':'#3e6550';if(q.type==='ammo'){for(let i=-7;i<=7;i+=7)z.fillRect(q.x+i-2,q.y-7,4,14)}else{z.font='bold 21px sans-serif';z.fillText(q.type==='med'?'+':'◆',q.x-7,q.y+7)}}
 }
 function roofAppearance(z,b,t,detail=true){
+ if(b.palace&&palaceArt.roof?.complete&&palaceArt.roof.width){const F=2.8,ox=4200,oy=1600,sx=(b.x-ox)/F,sy=(b.y-oy)/F,sw=b.w/F,sh=b.h/F;z.drawImage(palaceArt.roof,sx-8,sy-8,sw+16,sh+16,b.x-8*F,b.y-8*F,(sw+16)*F,(sh+16)*F);return}
  if(b.palace){z.save();poly(z,b.outline);z.fillStyle=b.roofColor;z.strokeStyle='#382635';z.lineWidth=14;z.fill();z.stroke();z.clip();z.strokeStyle='#50264655';z.lineWidth=3;for(let a=b.x;a<b.x+b.w;a+=56){z.beginPath();z.moveTo(a,b.y);z.lineTo(a,b.y+b.h);z.stroke()}z.strokeStyle='#ffe088';z.lineWidth=24;const cx=b.x+b.w/2,cy=b.y+b.h/2;for(const [px,py]of b.outline){z.beginPath();z.moveTo(px,py);z.lineTo(cx,cy);z.stroke()}z.strokeStyle='#e8b742';z.lineWidth=16;poly(z,b.outline);z.stroke();z.fillStyle='#ffe493';z.fillRect(cx-28,cy-20,56,40);z.restore();return}
 
  const cx=b.x+b.w/2,cy=b.y+b.h/2,points=(b.outline||[[b.x,b.y],[b.x+b.w,b.y],[b.x+b.w,b.y+b.h],[b.x,b.y+b.h]]).map(([xx,yy])=>[cx+(xx-cx)*(1-18/b.w),cy+(yy-cy)*(1-18/b.h)]);
@@ -1014,7 +1023,7 @@ function roofAppearance(z,b,t,detail=true){
  if(t===Theme.themes.snow){z.fillStyle='#e3f3f6';for(const [xx,yy,ww]of [[b.x+19,b.y+15,b.w*.35],[b.x+b.w*.65,b.y+b.h-30,b.w*.30]]){round(z,xx,yy,ww,16,8);z.fill()}z.fillStyle='#b9dce9';round(z,b.x+23,b.y+b.h*.55,15,b.h*.25,6);z.fill()}
  }z.restore();
 }
-function roofs(z,s,local,visible,dt=.016){for(const b of s.buildings)if(visible(b)){const revealed=Core.canViewInterior(s,b,local);b.roofAlpha=revealed?0:1;if(!revealed)roofAppearance(z,b,Theme.at(b.x+b.w/2,b.y+b.h/2,s.size))}}
+function roofs(z,s,local,visible,dt=.016){for(const b of s.buildings)if(visible(b)){const revealed=Core.canViewInterior(s,b,local);b.roofAlpha=revealed?0:1;if(!revealed)roofAppearance(z,b,Theme.at(b.x+b.w/2,b.y+b.h/2,s.size))}if(s.palace&&palaceReady())palaceDoorPatches(z,s)}
 function gas(z,s,view){
  const c=s.zone.current;z.save();z.fillStyle='#409cf04a';z.beginPath();z.rect(view.x,view.y,view.w,view.h);z.arc(c.x,c.y,c.r,0,Math.PI*2,true);z.fill('evenodd');z.lineWidth=6;z.strokeStyle='#64caff';z.beginPath();z.arc(c.x,c.y,c.r,0,7);z.stroke();const next=s.zone.next;z.setLineDash([14,13]);z.strokeStyle='#f2fbef';z.lineWidth=3;z.beginPath();z.arc(next.x,next.y,next.r,0,7);z.stroke();z.restore();
 }
@@ -1059,7 +1068,7 @@ R.canopies=function(z,objects,local){for(const o of objects)if(o.kind==='tree'&&
 R.bushes=function(z,s,visible,local=null){for(const b of s.bushes)if(visible({x:b.x-b.r,y:b.y-b.r,w:b.r*2,h:b.r*2})){const biome=Theme.idAt(b.x,b.y,C.SIZE),radius=b.r+5,rect={x:-radius,y:-radius,w:radius*2,h:radius*2};z.save();z.translate(b.x,b.y);if(local&&Math.hypot(local.x-b.x,local.y-b.y)<(b.hideRadius??b.r*.83))z.globalAlpha=.55;if(!sprite(z,'bush:'+b.r+':'+biome,rect,ctx=>raw.bushes(ctx,{bushes:[{...b,x:0,y:0,visualBiome:biome}]},()=>true)))raw.bushes(z,{bushes:[{...b,x:0,y:0,visualBiome:biome}]},()=>true);z.restore()}};
 
 R.crate=function(z,c){if(c.open||c.destroyed)return;z.save();z.translate(c.x,c.y);if(!sprite(z,'crate:'+c.kind,{x:-36,y:-36,w:72,h:72},ctx=>raw.crate(ctx,{...c,x:0,y:0})))raw.crate(z,{...c,x:0,y:0});z.restore()};
-R.floors=function(z,s,visible){
+R.floors=function(z,s,visible){if(s.palace)raw.floors(z,{...s,buildings:[]},()=>false);
  for(const building of s.buildings){
   if(!visible(building))continue;
   const rect={x:building.x,y:building.y,w:building.w,h:building.h};
@@ -1094,6 +1103,7 @@ R.farScene=function(z,s,view){
 };
 return{stats,raw,MAX_BYTES,clear(){for(const q of cache.values())q.canvas.width=q.canvas.height=1;cache.clear();stats.bytes=0}};
 });
+
 
 /* Cosmetics use the supplied pixels and measured body diameters. */
 (function(root,factory){

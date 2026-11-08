@@ -1,5 +1,9 @@
 (function(root,factory){const api=factory(typeof module==='object'&&module.exports?require('./world.js'):root.IslandCore,typeof module==='object'&&module.exports?require('./map-theme.js'):root.IslandMapTheme);if(typeof module==='object'&&module.exports)module.exports=api;else root.IslandRender=api})(typeof globalThis!=='undefined'?globalThis:this,function(Core,Theme){
 'use strict';
+const palaceArt={};if(typeof Image!=='undefined'){palaceArt.floor=new Image();palaceArt.roof=new Image();palaceArt.floor.src='__PALACE_INTERIOR__';palaceArt.roof.src='__PALACE_ROOF__'}
+function palaceReady(){return palaceArt.floor?.complete&&palaceArt.floor.width>0}
+function palaceDoorPatches(z,s){const p=s.palace;if(!p)return;z.save();z.translate(p.ox,p.oy);z.scale(p.scale,p.scale);z.fillStyle='#f4e7d0';for(const d of s.doors.filter(d=>d.id.startsWith('palace-'))){const a=(d.hingeX-p.ox)/p.scale,b=(d.hingeY-p.oy)/p.scale,dx=Math.cos(d.closedAngle),dy=Math.sin(d.closedAngle),len=d.length/p.scale;z.save();z.translate(a,b);z.rotate(d.closedAngle);z.fillRect(-3,-9,len+6,18);z.restore()}z.restore()}
+
 function poly(z,points){z.beginPath();points.forEach((p,i)=>i?z.lineTo(p[0],p[1]):z.moveTo(p[0],p[1]));z.closePath()}
 function round(z,x,y,w,h,r=8){z.beginPath();z.roundRect(x,y,w,h,r)}
 function cloud(z,x,y,r,lobes=8){z.beginPath();for(let i=0;i<=96;i++){const a=i/96*Math.PI*2,d=r*(.88+.10*Math.cos(a*lobes));i?z.lineTo(x+Math.cos(a)*d,y+Math.sin(a)*d):z.moveTo(x+Math.cos(a)*d,y+Math.sin(a)*d)}z.closePath()}
@@ -17,12 +21,14 @@ function terrain(z,s,view={x:0,y:0,w:s.size,h:s.size},map=false){
  z.restore();
 }
 function floors(z,s,visible){
- if(s.palace){const p=s.palace,F=p.scale;z.save();z.translate(p.ox,p.oy);z.scale(F,F);z.fillStyle='#f6e8cf';z.fillRect(85,165,1085,920);z.strokeStyle='#cdbd9c55';z.lineWidth=.5;for(let a=85;a<1170;a+=50){z.beginPath();z.moveTo(a,165);z.lineTo(a,1085);z.stroke()}for(let a=165;a<1085;a+=50){z.beginPath();z.moveTo(85,a);z.lineTo(1170,a);z.stroke()}z.strokeStyle='#dcb77b';z.lineWidth=32;z.lineCap='round';for(const path of [[[627,550],[627,1150]],[[250,565],[280,620],[390,650],[390,745],[850,745],[850,650],[970,620],[980,565]],[[255,810],[275,1040],[475,1055],[475,985]],[[1000,810],[970,1040],[780,1055],[780,985]]]){z.beginPath();path.forEach(([x,y],i)=>i?z.lineTo(x,y):z.moveTo(x,y));z.stroke()}for(const x of [155,1035]){z.fillStyle='#81bd61';z.fillRect(x,880,65,120);for(let row=0;row<3;row++)for(let col=0;col<2;col++){z.fillStyle='#ee81b2';z.beginPath();z.arc(x+18+col*28,900+row*36,9,0,7);z.fill();z.fillStyle='#ffdb65';z.beginPath();z.arc(x+18+col*28,900+row*36,3,0,7);z.fill()}}z.restore()}
+ if(s.palace&&palaceReady()){const p=s.palace;z.drawImage(palaceArt.floor,870,90,887,730,p.ox,p.oy+90*p.scale,887*p.scale,730*p.scale);palaceDoorPatches(z,s)}
+ if(s.palace&&!palaceReady()){const p=s.palace,F=p.scale;z.save();z.translate(p.ox,p.oy);z.scale(F,F);z.fillStyle='#f6e8cf';z.fillRect(85,165,1085,920);z.strokeStyle='#cdbd9c55';z.lineWidth=.5;for(let a=85;a<1170;a+=50){z.beginPath();z.moveTo(a,165);z.lineTo(a,1085);z.stroke()}for(let a=165;a<1085;a+=50){z.beginPath();z.moveTo(85,a);z.lineTo(1170,a);z.stroke()}z.strokeStyle='#dcb77b';z.lineWidth=32;z.lineCap='round';for(const path of [[[627,550],[627,1150]],[[250,565],[280,620],[390,650],[390,745],[850,745],[850,650],[970,620],[980,565]],[[255,810],[275,1040],[475,1055],[475,985]],[[1000,810],[970,1040],[780,1055],[780,985]]]){z.beginPath();path.forEach(([x,y],i)=>i?z.lineTo(x,y):z.moveTo(x,y));z.stroke()}for(const x of [155,1035]){z.fillStyle='#81bd61';z.fillRect(x,880,65,120);for(let row=0;row<3;row++)for(let col=0;col<2;col++){z.fillStyle='#ee81b2';z.beginPath();z.arc(x+18+col*28,900+row*36,9,0,7);z.fill();z.fillStyle='#ffdb65';z.beginPath();z.arc(x+18+col*28,900+row*36,3,0,7);z.fill()}}z.restore()}
 
  function floor(x,y,w,h,type,t){z.fillStyle=type==='wood'?t.floor:type==='sand'?(t===Theme.themes.beach?'#e4d2a1':'#c8c3a5'):t.tile;z.fillRect(x,y,w,h);z.lineWidth=1;z.strokeStyle=type==='wood'?'#41352235':'#34475335';const pitch=type==='wood'?20:30;for(let yy=y+pitch;yy<y+h;yy+=pitch){z.beginPath();z.moveTo(x,yy);z.lineTo(x+w,yy);z.stroke()}if(type!=='wood')for(let xx=x+pitch;xx<x+w;xx+=pitch){z.beginPath();z.moveTo(xx,y);z.lineTo(xx,y+h);z.stroke()}else{z.strokeStyle='#efd2a323';for(let yy=y+7;yy<h+y;yy+=20){z.beginPath();z.moveTo(x+7,yy);z.lineTo(x+w-7,yy);z.stroke()}}}
- for(const b of s.buildings)if(visible(b)){const original=Theme.at(b.x+b.w/2,b.y+b.h/2,s.size),t=b.palace?{...original,tile:b.floorColor,floor:b.floorColor}:original;z.save();poly(z,b.outline||[[b.x,b.y],[b.x+b.w,b.y],[b.x+b.w,b.y+b.h],[b.x,b.y+b.h]]);z.clip();floor(b.x,b.y,b.w,b.h,b.floor||'wood',t);for(const room of b.rooms||[])floor(room.x,room.y,room.w,room.h,room.floor,t);z.restore()}
+ for(const b of s.buildings)if(visible(b)&&!(b.palace&&palaceReady())){const original=Theme.at(b.x+b.w/2,b.y+b.h/2,s.size),t=b.palace?{...original,tile:b.floorColor,floor:b.floorColor}:original;z.save();poly(z,b.outline||[[b.x,b.y],[b.x+b.w,b.y],[b.x+b.w,b.y+b.h],[b.x,b.y+b.h]]);z.clip();floor(b.x,b.y,b.w,b.h,b.floor||'wood',t);for(const room of b.rooms||[])floor(room.x,room.y,room.w,room.h,room.floor,t);z.restore()}
 }
 function architectureObject(z,o,time){
+ if(palaceReady()&&(o.paint==='palace'||o.palaceFountain||o.building?.startsWith('palace-')&&o.kind!=='door'))return true;
  if(o.palaceFountain){z.save();for(const [r,c]of [[o.r,'#f7e5ba'],[o.r-22,'#d5a445'],[o.r-40,'#1dc3d1'],[o.r*.25,'#fff1ce']]){z.fillStyle=c;z.strokeStyle='#664c30';z.lineWidth=6;z.beginPath();z.arc(o.x,o.y,r,0,7);z.fill();z.stroke()}z.restore();return true}
 
  if(o.kind==='door'&&o.hingeX!==undefined){
@@ -110,6 +116,7 @@ function loot(z,q,art,tiers,near=false,key='E',weaponName=''){
  else{z.fillStyle=q.type==='med'?'#f2eee0':q.type==='shield'?'#82dbf0':'#c8b66c';z.strokeStyle='#385b48';z.lineWidth=3;round(z,q.x-13,q.y-13,26,26,5);z.fill();z.stroke();z.fillStyle=q.type==='med'?'#b44d4c':'#3e6550';if(q.type==='ammo'){for(let i=-7;i<=7;i+=7)z.fillRect(q.x+i-2,q.y-7,4,14)}else{z.font='bold 21px sans-serif';z.fillText(q.type==='med'?'+':'◆',q.x-7,q.y+7)}}
 }
 function roofAppearance(z,b,t,detail=true){
+ if(b.palace&&palaceArt.roof?.complete&&palaceArt.roof.width){const F=2.8,ox=4200,oy=1600,sx=(b.x-ox)/F,sy=(b.y-oy)/F,sw=b.w/F,sh=b.h/F;z.drawImage(palaceArt.roof,sx-8,sy-8,sw+16,sh+16,b.x-8*F,b.y-8*F,(sw+16)*F,(sh+16)*F);return}
  if(b.palace){z.save();poly(z,b.outline);z.fillStyle=b.roofColor;z.strokeStyle='#382635';z.lineWidth=14;z.fill();z.stroke();z.clip();z.strokeStyle='#50264655';z.lineWidth=3;for(let a=b.x;a<b.x+b.w;a+=56){z.beginPath();z.moveTo(a,b.y);z.lineTo(a,b.y+b.h);z.stroke()}z.strokeStyle='#ffe088';z.lineWidth=24;const cx=b.x+b.w/2,cy=b.y+b.h/2;for(const [px,py]of b.outline){z.beginPath();z.moveTo(px,py);z.lineTo(cx,cy);z.stroke()}z.strokeStyle='#e8b742';z.lineWidth=16;poly(z,b.outline);z.stroke();z.fillStyle='#ffe493';z.fillRect(cx-28,cy-20,56,40);z.restore();return}
 
  const cx=b.x+b.w/2,cy=b.y+b.h/2,points=(b.outline||[[b.x,b.y],[b.x+b.w,b.y],[b.x+b.w,b.y+b.h],[b.x,b.y+b.h]]).map(([xx,yy])=>[cx+(xx-cx)*(1-18/b.w),cy+(yy-cy)*(1-18/b.h)]);
@@ -129,7 +136,7 @@ function roofAppearance(z,b,t,detail=true){
  if(t===Theme.themes.snow){z.fillStyle='#e3f3f6';for(const [xx,yy,ww]of [[b.x+19,b.y+15,b.w*.35],[b.x+b.w*.65,b.y+b.h-30,b.w*.30]]){round(z,xx,yy,ww,16,8);z.fill()}z.fillStyle='#b9dce9';round(z,b.x+23,b.y+b.h*.55,15,b.h*.25,6);z.fill()}
  }z.restore();
 }
-function roofs(z,s,local,visible,dt=.016){for(const b of s.buildings)if(visible(b)){const revealed=Core.canViewInterior(s,b,local);b.roofAlpha=revealed?0:1;if(!revealed)roofAppearance(z,b,Theme.at(b.x+b.w/2,b.y+b.h/2,s.size))}}
+function roofs(z,s,local,visible,dt=.016){for(const b of s.buildings)if(visible(b)){const revealed=Core.canViewInterior(s,b,local);b.roofAlpha=revealed?0:1;if(!revealed)roofAppearance(z,b,Theme.at(b.x+b.w/2,b.y+b.h/2,s.size))}if(s.palace&&palaceReady())palaceDoorPatches(z,s)}
 function gas(z,s,view){
  const c=s.zone.current;z.save();z.fillStyle='#409cf04a';z.beginPath();z.rect(view.x,view.y,view.w,view.h);z.arc(c.x,c.y,c.r,0,Math.PI*2,true);z.fill('evenodd');z.lineWidth=6;z.strokeStyle='#64caff';z.beginPath();z.arc(c.x,c.y,c.r,0,7);z.stroke();const next=s.zone.next;z.setLineDash([14,13]);z.strokeStyle='#f2fbef';z.lineWidth=3;z.beginPath();z.arc(next.x,next.y,next.r,0,7);z.stroke();z.restore();
 }

@@ -1,1 +1,55 @@
-(function(root,factory){const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;else root.IslandPulse=api})(typeof globalThis!=='undefined'?globalThis:this,function(){const damage=[0,20,35,50,75,100];function start(p,at){const g=p.inventory[p.slot];if(g?.type!==5||p.phase!=='ground'||p.hp<=0||g.reloading||g.ammo<=0)return false;if(g.pulseStart==null)g.pulseStart=at;p.pulseSlot=p.slot;return true}function tick(p,held,at,fire){const g=p.inventory[p.slot];if(p.pulseSlot!==p.slot){const old=p.inventory[p.pulseSlot];if(old)old.pulseStart=null;p.pulseSlot=p.slot}if(g?.type!==5||p.phase!=='ground'||p.hp<=0||g.reloading||g.ammo<=0){if(g)g.pulseStart=null;p.pulseCharge=0;p.pulseFireHeld=held;return}if(g.pulseStart==null)start(p,at);p.pulseCharge=g.pulseStart==null?0:Math.min(5,Math.max(0,(at-g.pulseStart)/1000));const pressed=held&&!p.pulseFireHeld;p.pulseFireHeld=held;if(pressed&&p.pulseCharge>=1){const level=Math.min(5,Math.floor(p.pulseCharge+1e-6));g.chargeDamage=damage[level]+(g.rarity===5?5:0);p.pulseReleasing=true;let ok;try{ok=fire()}finally{p.pulseReleasing=false}if(ok!==false){g.pulseStart=at;p.pulseCharge=0}}}return{tick,start,damage};});
+(function(root,factory){
+ const api=factory();
+ if(typeof module==='object'&&module.exports)module.exports=api;
+ else root.IslandPulse=api;
+})(typeof globalThis!=='undefined'?globalThis:this,function(){
+ 'use strict';
+ const damage=[0,20,35,50,75,100];
+ const fullChargeMs=5000;
+ const selectedGun=new WeakMap();
+
+ function chargeAt(gun,at){
+  if(gun?.type!==5)return 0;
+  const running=gun.pulseStart==null?0:Math.max(0,at-gun.pulseStart);
+  return Math.min(fullChargeMs,(gun.pulseSavedMs??0)+running)/1000;
+ }
+ function pause(gun,at){
+  if(gun?.type!==5||gun.pulseStart==null)return;
+  gun.pulseSavedMs=chargeAt(gun,at)*1000;
+  gun.pulseStart=null;
+ }
+ function start(player,at){
+  const gun=player.inventory[player.slot];
+  if(gun?.type!==5||player.phase!=='ground'||player.hp<=0||gun.reloading||gun.ammo<=0)return false;
+  if(gun.pulseStart==null&&chargeAt(gun,at)<5)gun.pulseStart=at;
+  return true;
+ }
+ function select(player,at,active=true){
+  const gun=player.inventory[player.slot];
+  const previous=selectedGun.get(player);
+  if(previous!==gun){
+   pause(previous,at);
+   selectedGun.set(player,gun);
+  }
+  if(!active||!start(player,at))pause(gun,at);
+  player.pulseCharge=chargeAt(gun,at);
+  return gun;
+ }
+ function tick(player,held,at,fire,active=true){
+  const gun=select(player,at,active);
+  const pressed=held&&!player.pulseFireHeld;
+  player.pulseFireHeld=held;
+  if(!active||!pressed||player.pulseCharge<1||gun.reloading||gun.ammo<=0||player.phase!=='ground'||player.hp<=0)return;
+  const level=Math.min(5,Math.floor(player.pulseCharge+1e-6));
+  gun.chargeDamage=damage[level]+(gun.rarity===5?5:0);
+  player.pulseReleasing=true;
+  let fired;
+  try{fired=fire()}finally{player.pulseReleasing=false}
+  if(fired!==false){
+   gun.pulseSavedMs=0;
+   gun.pulseStart=null;
+   select(player,at);
+  }
+ }
+ return{tick,start,select,chargeAt,damage};
+});

@@ -11,7 +11,7 @@ class Session{
  addBots(){for(let i=0;i<this.botCount;i++){const l=this.world.locations[i%this.world.locations.length],p=C.findValid(this.world,{x:l.x-500+this.world.random()*1000,y:l.y-500+this.world.random()*1000},26,true),id='bot-'+i;this.actors.set(id,{id,...p,hp:75,shield:10,r:26,speed:245,skin:i%CosmeticCollection.skins.length,backpack:-1,melee:0,parachute:i%CosmeticCollection.parachutes.length,angle:0,phase:'plane',bot:true,dropRemaining:C.DROP_SECONDS,dropFast:false,jumpAt:this.route.duration*(.18+this.world.random()*.62),dropTarget:p,slot:1,med:0,inventory:[null,this.gun(1),null,null,null,null],nextBotShot:0,turnUntil:0,steer:0})}}
  join(name,look={}){
  const humans=[...this.actors.values()].filter(p=>!p.bot);if(humans.length>=this.maxPlayers)throw Error('Room is full');
- const id='p-'+(++this.nextActor),pos=C.planePosition(this.route,this.time),p={id,emotes:E.normalize(look.emotes),name:String(name||'Player').slice(0,18),...pos,hp:100,shield:0,r:26,speed:C.PLAYER_SPEED,skin:cosmeticIndex('skins',look.skinId,look.skin??0),backpack:cosmeticIndex('backpacks',look.backpackId,look.backpack??-1),melee:cosmeticIndex('melees',look.meleeId,look.melee??0),parachute:cosmeticIndex('parachutes',look.parachuteId,look.parachute??0),angle:this.route.angle,phase:this.time<this.route.duration?'plane':'parachute',dropRemaining:C.DROP_SECONDS,dropFast:false,slot:1,equipReadyAtMs:0,med:0,inventory:[null,this.gun(5,4),null,null,null,null],ammoWallet:{smg:0,shotgun:0,sniper:0,p90:0},meleeReadyAt:0,lastAction:0,sequence:-1,revealedUntil:0,kills:0};
+ const id='p-'+(++this.nextActor),pos=C.planePosition(this.route,this.time),p={id,emotes:E.normalize(look.emotes),name:String(name||'Player').slice(0,18),...pos,hp:100,shield:0,r:26,speed:C.PLAYER_SPEED,skin:cosmeticIndex('skins',look.skinId,look.skin??0),backpack:cosmeticIndex('backpacks',look.backpackId,look.backpack??-1),melee:cosmeticIndex('melees',look.meleeId,look.melee??0),parachute:cosmeticIndex('parachutes',look.parachuteId,look.parachute??0),angle:this.route.angle,phase:this.time<this.route.duration?'plane':'parachute',dropRemaining:C.DROP_SECONDS,dropFast:false,slot:0,equipReadyAtMs:0,med:0,inventory:[null,null,null,null,null,null],ammoWallet:{smg:0,shotgun:0,sniper:0,p90:0},meleeReadyAt:0,lastAction:0,sequence:-1,revealedUntil:0,kills:0};
  this.actors.set(id,p);this.inputs.set(id,{dx:0,dy:0,aim:p.angle,fire:false});p.lastInputAt=this.time;
  // Keep the lobby at its configured size as humans join.
  p.skinId=CosmeticCollection.skins[p.skin]?.id||null;p.meleeId=CosmeticCollection.melees[p.melee]?.id||null;p.backpackId=CosmeticCollection.backpacks[p.backpack]?.id||null;p.parachuteId=CosmeticCollection.parachutes[p.parachute]?.id||null;
@@ -23,7 +23,7 @@ class Session{
  if(![m.dx,m.dy,m.aim].every(Number.isFinite))return false;
  const previous=this.inputs.get(id),oldSlot=p.slot;p.sequence=m.seq;p.lastInputAt=this.time;
  if(Number.isInteger(m.slot)&&m.slot>=0&&m.slot<6)p.slot=m.slot;
- const switched=p.slot!==oldSlot,g=p.inventory[p.slot];if(switched&&p.inventory[oldSlot]?.type===5){p.inventory[oldSlot].pulseStart=null;p.pulseCharge=0}if(switched){p.equipReadyAtMs=this.time*1000+WeaponStats.data.equipDelayMs;if(g)g.equipReadyAtMs=p.equipReadyAtMs}if(g)g.triggerMode=WeaponStats.variantFor(g)?.trigger||g.triggerMode;
+ const switched=p.slot!==oldSlot,g=p.inventory[p.slot];if(switched)Pulse.select(p,this.time*1000);if(switched){p.equipReadyAtMs=this.time*1000+WeaponStats.data.equipDelayMs;if(g)g.equipReadyAtMs=p.equipReadyAtMs}if(g)g.triggerMode=WeaponStats.variantFor(g)?.trigger||g.triggerMode;
  if(m.fire===false){p.blockFireUntilRelease=false;p.pressWeaponNeedsRelease=false}
  const next={dx:C.clamp(m.dx,-1,1),dy:C.clamp(m.dy,-1,1),aim:m.aim,dive:m.dive===true,fire:m.fire===true&&!p.blockFireUntilRelease};
  if(switched&&g?.triggerMode==='press'&&next.fire)p.pressWeaponNeedsRelease=true;
@@ -44,7 +44,7 @@ class Session{
  if(m.kind==='marker'){if(m.remove)this.markers.delete(id);else if(Number.isFinite(m.x)&&Number.isFinite(m.y))this.markers.set(id,{x:C.clamp(m.x,0,C.SIZE),y:C.clamp(m.y,0,C.SIZE)});return{ok:true}}
  if(p.phase!=='ground')return{ok:false};
  if(m.kind==='reload'){const g=p.inventory[p.slot];I.feedGun(p,g);if(g?.type===5&&g.ammo>0&&!g.reloading)return{ok:Pulse.start(p,this.time*1000)};return{ok:I.isGun(g)&&this.reload(g,this.time*1000)}}
- if(['inventory-move','inventory-drop','ammo-drop','medkit'].includes(m.kind)){const oldSlot=p.slot,result=I.act(this.world,p,m);if(p.slot!==oldSlot){p.equipReadyAtMs=this.time*1000+WeaponStats.data.equipDelayMs;const g=p.inventory[p.slot];if(g)g.equipReadyAtMs=p.equipReadyAtMs}return{...result,loadout:{inventory:p.inventory,ammoWallet:p.ammoWallet,med:p.med,slot:p.slot,hp:p.hp}}}
+ if(['inventory-move','inventory-drop','ammo-drop','medkit'].includes(m.kind)){const oldSlot=p.slot,result=I.act(this.world,p,m);if(result.ok)Pulse.select(p,this.time*1000);if(p.slot!==oldSlot){p.equipReadyAtMs=this.time*1000+WeaponStats.data.equipDelayMs;const g=p.inventory[p.slot];if(g)g.equipReadyAtMs=p.equipReadyAtMs}return{...result,loadout:{inventory:p.inventory,ammoWallet:p.ammoWallet,med:p.med,slot:p.slot,hp:p.hp}}}
  if(m.kind==='melee')return{ok:this.melee(p)};
  if(m.kind==='interact')return this.interact(p,m);
  return{ok:false};
@@ -76,7 +76,7 @@ class Session{
   const intent=this.time-(p.lastInputAt??-100)<=.35?this.inputs.get(p.id):null;p.doorMoveX=intent?.dx||0;p.doorMoveY=intent?.dy||0;p.doorMoveAt=this.world.time;
   if(m.doorId){const d=this.world.doors.find(d=>d.id===m.doorId);if(!d)return{ok:false};const result=C.interactDoor(this.world,d,p,[...this.actors.values()],m.open);return{...result,door:{id:d.id,open:d.open,lastUse:d.lastUse,changedAt:d.changedAt,turnFrom:d.turnFrom??0,swing:d.swing}}}
 
- const target=C.interactionTarget(this.world,p);if(!target)return{ok:false};if(target.kind==='door')return C.interactDoor(this.world,target.object,p,[...this.actors.values()]);if(target.kind==='container'){const items=C.openContainer(this.world,target.object,p);for(const q of items)if(q.type==='ammo')I.pickup(this.world,p,q);return{ok:items.length>0}}const oldSlot=p.slot,ok=I.pickup(this.world,p,target.object,(type,rarity)=>this.gun(type,rarity));if(ok&&p.slot!==oldSlot){p.equipReadyAtMs=this.time*1000+WeaponStats.data.equipDelayMs;const g=p.inventory[p.slot];if(g)g.equipReadyAtMs=p.equipReadyAtMs}return{ok};
+ const target=C.interactionTarget(this.world,p);if(!target)return{ok:false};if(target.kind==='door')return C.interactDoor(this.world,target.object,p,[...this.actors.values()]);if(target.kind==='container'){const items=C.openContainer(this.world,target.object,p);for(const q of items)if(q.type==='ammo')I.pickup(this.world,p,q);return{ok:items.length>0}}const oldSlot=p.slot,ok=I.pickup(this.world,p,target.object,(type,rarity)=>this.gun(type,rarity));if(ok&&p.slot!==oldSlot){Pulse.select(p,this.time*1000);p.equipReadyAtMs=this.time*1000+WeaponStats.data.equipDelayMs;const g=p.inventory[p.slot];if(g)g.equipReadyAtMs=p.equipReadyAtMs}return{ok};
  }
  botInput(p,dt){
  const g=p.inventory[p.slot];if(g)this.finishReload(g,this.time*1000);
@@ -96,9 +96,10 @@ class Session{
    if(p.dropRemaining<=0){Object.assign(p,C.findValid(this.world,p,26,true));p.phase='ground';p.dropRemaining=0;if(!p.bot){const input=this.inputs.get(p.id);p.blockFireUntilRelease=!!input?.fire;if(input)input.fire=false}}continue;
   }
   if(p.bot){this.botInput(p,dt);C.stepKnockback(this.world,p,dt);continue}
-  const input=this.time-(p.lastInputAt??this.time)>.35?{dx:0,dy:0,aim:p.angle,fire:false}:this.inputs.get(p.id)||{dx:0,dy:0,aim:p.angle,fire:false};p.angle=input.aim;C.moveActor(this.world,p,input.dx,input.dy,dt);
+  const inputFresh=this.time-(p.lastInputAt??this.time)<=.35;
+  const input=!inputFresh?{dx:0,dy:0,aim:p.angle,fire:false}:this.inputs.get(p.id)||{dx:0,dy:0,aim:p.angle,fire:false};p.angle=input.aim;C.moveActor(this.world,p,input.dx,input.dy,dt);
   C.stepKnockback(this.world,p,dt);
-  if(this.time-(p.lastInputAt??this.time)>.35&&p.inventory[p.slot]?.type===5)p.inventory[p.slot].pulseStart=null;Pulse.tick(p,input.fire,this.time*1000,()=>this.fire(p,this.time*1000));I.autoAmmo(this.world,p);const g=p.inventory[p.slot];if(input.fire&&!g)this.melee(p);
+  Pulse.tick(p,input.fire,this.time*1000,()=>this.fire(p,this.time*1000),inputFresh);I.autoAmmo(this.world,p);const g=p.inventory[p.slot];if(input.fire&&!g)this.melee(p);
   if((g?.triggerMode==='press'?input.pressed:input.fire||g?.type===1&&g.burstRemaining>0)&&I.isGun(g)){input.pressed=false;I.feedGun(p,g);let at=Math.max(start,g.nextFireAtMs,p.equipReadyAtMs||0);for(let n=0;n<8&&at<=this.time*1000+1e-7;n++){this.finishReload(g,at);if(g.reloading){at=Math.max(at,g.reloadEndsAtMs);continue}if(!this.fire(p,at))break;if(g.triggerMode==='press')break;at=Math.max(g.nextFireAtMs,g.reloading?g.reloadEndsAtMs:0,p.equipReadyAtMs||0)}}
   for(const gun of p.inventory)if(gun)this.finishReload(gun,this.time*1000);
  }

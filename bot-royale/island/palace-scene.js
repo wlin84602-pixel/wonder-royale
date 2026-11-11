@@ -1,21 +1,175 @@
-// Approved palace art, aligned once in source-pixel coordinates. No background-removal masks.
-(function(root,factory){const api=factory(typeof module==='object'&&module.exports?require('./world.js'):root.IslandCore);if(typeof module==='object'&&module.exports)module.exports=api;else root.ApprovedPalace=api})(typeof globalThis!=='undefined'?globalThis:this,function(C){
- const art={},sources={overview:'__APPROVED_PALACE_OVERVIEW__'};let resolve;const readyPromise=new Promise(r=>resolve=r);let loaded=0;if(typeof Image!=='undefined')for(const name of Object.keys(sources)){const img=art[name]=new Image();img.onload=()=>{if(++loaded===1)resolve(true)};img.onerror=()=>resolve(false);img.src=sources[name]}
- const ROOMS={
- 'Throne Hall':{outside:[307,194,309,236],inside:[1153,194,313,218],close:true},
- 'West Hall':{outside:[130,267,183,146],inside:[981,267,183,146]},'East Hall':{outside:[612,267,181,146],inside:[1470,267,181,146]},
- 'West Tower':{outside:[144,151,120,117],inside:[1000,151,117,115],octagon:true},'East Tower':{outside:[658,151,120,117],inside:[1507,151,117,115],octagon:true},
- 'Jade Pavilion':{outside:[159,479,110,96],inside:[1006,479,110,96]},'Azure Pavilion':{outside:[657,479,110,96],inside:[1510,479,110,96]},
- 'West Lodge':{outside:[310,609,98,87],inside:[1155,609,98,87]},'East Lodge':{outside:[527,609,98,87],inside:[1374,609,98,87]},
- 'West Gate':{outside:[320,731,70,73],inside:[1177,731,70,73]},'East Gate':{outside:[538,731,70,73],inside:[1396,731,70,73]}};
- const ready=()=>loaded===1;
- function local(z,s){z.translate(s.palace.ox,s.palace.oy);z.scale(s.palace.scale,s.palace.scale);z.imageSmoothingEnabled=true;z.imageSmoothingQuality='high'}
- function roomPath(z,m,inset=0){let [x,y,w,h]=m.outside;x+=inset;y+=inset;w-=inset*2;h-=inset*2;z.beginPath();if(m.octagon){const c=24;z.moveTo(x+c,y);z.lineTo(x+w-c,y);z.lineTo(x+w,y+c);z.lineTo(x+w,y+h-c);z.lineTo(x+w-c,y+h);z.lineTo(x+c,y+h);z.lineTo(x,y+h-c);z.lineTo(x,y+c);z.closePath()}else z.roundRect(x,y,w,h,5)}
+(function(root,factory){
+ const api=factory(typeof module==='object'&&module.exports?require('./world.js'):root.IslandCore);
+ if(typeof module==='object'&&module.exports)module.exports=api;
+ else root.ApprovedPalace=api;
+})(typeof globalThis!=='undefined'?globalThis:this,function(Core){
+ 'use strict';
+ const art=typeof Image==='undefined'?null:new Image();
+ const readyPromise=new Promise(resolve=>{
+  if(!art){resolve(false);return}
+  art.onload=()=>resolve(true);
+  art.onerror=()=>resolve(false);
+  art.src='__APPROVED_PALACE_OVERVIEW__';
+ });
+ const ready=()=>Boolean(art?.complete&&art.naturalWidth);
+ // Crop the decorative faces only. Walls, windows and doors are drawn from collision geometry.
+ const roofsByName={
+  'Throne Hall':[329,214,261,175],
+  'West Hall':[152,282,146,99],
+  'East Hall':[616,282,153,99],
+  'West Tower':[150,151,113,109],
+  'East Tower':[655,151,113,109],
+  'Jade Pavilion':[159,475,112,83],
+  'Azure Pavilion':[650,475,112,83],
+  'West Lodge':[310,609,99,73],
+  'East Lodge':[514,609,102,73],
+  'West Gate':[317,725,76,58],
+  'East Gate':[528,725,76,58]
+ };
+ function outline(ctx,building,inset=0){
+  const cx=building.x+building.w/2,cy=building.y+building.h/2;
+  const sx=1-inset*2/building.w,sy=1-inset*2/building.h;
+  ctx.beginPath();
+  building.outline.forEach(([x,y],i)=>{
+   const px=cx+(x-cx)*sx,py=cy+(y-cy)*sy;
+   if(i===0)ctx.moveTo(px,py);
+   else ctx.lineTo(px,py);
+  });
+  ctx.closePath();
+ }
+ function tiles(ctx,x,y,w,h,size,color,joint){
+  ctx.fillStyle=color;
+  ctx.fillRect(x,y,w,h);
+  ctx.fillStyle=joint;
+  for(let row=0;row*size<h;row++){
+   for(let col=row%2;col*size<w;col+=2)ctx.fillRect(x+col*size,y+row*size,Math.min(size,w-col*size),Math.min(size,h-row*size));
+  }
+ }
+ function base(ctx,state){
+  if(!state.palace)return false;
+  const {ox,oy,scale}=state.palace;
+  ctx.save();
+  ctx.translate(ox,oy);
+  ctx.scale(scale,scale);
+  ctx.fillStyle='#8e7044';
+  ctx.beginPath();
+  ctx.roundRect(87,122,751,656,8);
+  ctx.fill();
+  tiles(ctx,90,125,745,650,26,'#ebdbbc','#e5d4b3');
+  // A central promenade and stone thresholds distinguish walking routes from structures.
+  ctx.fillStyle='#d5bf95';
+  ctx.fillRect(431,417,62,405);
+  ctx.fillRect(90,489,745,54);
+  ctx.fillRect(449,125,26,27);
+  ctx.beginPath();
+  ctx.moveTo(291,516);
+  ctx.lineTo(291,148);
+  ctx.lineTo(633,148);
+  ctx.lineTo(633,516);
+  ctx.lineJoin='round';
+  ctx.strokeStyle='#d5bf95';
+  ctx.lineWidth=22;
+  ctx.stroke();
+  ctx.restore();
 
- function overlay(z,s,b,interior){const m=ROOMS[b.name];if(!m)return;z.save();local(z,s);roomPath(z,m,interior&&m.octagon?6:0);z.clip();{const [x,y,w,h]=m.outside;const src=interior?m.inside:m.outside;z.drawImage(art.overview,...src,x,y,w,h)}z.restore()}
- function base(z,s){if(!ready()||!s.palace)return false;z.save();local(z,s);z.beginPath();z.roundRect(74,112,775,680,7);z.roundRect(317,725,78,82,5);z.roundRect(535,725,78,82,5);z.moveTo(391,776);z.lineTo(537,776);z.lineTo(537,795);z.bezierCurveTo(501,795,485,802,485,827);z.lineTo(435,827);z.bezierCurveTo(435,802,421,795,391,795);z.closePath();z.clip();z.drawImage(art.overview,0,110,870,720,0,110,870,720);z.restore();const b=s.buildings.find(b=>b.name==='Throne Hall');if(b)overlay(z,s,b,false);return true}
- function interiors(z,s,viewer){if(!ready()||!s.palace)return;const inside=C.buildingAt(s,viewer);for(const b of s.buildings){if(!b.palace||!C.canViewInterior(s,b,viewer))continue;z.save();if(inside?.id!==b.id){z.beginPath();z.arc(viewer.x,viewer.y,85,0,Math.PI*2);z.clip()}overlay(z,s,b,true);z.restore()}}
- function roofs(z,s,viewer,visible){if(!ready()||!s.palace)return false;const inside=C.buildingAt(s,viewer);for(const b of s.buildings.slice().sort((a,b)=>(a.name==='Throne Hall')-(b.name==='Throne Hall'))){if(!b.palace)continue;b.roofAlpha=inside?.id===b.id?0:1;if(!visible(b)||inside?.id===b.id)continue;z.save();if(C.canViewInterior(s,b,viewer)){z.beginPath();z.rect(b.x-160,b.y-160,b.w+320,b.h+320);z.moveTo(viewer.x+85,viewer.y);z.arc(viewer.x,viewer.y,85,0,Math.PI*2,true);z.clip('evenodd')}overlay(z,s,b,false);z.restore()}return true}
- function object(z,o,time){if(!ready())return false;if(o.kind==='door'&&o.id.startsWith('palace-')){const pose=C.doorPose(o,time),turn=Math.abs(pose.angle-o.closedAngle);if(!o.open&&turn<.01)return true;const cx=o.hingeX+Math.cos(o.closedAngle)*o.length/2,cy=o.hingeY+Math.sin(o.closedAngle)*o.length/2;z.save();z.translate(cx,cy);z.rotate(o.closedAngle);z.fillStyle='#fae9d0';z.fillRect(-o.length/2-1,-2,o.length+2,o.length>120?41:30);z.restore();z.save();z.translate(o.hingeX,o.hingeY);z.rotate(pose.angle);const g=z.createLinearGradient(0,-7,0,7);g.addColorStop(0,'#bb65c7');g.addColorStop(.5,'#7c2787');g.addColorStop(1,'#4b1c64');z.fillStyle=g;z.strokeStyle='#e9bd54';z.lineWidth=3;z.beginPath();z.roundRect(0,-7,o.length,14,3);z.fill();z.stroke();z.fillStyle='#fff0ad';z.beginPath();z.moveTo(o.length*.55-5,-3);z.lineTo(o.length*.55+3,0);z.lineTo(o.length*.55-5,3);z.closePath();z.fill();z.restore();return true}return o.paint==='palace'||o.palaceFountain||o.building?.startsWith('palace-')}
- return{ready,readyPromise,ROOMS,base,interiors,roofs,object};
+  for(const building of state.buildings){
+   if(!building.palace)continue;
+   for(const entry of building.entryPoints){
+    const door=state.doors.find(item=>item.id===entry.door);
+    if(!door)continue;
+    ctx.save();
+    ctx.translate(door.hingeX,door.hingeY);
+    ctx.rotate(door.closedAngle);
+    ctx.fillStyle='#cbb38b';
+    ctx.fillRect(-10,-49,door.length+20,53);
+    ctx.fillStyle='#fff0c8';
+    ctx.fillRect(0,-16,door.length,22);
+    ctx.restore();
+   }
+   ctx.save();
+   outline(ctx,building);
+   ctx.clip();
+   tiles(ctx,building.x,building.y,building.w,building.h,60,building.floorColor,'#ffffff36');
+   outline(ctx,building,23);
+   ctx.strokeStyle='#bb903f';
+   ctx.lineWidth=3;
+   ctx.stroke();
+   ctx.restore();
+  }
+  return true;
+ }
+ function roof(ctx,building){
+  const crop=roofsByName[building.name];
+  if(!crop)return false;
+  const inset=12;
+  ctx.save();
+  outline(ctx,building,inset);
+  ctx.fillStyle=building.roofColor;
+  ctx.fill();
+  ctx.strokeStyle='#4c2947';
+  ctx.lineWidth=4;
+  ctx.stroke();
+  const artInset=building.name.endsWith('Hall')?20:inset;
+  outline(ctx,building,artInset);
+  ctx.clip();
+  if(ready()){
+   ctx.imageSmoothingEnabled=true;
+   ctx.imageSmoothingQuality='high';
+   ctx.drawImage(art,...crop,building.x+artInset,building.y+artInset,building.w-2*artInset,building.h-2*artInset);
+  }
+  ctx.restore();
+  return true;
+ }
+ function roofs(ctx,state,viewer,visible,dt){
+  if(!state.palace)return false;
+  const onGround=!viewer.phase||viewer.phase==='ground';
+  const inside=onGround?Core.buildingAt(state,viewer):null;
+  for(const building of state.buildings){
+   if(!building.palace||!visible(building))continue;
+   // Cached plane rendering always draws fully opaque roofs and does not change player state.
+   const entered=inside?.id===building.id;
+   let alpha=1;
+   if(onGround){
+    const previous=building.roofAlpha??1,target=entered?0:1;
+    alpha=previous+Math.sign(target-previous)*Math.min(Math.abs(target-previous),Math.max(0,dt??.016)/.12);
+    building.roofAlpha=alpha;
+   }
+   if(alpha<=0)continue;
+   ctx.save();
+   ctx.globalAlpha*=alpha;
+   if(onGround&&(entered||Core.canViewInterior(state,building,viewer))){
+    ctx.beginPath();
+    ctx.rect(building.x,building.y,building.w,building.h);
+    ctx.moveTo(viewer.x+85,viewer.y);
+    ctx.arc(viewer.x,viewer.y,85,0,Math.PI*2);
+    ctx.clip('evenodd');
+   }
+   roof(ctx,building);
+   ctx.restore();
+  }
+  return true;
+ }
+ function object(ctx,item,time){
+  if(item.kind!=='door'||!item.id.startsWith('palace-'))return false;
+  const pose=Core.doorPose(item,time);
+  ctx.save();
+  ctx.translate(pose.hingeX,pose.hingeY);
+  ctx.rotate(pose.angle);
+  ctx.fillStyle='#863492';
+  ctx.strokeStyle='#392643';
+  ctx.lineWidth=4;
+  ctx.beginPath();
+  ctx.roundRect(0,-7,item.length,14,4);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle='#f7cd67';
+  ctx.fillRect(5,-3,item.length-10,3);
+  ctx.fillStyle='#fff1ba';
+  ctx.beginPath();
+  ctx.arc(item.length-13,2,3,0,Math.PI*2);
+  ctx.fill();
+  ctx.restore();
+  return true;
+ }
+ return{ready,readyPromise,base,roof,roofs,object};
 });

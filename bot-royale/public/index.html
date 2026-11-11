@@ -305,14 +305,66 @@ function addPalace(s){
  s.water=s.water.filter(w=>{const x=w.kind==='lake'?w.x-w.rx:Math.min(w.ax,w.bx)-w.r,y=w.kind==='lake'?w.y-w.ry:Math.min(w.ay,w.by)-w.r,ww=w.kind==='lake'?w.rx*2:Math.abs(w.ax-w.bx)+w.r*2,hh=w.kind==='lake'?w.ry*2:Math.abs(w.ay-w.by)+w.r*2;return !(x<p.x+p.w+150&&x+ww>p.x-150&&y<p.y+p.h+150&&y+hh>p.y-150)});s.roads=s.roads.filter(r=>!r.points.some(([x,y])=>inside(x,y)));s.fields=s.fields.filter(f=>!inside(f.x,f.y));
  const id=k=>'palace-'+k+'-'+s.nextId++,put=o=>{o.id=id(o.kind);s.objects.push(o);return o};
  function line(kind,a,b,building){return put({kind,shape:'segment',ax:X(a[0]),ay:Y(a[1]),bx:X(b[0]),by:Y(b[1]),x:X(Math.min(a[0],b[0]))-9,y:Y(Math.min(a[1],b[1]))-9,w:Math.abs(a[0]-b[0])*F+18,h:Math.abs(a[1]-b[1])*F+18,r:9,solid:true,blocksShots:true,building,paint:'palace'})}
- function edge(a,b,building,portal=false){const dx=b[0]-a[0],dy=b[1]-a[1],len=Math.hypot(dx,dy),at=t=>[a[0]+dx*t,b? a[1]+dy*t:0];if(!portal){line('wall',a,b,building);return}const rm=s.buildings.find(b=>b.id===building),mid=dy===0&&a[1]===((rm?.y||0)-oy)/F&&['West Hall','East Hall'].includes(rm?.name)?((rm.name==='West Hall'?204:718)-a[0])/dx:.5;const doorLength=rm?.name==='Throne Hall'?168:96;const gap=(doorLength/F)/len,lo=mid-gap/2,hi=mid+gap/2;for(const [u,v] of [[0,lo],[hi,1]]){const pad=(v-u)*.24;line('wall',at(u),at(u+pad),building);line('window',at(u+pad),at(v-pad),building);line('wall',at(v-pad),at(v),building)}const h=at(lo),tip=at(hi),d=put({kind:'door',shape:'rect',x:X(Math.min(h[0],tip[0]))-(dx===0?9:0),y:Y(Math.min(h[1],tip[1]))-(dy===0?9:0),w:dx===0?18:doorLength,h:dy===0?18:doorLength,hingeX:X(h[0]),hingeY:Y(h[1]),closedAngle:Math.atan2(dy,dx),length:doorLength,solid:true,blocksShots:true,building,exterior:true,open:false,lastUse:-100,changedAt:-1,angle:0,swing:1});s.doors.push(d);const room=s.buildings.find(b=>b.id===building);room?.entryPoints.push({x:(X(h[0])+X(tip[0]))/2+dy/len*70,y:(Y(h[1])+Y(tip[1]))/2-dx/len*70,door:d.id,dx:dy/len,dy:-dx/len})}
- const rooms=[[307,194,309,236,'Throne Hall','#87315e','#f4e4cb'],[130,267,183,146,'West Hall','#873caf','#e7aa5c'],[612,267,181,146,'East Hall','#873caf','#f1cfb3'],[144,151,120,117,'West Tower','#87315e','#d6b7e6'],[658,151,120,117,'East Tower','#87315e','#f4e4cb'],[159,479,110,96,'Jade Pavilion','#208e8c','#bde5be'],[657,479,110,96,'Azure Pavilion','#208e8c','#b6d7e8'],[310,609,98,87,'West Lodge','#ac65b3','#edba72'],[527,609,98,87,'East Lodge','#ac65b3','#b8e4d9'],[320,731,70,73,'West Gate','#ac65b3','#f4e4cb'],[538,731,70,73,'East Gate','#ac65b3','#f4e4cb']];
- for(const [x,y,w,h,name,roof,floor]of rooms){const b={id:id('room'),loc:'palace',x:X(x),y:Y(y),w:w*F,h:h*F,style:'palace',palace:true,name,roofColor:roof,floorColor:floor,floor:'tile',entryPoints:[],rooms:[],wallThickness:18};const cut=name.includes('Tower')?24:0;b.outline=(cut?[[x+cut,y],[x+w-cut,y],[x+w,y+cut],[x+w,y+h-cut],[x+w-cut,y+h],[x+cut,y+h],[x,y+h-cut],[x,y+cut]]:[[x,y],[x+w,y],[x+w,y+h],[x,y+h]]).map(([a,b])=>[X(a),Y(b)]);s.buildings.push(b);for(let i=0;i<b.outline.length;i++){const a=b.outline[i],c=b.outline[(i+1)%b.outline.length];edge([(a[0]-ox)/F,(a[1]-oy)/F],[(c[0]-ox)/F,(c[1]-oy)/F],b.id,Math.abs(a[1]-c[1])<1&&(a[1]===Y(y+h)||name.endsWith('Hall')&&name!=='Throne Hall'&&a[1]===Y(y)))}}
- // Perimeter has the existing hinged doors; the broad southern entrance stays open.
- edge([90,125],[835,125],null,true);for(const xx of [90,835])for(const [a,b,portal]of [[125,295,false],[295,367,true],[367,505,false],[505,580,true],[580,775,false]])edge([xx,a],[xx,b],null,portal);edge([90,775],[320,775],null,false);edge([608,775],[835,775],null,false);
- put({kind:'sofa',shape:'rect',x:X(440),y:Y(225),w:100,h:100,solid:true,blocksShots:true,building:s.buildings.find(b=>b.name==='Throne Hall').id,color:'#9a3675'});
- put({kind:'rock',shape:'circle',x:X(460),y:Y(529),r:48*F,solid:true,blocksShots:true,palaceFountain:true});
- const unique=[];for(const d of s.doors.filter(d=>d.id.startsWith('palace-'))){const mx=d.hingeX+Math.cos(d.closedAngle)*d.length/2,my=d.hingeY+Math.sin(d.closedAngle)*d.length/2,existing=unique.find(o=>Math.hypot(o.mx-mx,o.my-my)<12);if(existing){s.objects=s.objects.filter(o=>o!==d);s.doors=s.doors.filter(o=>o!==d);for(const b of s.buildings)for(const e of b.entryPoints)if(e.door===d.id)e.door=existing.d.id}else unique.push({d,mx,my})}
+ function edge(a,b,building,doorLength=0){
+  const dx=b[0]-a[0],dy=b[1]-a[1],length=Math.hypot(dx,dy);
+  const at=t=>[a[0]+dx*t,a[1]+dy*t];
+  function wallSection(from,to){
+   if(!building||length*(to-from)<24||dx!==0&&dy!==0){line('wall',at(from),at(to),building);return}
+   const inset=(to-from)*.27;
+   line('wall',at(from),at(from+inset),building);
+   line('window',at(from+inset),at(to-inset),building);
+   line('wall',at(to-inset),at(to),building);
+  }
+  if(!doorLength){wallSection(0,1);return}
+  const halfGap=doorLength/(2*F*length),lo=.5-halfGap,hi=.5+halfGap;
+  wallSection(0,lo);
+  wallSection(hi,1);
+  const hinge=at(lo),tip=at(hi),normalX=dy/length,normalY=-dx/length;
+  const door=put({
+   kind:'door',shape:'rect',building,exterior:true,solid:true,blocksShots:true,
+   x:X(Math.min(hinge[0],tip[0]))-(dx===0?9:0),y:Y(Math.min(hinge[1],tip[1]))-(dy===0?9:0),
+   w:dx===0?18:doorLength,h:dy===0?18:doorLength,
+   hingeX:X(hinge[0]),hingeY:Y(hinge[1]),closedAngle:Math.atan2(dy,dx),length:doorLength,
+   open:false,lastUse:-100,changedAt:-1,angle:0,swing:1
+  });
+  s.doors.push(door);
+  const room=s.buildings.find(b=>b.id===building);
+  room?.entryPoints.push({x:X(at(.5)[0])+normalX*70,y:Y(at(.5)[1])+normalY*70,door:door.id,dx:normalX,dy:normalY});
+ }
+
+ // Leave at least 40 layout units (112 world units) between building outlines.
+ const rooms=[
+  [315,209,294,208,'Throne Hall','#87315e','#f4e4cb'],
+  [144,322,123,131,'West Hall','#873caf','#e7d6ec'],
+  [657,322,123,131,'East Hall','#873caf','#e7d6ec'],
+  [148,169,120,106,'West Tower','#87315e','#e1cde9'],
+  [656,169,120,106,'East Tower','#87315e','#e1cde9'],
+  [148,512,110,96,'Jade Pavilion','#208e8c','#f4e4cb'],
+  [666,512,110,96,'Azure Pavilion','#208e8c','#f4e4cb'],
+  [303,608,98,78,'West Lodge','#ac65b3','#e7d6ec'],
+  [523,608,98,78,'East Lodge','#ac65b3','#e7d6ec'],
+  [330,730,70,73,'West Gate','#ac65b3','#f4e4cb'],
+  [524,730,70,73,'East Gate','#ac65b3','#f4e4cb']
+ ];
+ for(const [x,y,w,h,name,roof,floor]of rooms){
+  const building={id:id('room'),loc:'palace',x:X(x),y:Y(y),w:w*F,h:h*F,style:'palace',palace:true,name,roofColor:roof,floorColor:floor,floor:'tile',entryPoints:[],rooms:[],wallThickness:18};
+  const cut=name.endsWith('Tower')?24:0;
+  const outline=cut?[[x+cut,y],[x+w-cut,y],[x+w,y+cut],[x+w,y+h-cut],[x+w-cut,y+h],[x+cut,y+h],[x,y+h-cut],[x,y+cut]]:[[x,y],[x+w,y],[x+w,y+h],[x,y+h]];
+  building.outline=outline.map(([px,py])=>[X(px),Y(py)]);
+  s.buildings.push(building);
+  for(let i=0;i<outline.length;i++){
+   const a=outline[i],b=outline[(i+1)%outline.length];
+   const south=a[1]===y+h&&b[1]===y+h;
+   edge(a,b,building.id,south?(name==='Throne Hall'?168:96):0);
+  }
+ }
+ // The bottom fence ends before the gatehouses so both side passages stay clear.
+ edge([90,125],[835,125],null,96);
+ for(const x of [90,835])for(const [top,bottom,doorLength]of [[125,295,0],[295,367,96],[367,505,0],[505,580,96],[580,775,0]])edge([x,top],[x,bottom],null,doorLength);
+ edge([90,775],[275,775],null);
+ edge([650,775],[835,775],null);
+ put({kind:'sofa',shape:'rect',x:X(444),y:Y(234),w:100,h:100,solid:true,blocksShots:true,building:s.buildings.find(b=>b.name==='Throne Hall').id,color:'#9a3675'});
+ put({kind:'rock',shape:'circle',x:X(462),y:Y(516),r:46*F,solid:true,blocksShots:true,palaceFountain:true});
  s.locations.push({id:'palace',name:'Wonderlust Palace',x:X(460),y:Y(529),kind:'palace',color:'#e5c561',risk:'high'});
 }
 
@@ -906,26 +958,180 @@ function at(x,y,size){return themes[idAt(x,y,size)]}
 function noise(x,y){const v=Math.sin(x*127.1+y*311.7)*43758.5453;return v-Math.floor(v)}
 return{themes,regions,idAt,at,noise};
 });
-// Approved palace art, aligned once in source-pixel coordinates. No background-removal masks.
-(function(root,factory){const api=factory(typeof module==='object'&&module.exports?require('./world.js'):root.IslandCore);if(typeof module==='object'&&module.exports)module.exports=api;else root.ApprovedPalace=api})(typeof globalThis!=='undefined'?globalThis:this,function(C){
- const art={},sources={overview:'/assets/58cdcac7f856700d2024.webp'};let resolve;const readyPromise=new Promise(r=>resolve=r);let loaded=0;if(typeof Image!=='undefined')for(const name of Object.keys(sources)){const img=art[name]=new Image();img.onload=()=>{if(++loaded===1)resolve(true)};img.onerror=()=>resolve(false);img.src=sources[name]}
- const ROOMS={
- 'Throne Hall':{outside:[307,194,309,236],inside:[1153,194,313,218],close:true},
- 'West Hall':{outside:[130,267,183,146],inside:[981,267,183,146]},'East Hall':{outside:[612,267,181,146],inside:[1470,267,181,146]},
- 'West Tower':{outside:[144,151,120,117],inside:[1000,151,117,115],octagon:true},'East Tower':{outside:[658,151,120,117],inside:[1507,151,117,115],octagon:true},
- 'Jade Pavilion':{outside:[159,479,110,96],inside:[1006,479,110,96]},'Azure Pavilion':{outside:[657,479,110,96],inside:[1510,479,110,96]},
- 'West Lodge':{outside:[310,609,98,87],inside:[1155,609,98,87]},'East Lodge':{outside:[527,609,98,87],inside:[1374,609,98,87]},
- 'West Gate':{outside:[320,731,70,73],inside:[1177,731,70,73]},'East Gate':{outside:[538,731,70,73],inside:[1396,731,70,73]}};
- const ready=()=>loaded===1;
- function local(z,s){z.translate(s.palace.ox,s.palace.oy);z.scale(s.palace.scale,s.palace.scale);z.imageSmoothingEnabled=true;z.imageSmoothingQuality='high'}
- function roomPath(z,m,inset=0){let [x,y,w,h]=m.outside;x+=inset;y+=inset;w-=inset*2;h-=inset*2;z.beginPath();if(m.octagon){const c=24;z.moveTo(x+c,y);z.lineTo(x+w-c,y);z.lineTo(x+w,y+c);z.lineTo(x+w,y+h-c);z.lineTo(x+w-c,y+h);z.lineTo(x+c,y+h);z.lineTo(x,y+h-c);z.lineTo(x,y+c);z.closePath()}else z.roundRect(x,y,w,h,5)}
+(function(root,factory){
+ const api=factory(typeof module==='object'&&module.exports?require('./world.js'):root.IslandCore);
+ if(typeof module==='object'&&module.exports)module.exports=api;
+ else root.ApprovedPalace=api;
+})(typeof globalThis!=='undefined'?globalThis:this,function(Core){
+ 'use strict';
+ const art=typeof Image==='undefined'?null:new Image();
+ const readyPromise=new Promise(resolve=>{
+  if(!art){resolve(false);return}
+  art.onload=()=>resolve(true);
+  art.onerror=()=>resolve(false);
+  art.src='/assets/58cdcac7f856700d2024.webp';
+ });
+ const ready=()=>Boolean(art?.complete&&art.naturalWidth);
+ // Crop the decorative faces only. Walls, windows and doors are drawn from collision geometry.
+ const roofsByName={
+  'Throne Hall':[329,214,261,175],
+  'West Hall':[152,282,146,99],
+  'East Hall':[616,282,153,99],
+  'West Tower':[150,151,113,109],
+  'East Tower':[655,151,113,109],
+  'Jade Pavilion':[159,475,112,83],
+  'Azure Pavilion':[650,475,112,83],
+  'West Lodge':[310,609,99,73],
+  'East Lodge':[514,609,102,73],
+  'West Gate':[317,725,76,58],
+  'East Gate':[528,725,76,58]
+ };
+ function outline(ctx,building,inset=0){
+  const cx=building.x+building.w/2,cy=building.y+building.h/2;
+  const sx=1-inset*2/building.w,sy=1-inset*2/building.h;
+  ctx.beginPath();
+  building.outline.forEach(([x,y],i)=>{
+   const px=cx+(x-cx)*sx,py=cy+(y-cy)*sy;
+   if(i===0)ctx.moveTo(px,py);
+   else ctx.lineTo(px,py);
+  });
+  ctx.closePath();
+ }
+ function tiles(ctx,x,y,w,h,size,color,joint){
+  ctx.fillStyle=color;
+  ctx.fillRect(x,y,w,h);
+  ctx.fillStyle=joint;
+  for(let row=0;row*size<h;row++){
+   for(let col=row%2;col*size<w;col+=2)ctx.fillRect(x+col*size,y+row*size,Math.min(size,w-col*size),Math.min(size,h-row*size));
+  }
+ }
+ function base(ctx,state){
+  if(!state.palace)return false;
+  const {ox,oy,scale}=state.palace;
+  ctx.save();
+  ctx.translate(ox,oy);
+  ctx.scale(scale,scale);
+  ctx.fillStyle='#8e7044';
+  ctx.beginPath();
+  ctx.roundRect(87,122,751,656,8);
+  ctx.fill();
+  tiles(ctx,90,125,745,650,26,'#ebdbbc','#e5d4b3');
+  // A central promenade and stone thresholds distinguish walking routes from structures.
+  ctx.fillStyle='#d5bf95';
+  ctx.fillRect(431,417,62,405);
+  ctx.fillRect(90,489,745,54);
+  ctx.fillRect(449,125,26,27);
+  ctx.beginPath();
+  ctx.moveTo(291,516);
+  ctx.lineTo(291,148);
+  ctx.lineTo(633,148);
+  ctx.lineTo(633,516);
+  ctx.lineJoin='round';
+  ctx.strokeStyle='#d5bf95';
+  ctx.lineWidth=22;
+  ctx.stroke();
+  ctx.restore();
 
- function overlay(z,s,b,interior){const m=ROOMS[b.name];if(!m)return;z.save();local(z,s);roomPath(z,m,interior&&m.octagon?6:0);z.clip();{const [x,y,w,h]=m.outside;const src=interior?m.inside:m.outside;z.drawImage(art.overview,...src,x,y,w,h)}z.restore()}
- function base(z,s){if(!ready()||!s.palace)return false;z.save();local(z,s);z.beginPath();z.roundRect(74,112,775,680,7);z.roundRect(317,725,78,82,5);z.roundRect(535,725,78,82,5);z.moveTo(391,776);z.lineTo(537,776);z.lineTo(537,795);z.bezierCurveTo(501,795,485,802,485,827);z.lineTo(435,827);z.bezierCurveTo(435,802,421,795,391,795);z.closePath();z.clip();z.drawImage(art.overview,0,110,870,720,0,110,870,720);z.restore();const b=s.buildings.find(b=>b.name==='Throne Hall');if(b)overlay(z,s,b,false);return true}
- function interiors(z,s,viewer){if(!ready()||!s.palace)return;const inside=C.buildingAt(s,viewer);for(const b of s.buildings){if(!b.palace||!C.canViewInterior(s,b,viewer))continue;z.save();if(inside?.id!==b.id){z.beginPath();z.arc(viewer.x,viewer.y,85,0,Math.PI*2);z.clip()}overlay(z,s,b,true);z.restore()}}
- function roofs(z,s,viewer,visible){if(!ready()||!s.palace)return false;const inside=C.buildingAt(s,viewer);for(const b of s.buildings.slice().sort((a,b)=>(a.name==='Throne Hall')-(b.name==='Throne Hall'))){if(!b.palace)continue;b.roofAlpha=inside?.id===b.id?0:1;if(!visible(b)||inside?.id===b.id)continue;z.save();if(C.canViewInterior(s,b,viewer)){z.beginPath();z.rect(b.x-160,b.y-160,b.w+320,b.h+320);z.moveTo(viewer.x+85,viewer.y);z.arc(viewer.x,viewer.y,85,0,Math.PI*2,true);z.clip('evenodd')}overlay(z,s,b,false);z.restore()}return true}
- function object(z,o,time){if(!ready())return false;if(o.kind==='door'&&o.id.startsWith('palace-')){const pose=C.doorPose(o,time),turn=Math.abs(pose.angle-o.closedAngle);if(!o.open&&turn<.01)return true;const cx=o.hingeX+Math.cos(o.closedAngle)*o.length/2,cy=o.hingeY+Math.sin(o.closedAngle)*o.length/2;z.save();z.translate(cx,cy);z.rotate(o.closedAngle);z.fillStyle='#fae9d0';z.fillRect(-o.length/2-1,-2,o.length+2,o.length>120?41:30);z.restore();z.save();z.translate(o.hingeX,o.hingeY);z.rotate(pose.angle);const g=z.createLinearGradient(0,-7,0,7);g.addColorStop(0,'#bb65c7');g.addColorStop(.5,'#7c2787');g.addColorStop(1,'#4b1c64');z.fillStyle=g;z.strokeStyle='#e9bd54';z.lineWidth=3;z.beginPath();z.roundRect(0,-7,o.length,14,3);z.fill();z.stroke();z.fillStyle='#fff0ad';z.beginPath();z.moveTo(o.length*.55-5,-3);z.lineTo(o.length*.55+3,0);z.lineTo(o.length*.55-5,3);z.closePath();z.fill();z.restore();return true}return o.paint==='palace'||o.palaceFountain||o.building?.startsWith('palace-')}
- return{ready,readyPromise,ROOMS,base,interiors,roofs,object};
+  for(const building of state.buildings){
+   if(!building.palace)continue;
+   for(const entry of building.entryPoints){
+    const door=state.doors.find(item=>item.id===entry.door);
+    if(!door)continue;
+    ctx.save();
+    ctx.translate(door.hingeX,door.hingeY);
+    ctx.rotate(door.closedAngle);
+    ctx.fillStyle='#cbb38b';
+    ctx.fillRect(-10,-49,door.length+20,53);
+    ctx.fillStyle='#fff0c8';
+    ctx.fillRect(0,-16,door.length,22);
+    ctx.restore();
+   }
+   ctx.save();
+   outline(ctx,building);
+   ctx.clip();
+   tiles(ctx,building.x,building.y,building.w,building.h,60,building.floorColor,'#ffffff36');
+   outline(ctx,building,23);
+   ctx.strokeStyle='#bb903f';
+   ctx.lineWidth=3;
+   ctx.stroke();
+   ctx.restore();
+  }
+  return true;
+ }
+ function roof(ctx,building){
+  const crop=roofsByName[building.name];
+  if(!crop)return false;
+  const inset=12;
+  ctx.save();
+  outline(ctx,building,inset);
+  ctx.fillStyle=building.roofColor;
+  ctx.fill();
+  ctx.strokeStyle='#4c2947';
+  ctx.lineWidth=4;
+  ctx.stroke();
+  const artInset=building.name.endsWith('Hall')?20:inset;
+  outline(ctx,building,artInset);
+  ctx.clip();
+  if(ready()){
+   ctx.imageSmoothingEnabled=true;
+   ctx.imageSmoothingQuality='high';
+   ctx.drawImage(art,...crop,building.x+artInset,building.y+artInset,building.w-2*artInset,building.h-2*artInset);
+  }
+  ctx.restore();
+  return true;
+ }
+ function roofs(ctx,state,viewer,visible,dt){
+  if(!state.palace)return false;
+  const onGround=!viewer.phase||viewer.phase==='ground';
+  const inside=onGround?Core.buildingAt(state,viewer):null;
+  for(const building of state.buildings){
+   if(!building.palace||!visible(building))continue;
+   // Cached plane rendering always draws fully opaque roofs and does not change player state.
+   const entered=inside?.id===building.id;
+   let alpha=1;
+   if(onGround){
+    const previous=building.roofAlpha??1,target=entered?0:1;
+    alpha=previous+Math.sign(target-previous)*Math.min(Math.abs(target-previous),Math.max(0,dt??.016)/.12);
+    building.roofAlpha=alpha;
+   }
+   if(alpha<=0)continue;
+   ctx.save();
+   ctx.globalAlpha*=alpha;
+   if(onGround&&(entered||Core.canViewInterior(state,building,viewer))){
+    ctx.beginPath();
+    ctx.rect(building.x,building.y,building.w,building.h);
+    ctx.moveTo(viewer.x+85,viewer.y);
+    ctx.arc(viewer.x,viewer.y,85,0,Math.PI*2);
+    ctx.clip('evenodd');
+   }
+   roof(ctx,building);
+   ctx.restore();
+  }
+  return true;
+ }
+ function object(ctx,item,time){
+  if(item.kind!=='door'||!item.id.startsWith('palace-'))return false;
+  const pose=Core.doorPose(item,time);
+  ctx.save();
+  ctx.translate(pose.hingeX,pose.hingeY);
+  ctx.rotate(pose.angle);
+  ctx.fillStyle='#863492';
+  ctx.strokeStyle='#392643';
+  ctx.lineWidth=4;
+  ctx.beginPath();
+  ctx.roundRect(0,-7,item.length,14,4);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle='#f7cd67';
+  ctx.fillRect(5,-3,item.length-10,3);
+  ctx.fillStyle='#fff1ba';
+  ctx.beginPath();
+  ctx.arc(item.length-13,2,3,0,Math.PI*2);
+  ctx.fill();
+  ctx.restore();
+  return true;
+ }
+ return{ready,readyPromise,base,roof,roofs,object};
 });
 
 (function(root,factory){const api=factory(typeof module==='object'&&module.exports?require('./world.js'):root.IslandCore,typeof module==='object'&&module.exports?require('./map-theme.js'):root.IslandMapTheme);if(typeof module==='object'&&module.exports)module.exports=api;else root.IslandRender=api})(typeof globalThis!=='undefined'?globalThis:this,function(Core,Theme){
@@ -972,7 +1178,7 @@ function floors(z,s,visible){if(approvedPalace?.base(z,s))return;if(s.palace){ro
  function floor(x,y,w,h,type,t){z.fillStyle=type==='wood'?t.floor:type==='sand'?(t===Theme.themes.beach?'#e4d2a1':'#c8c3a5'):t.tile;z.fillRect(x,y,w,h);z.lineWidth=1;z.strokeStyle=type==='wood'?'#41352235':'#34475335';const pitch=type==='wood'?20:30;for(let yy=y+pitch;yy<y+h;yy+=pitch){z.beginPath();z.moveTo(x,yy);z.lineTo(x+w,yy);z.stroke()}if(type!=='wood')for(let xx=x+pitch;xx<x+w;xx+=pitch){z.beginPath();z.moveTo(xx,y);z.lineTo(xx,y+h);z.stroke()}else{z.strokeStyle='#efd2a323';for(let yy=y+7;yy<h+y;yy+=20){z.beginPath();z.moveTo(x+7,yy);z.lineTo(x+w-7,yy);z.stroke()}}}
  for(const b of s.buildings)if(visible(b)&&!(b.palace&&palaceReady())){const original=Theme.at(b.x+b.w/2,b.y+b.h/2,s.size),t=b.palace?{...original,tile:b.floorColor,floor:b.floorColor}:original;z.save();poly(z,b.outline||[[b.x,b.y],[b.x+b.w,b.y],[b.x+b.w,b.y+b.h],[b.x,b.y+b.h]]);z.clip();floor(b.x,b.y,b.w,b.h,b.floor||'wood',t);for(const room of b.rooms||[])floor(room.x,room.y,room.w,room.h,room.floor,t);z.restore()}
 }
-function architectureObject(z,o,time){if(approvedPalace?.object(z,o,time))return true;if(o.palaceFountain){royalFountain(z,o);return true}if(o.kind==='sofa'&&o.building?.startsWith('palace-')){if(!palaceReady())royalThrone(z,o);return true}
+function architectureObject(z,o,time){if(approvedPalace?.object(z,o,time))return true;if(o.palaceFountain){royalFountain(z,o);return true}if(o.kind==='sofa'&&o.building?.startsWith('palace-')){royalThrone(z,o);return true}
  if(o.paint==='palace'&&o.shape==='segment'){const a=Math.atan2(o.by-o.ay,o.bx-o.ax),len=Math.hypot(o.bx-o.ax,o.by-o.ay);z.save();z.translate(o.ax,o.ay);z.rotate(a);z.lineCap='round';for(const [width,color]of [[o.building?18:34,'#3b3126'],[o.building?14:28,'#e9ae38'],[o.building?10:20,'#ffe28c'],[o.building?6:11,o.kind==='window'?'#28caf3':'#fff0c5']]){z.strokeStyle=color;z.lineWidth=width;z.beginPath();z.moveTo(0,0);z.lineTo(len,0);z.stroke()}z.strokeStyle=o.kind==='window'?'#c6fbff':'#fff9d9';z.lineWidth=3;z.beginPath();z.moveTo(5,-5);z.lineTo(len-5,-5);z.stroke();for(const xx of [0,len]){z.fillStyle='#ffd578';z.strokeStyle='#79552c';z.lineWidth=3;z.beginPath();z.roundRect(xx-(o.building?7:14),-(o.building?10:18),o.building?14:28,o.building?20:36,4);z.fill();z.stroke();z.fillStyle='#fff0b1';z.fillRect(xx-8,-12,16,5)}z.restore();return true}
 
  if(palaceReady()&&(o.paint==='palace'&&o.building||o.palaceFountain||o.building?.startsWith('palace-')&&o.kind!=='door'))return true;
@@ -1077,8 +1283,8 @@ function palaceRoofSprite(b,interior=false){
  const art={canvas,left,top,sx,sy};palaceRoofCutouts.set(cacheKey,art);return art;
 }
 
-function palaceInteriors(z,s,viewer){if(approvedPalace?.ready()){approvedPalace.interiors(z,s,viewer);return}if(!palaceReady())return;for(const b of s.buildings.filter(b=>b.palace)){const art=palaceRoofSprite(b,true);if(!art)continue;z.save();z.imageSmoothingEnabled=true;z.imageSmoothingQuality='high';z.drawImage(art.canvas,b.x+(art.left-art.sx)*2.8,b.y+(art.top-art.sy)*2.8,art.canvas.width*2.8,art.canvas.height*2.8);z.restore()}}
 function roofAppearance(z,b,t,detail=true){
+ if(b.palace&&approvedPalace?.roof(z,b))return;
  if(b.palace&&palaceArt.roof?.complete&&palaceArt.roof.width){const art=palaceRoofSprite(b);if(art){z.save();z.imageSmoothingEnabled=true;z.imageSmoothingQuality='high';z.drawImage(art.canvas,b.x+(art.left-art.sx)*2.8,b.y+(art.top-art.sy)*2.8,art.canvas.width*2.8,art.canvas.height*2.8);z.restore();return}}
 
  if(b.palace){z.save();poly(z,b.outline);z.fillStyle=b.roofColor;z.strokeStyle='#382635';z.lineWidth=14;z.fill();z.stroke();z.clip();z.strokeStyle='#50264655';z.lineWidth=3;for(let a=b.x;a<b.x+b.w;a+=56){z.beginPath();z.moveTo(a,b.y);z.lineTo(a,b.y+b.h);z.stroke()}z.strokeStyle='#ffe088';z.lineWidth=24;const cx=b.x+b.w/2,cy=b.y+b.h/2;for(const [px,py]of b.outline){z.beginPath();z.moveTo(px,py);z.lineTo(cx,cy);z.stroke()}z.strokeStyle='#e8b742';z.lineWidth=16;poly(z,b.outline);z.stroke();z.fillStyle='#ffe493';z.fillRect(cx-28,cy-20,56,40);z.restore();return}
@@ -1100,7 +1306,7 @@ function roofAppearance(z,b,t,detail=true){
  if(t===Theme.themes.snow){z.fillStyle='#e3f3f6';for(const [xx,yy,ww]of [[b.x+19,b.y+15,b.w*.35],[b.x+b.w*.65,b.y+b.h-30,b.w*.30]]){round(z,xx,yy,ww,16,8);z.fill()}z.fillStyle='#b9dce9';round(z,b.x+23,b.y+b.h*.55,15,b.h*.25,6);z.fill()}
  }z.restore();
 }
-function roofs(z,s,local,visible,dt=.016){if(approvedPalace?.roofs(z,s,local,visible))return;const inside=Core.buildingAt(s,local);for(const b of s.buildings.slice().sort((a,b)=>(a.name==='Throne Hall')-(b.name==='Throne Hall'))){if(!visible(b))continue;const near=Core.canViewInterior(s,b,local),entered=inside?.id===b.id,hide=b.palace?entered:near;if(!Number.isFinite(b.roofAlpha))b.roofAlpha=1;const target=hide?0:1;b.roofAlpha+=Math.sign(target-b.roofAlpha)*Math.min(Math.abs(target-b.roofAlpha),Math.max(0,dt)/.12);if(b.roofAlpha<.001)continue;z.save();z.globalAlpha*=b.roofAlpha;if(b.palace&&near&&!entered){z.beginPath();z.rect(b.x-150,b.y-150,b.w+300,b.h+300);z.moveTo(local.x+85,local.y);z.arc(local.x,local.y,85,0,Math.PI*2,true);z.clip('evenodd')}roofAppearance(z,b,Theme.at(b.x+b.w/2,b.y+b.h/2,s.size));z.restore()}}
+function roofs(z,s,local,visible,dt=.016){if(approvedPalace?.roofs(z,s,local,visible,dt))return;const inside=Core.buildingAt(s,local);for(const b of s.buildings.slice().sort((a,b)=>(a.name==='Throne Hall')-(b.name==='Throne Hall'))){if(!visible(b))continue;const near=Core.canViewInterior(s,b,local),entered=inside?.id===b.id,hide=b.palace?entered:near;if(!Number.isFinite(b.roofAlpha))b.roofAlpha=1;const target=hide?0:1;b.roofAlpha+=Math.sign(target-b.roofAlpha)*Math.min(Math.abs(target-b.roofAlpha),Math.max(0,dt)/.12);if(b.roofAlpha<.001)continue;z.save();z.globalAlpha*=b.roofAlpha;if(b.palace&&near&&!entered){z.beginPath();z.rect(b.x-150,b.y-150,b.w+300,b.h+300);z.moveTo(local.x+85,local.y);z.arc(local.x,local.y,85,0,Math.PI*2,true);z.clip('evenodd')}roofAppearance(z,b,Theme.at(b.x+b.w/2,b.y+b.h/2,s.size));z.restore()}}
 
 function gas(z,s,view){
  const c=s.zone.current;z.save();z.fillStyle='#409cf04a';z.beginPath();z.rect(view.x,view.y,view.w,view.h);z.arc(c.x,c.y,c.r,0,Math.PI*2,true);z.fill('evenodd');z.lineWidth=6;z.strokeStyle='#64caff';z.beginPath();z.arc(c.x,c.y,c.r,0,7);z.stroke();const next=s.zone.next;z.setLineDash([14,13]);z.strokeStyle='#f2fbef';z.lineWidth=3;z.beginPath();z.arc(next.x,next.y,next.r,0,7);z.stroke();z.restore();
@@ -1109,7 +1315,7 @@ function mapBase(z,s,view){terrain(z,s,view,true);if(s.palace)floors(z,{...s,bui
  for(const o of s.index.query(view.x,view.y,view.w,view.h)){if(o.destroyed||o.lootContainer)continue;if(o.kind==='tree'||o.kind==='bush'||o.kind==='rock'){const t=Theme.at(o.x,o.y,s.size);z.fillStyle=o.kind==='tree'?(t===Theme.themes.snow?t.leaf:t.tree[(o.tint||0)%3]):o.kind==='bush'?t.tree[0]:t===Theme.themes.haunted?'#9573b0':'#93a99e';z.strokeStyle=o.kind==='rock'?'#45615b':'#295a43';z.lineWidth=5;z.beginPath();z.arc(o.x,o.y,o.kind==='tree'?o.canopy*.7:o.r*.8,0,7);z.fill();z.stroke()}else if(['container','fence','machine','planter'].includes(o.kind)){z.fillStyle=o.kind==='container'?(o.color||'#81999a'):o.kind==='machine'?'#c5a04f':'#9a9462';z.fillRect(o.x,o.y,o.w,o.h)}}
  for(const b of s.buildings)roofAppearance(z,b,Theme.at(b.x+b.w/2,b.y+b.h/2,s.size),false)
 }
-function cachedMapBase(z,s,left,top,span,w,h){const resolution=Math.max(s.palace?2048:1024,Math.ceil(Math.max(w,h)/256)*256),revision=(s.mapRevision||0)+(palaceReady()?1000000:0);let cache=s.mapCache;if(typeof document!=='undefined'&&typeof document.createElement==='function'){if(!cache||cache.revision!==revision||cache.resolution<resolution){const canvas=document.createElement('canvas');canvas.width=resolution;canvas.height=resolution;const context=canvas.getContext('2d');context.scale(resolution/s.size,resolution/s.size);mapBase(context,s,{x:0,y:0,w:s.size,h:s.size});cache=s.mapCache={canvas,resolution,revision}}const factor=cache.resolution/s.size;z.drawImage(cache.canvas,left*factor,top*factor,span*factor,span*factor,left,top,span,span)}else mapBase(z,s,{x:left,y:top,w:span,h:span})}
+function cachedMapBase(z,s,left,top,span,w,h){const resolution=Math.max(s.palace?2048:1024,Math.ceil(Math.max(w,h)/256)*256),revision=(s.mapRevision||0)+((approvedPalace?approvedPalace.ready():palaceReady())?1000000:0);let cache=s.mapCache;if(typeof document!=='undefined'&&typeof document.createElement==='function'){if(!cache||cache.revision!==revision||cache.resolution<resolution){const canvas=document.createElement('canvas');canvas.width=resolution;canvas.height=resolution;const context=canvas.getContext('2d');context.scale(resolution/s.size,resolution/s.size);mapBase(context,s,{x:0,y:0,w:s.size,h:s.size});cache=s.mapCache={canvas,resolution,revision}}const factor=cache.resolution/s.size;z.drawImage(cache.canvas,left*factor,top*factor,span*factor,span*factor,left,top,span,span)}else mapBase(z,s,{x:left,y:top,w:span,h:span})}
 function map(z,s,w,h,player,marker,route,plane,span=s.size){
  z.save();z.clearRect(0,0,w,h);const scale=Math.min(w,h)/span,cx=span===s.size?s.size/2:Math.max(span/2,Math.min(s.size-span/2,player.x)),cy=span===s.size?s.size/2:Math.max(span/2,Math.min(s.size-span/2,player.y)),left=cx-span/2,top=cy-span/2;
  z.scale(scale,scale);z.translate(-left,-top);cachedMapBase(z,s,left,top,span,w,h);
@@ -1119,7 +1325,7 @@ function map(z,s,w,h,player,marker,route,plane,span=s.size){
  if(marker){z.fillStyle='#ffdf58';z.strokeStyle='#573d1a';z.lineWidth=span/600;z.beginPath();z.arc(marker.x,marker.y,span/75,0,7);z.fill();z.stroke();z.beginPath();z.moveTo(marker.x,marker.y+span/65);z.lineTo(marker.x,marker.y-span/45);z.stroke()}
  z.fillStyle='#fff';z.strokeStyle='#1f5b64';z.lineWidth=span/500;z.beginPath();z.arc(player.x,player.y,span/90,0,7);z.fill();z.stroke();z.restore();return{left,top,scale};
 }
-return{palaceArtReady:()=>approvedPalace?approvedPalace.ready():palaceReady(),palaceInteriors,terrain,floors,object,bushes,canopies,crate,loot,roofs,gas,map};
+return{palaceArtReady:()=>approvedPalace?approvedPalace.ready():palaceReady(),terrain,floors,object,bushes,canopies,crate,loot,roofs,gas,map};
 });
 
 // Bounded caches for static artwork. Collision and combat state remain live.
@@ -1147,7 +1353,7 @@ R.canopies=function(z,objects,local){for(const o of objects)if(o.kind==='tree'&&
 R.bushes=function(z,s,visible,local=null){for(const b of s.bushes)if(visible({x:b.x-b.r,y:b.y-b.r,w:b.r*2,h:b.r*2})){const biome=Theme.idAt(b.x,b.y,C.SIZE),radius=b.r+5,rect={x:-radius,y:-radius,w:radius*2,h:radius*2};z.save();z.translate(b.x,b.y);if(local&&Math.hypot(local.x-b.x,local.y-b.y)<(b.hideRadius??b.r*.83))z.globalAlpha=.55;if(!sprite(z,'bush:'+b.r+':'+biome,rect,ctx=>raw.bushes(ctx,{bushes:[{...b,x:0,y:0,visualBiome:biome}]},()=>true)))raw.bushes(z,{bushes:[{...b,x:0,y:0,visualBiome:biome}]},()=>true);z.restore()}};
 
 R.crate=function(z,c){if(c.open||c.destroyed)return;z.save();z.translate(c.x,c.y);shake(z,c);if(!sprite(z,'crate:'+c.kind,{x:-36,y:-36,w:72,h:72},ctx=>raw.crate(ctx,{...c,x:0,y:0})))raw.crate(z,{...c,x:0,y:0});z.restore()};
-R.floors=function(z,s,visible){if(s.palace){const p=s.palace,F=p.scale,rect={x:p.ox+35*F,y:p.oy+70*F,w:830*F,h:760*F};if(!sprite(z,'royal-floor:'+id(s)+':'+!!raw.palaceArtReady?.(),rect,ctx=>raw.floors(ctx,s,()=>true),Math.min(1,level(z))))raw.floors(z,s,()=>true);raw.palaceInteriors?.(z,s,{x:0,y:0,phase:'plane'});}
+R.floors=function(z,s,visible){if(s.palace){const p=s.palace,F=p.scale,rect={x:p.ox+35*F,y:p.oy+70*F,w:830*F,h:760*F};if(!sprite(z,'royal-floor:'+id(s)+':'+!!raw.palaceArtReady?.(),rect,ctx=>raw.floors(ctx,s,()=>true),Math.min(1,level(z))))raw.floors(z,s,()=>true);}
  for(const building of s.buildings){
   if(building.palace)continue;
   if(!visible(building))continue;
@@ -1765,7 +1971,7 @@ draw=function(){
  islandRenderCount=objects.length;
  x.save();x.translate(innerWidth/2,innerHeight/2);x.scale(cameraZoom,cameraZoom);x.translate(-Math.round(cameraX*cameraZoom*scale)/(cameraZoom*scale),-Math.round(cameraY*cameraZoom*scale)/(cameraZoom*scale));
  const far=dropPhase==='plane'&&cameraZoom<.16&&IslandDraw.farScene&&IslandDraw.farScene(x,islandState,view);if(!far&&!objects.length)objects=islandState.index.query(view.x,view.y,view.w,view.h);islandRenderCount=objects.length;
- if(!far){IslandDraw.terrain(x,islandState,view);IslandDraw.floors(x,islandState,visible);IslandPerformance.raw.palaceInteriors?.(x,islandState,player)}
+ if(!far){IslandDraw.terrain(x,islandState,view);IslandDraw.floors(x,islandState,visible)}
  const interiorCache=new Map();
  const interiorVisible=building=>{
   if(!interiorCache.has(building.id))interiorCache.set(building.id,Island.canViewInterior(islandState,building,player));

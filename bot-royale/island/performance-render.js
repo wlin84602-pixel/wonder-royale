@@ -23,7 +23,7 @@ R.canopies=function(z,objects,local){for(const o of objects)if(o.kind==='tree'&&
 R.bushes=function(z,s,visible,local=null){for(const b of s.bushes)if(visible({x:b.x-b.r,y:b.y-b.r,w:b.r*2,h:b.r*2})){const biome=Theme.idAt(b.x,b.y,C.SIZE),radius=b.r+5,rect={x:-radius,y:-radius,w:radius*2,h:radius*2};z.save();z.translate(b.x,b.y);if(local&&Math.hypot(local.x-b.x,local.y-b.y)<(b.hideRadius??b.r*.83))z.globalAlpha=.55;if(!sprite(z,'bush:'+b.r+':'+biome,rect,ctx=>raw.bushes(ctx,{bushes:[{...b,x:0,y:0,visualBiome:biome}]},()=>true)))raw.bushes(z,{bushes:[{...b,x:0,y:0,visualBiome:biome}]},()=>true);z.restore()}};
 
 R.crate=function(z,c){if(c.open||c.destroyed)return;z.save();z.translate(c.x,c.y);shake(z,c);if(!sprite(z,'crate:'+c.kind,{x:-36,y:-36,w:72,h:72},ctx=>raw.crate(ctx,{...c,x:0,y:0})))raw.crate(z,{...c,x:0,y:0});z.restore()};
-R.floors=function(z,s,visible){if(s.palace){const p=s.palace,F=p.scale,rect={x:p.ox+35*F,y:p.oy+70*F,w:830*F,h:760*F};if(!sprite(z,'royal-floor:'+id(s)+':'+!!raw.palaceArtReady?.(),rect,ctx=>raw.floors(ctx,s,()=>true),Math.min(1,level(z))))raw.floors(z,s,()=>true);raw.palaceInteriors?.(z,s,{x:0,y:0,phase:'plane'});}
+R.floors=function(z,s,visible){if(s.palace){const p=s.palace,F=p.scale,rect={x:p.ox+35*F,y:p.oy+70*F,w:830*F,h:760*F};if(!sprite(z,'royal-floor:'+id(s)+':'+!!raw.palaceArtReady?.(),rect,ctx=>raw.floors(ctx,s,()=>true),Math.min(1,level(z))))raw.floors(z,s,()=>true);}
  for(const building of s.buildings){
   if(building.palace)continue;
   if(!visible(building))continue;

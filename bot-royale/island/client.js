@@ -174,7 +174,7 @@ draw=function(){
  islandRenderCount=objects.length;
  x.save();x.translate(innerWidth/2,innerHeight/2);x.scale(cameraZoom,cameraZoom);x.translate(-Math.round(cameraX*cameraZoom*scale)/(cameraZoom*scale),-Math.round(cameraY*cameraZoom*scale)/(cameraZoom*scale));
  const far=dropPhase==='plane'&&cameraZoom<.16&&IslandDraw.farScene&&IslandDraw.farScene(x,islandState,view);if(!far&&!objects.length)objects=islandState.index.query(view.x,view.y,view.w,view.h);islandRenderCount=objects.length;
- if(!far){IslandDraw.terrain(x,islandState,view);IslandDraw.floors(x,islandState,visible);IslandPerformance.raw.palaceInteriors?.(x,islandState,player)}
+ if(!far){IslandDraw.terrain(x,islandState,view);IslandDraw.floors(x,islandState,visible)}
  const interiorCache=new Map();
  const interiorVisible=building=>{
   if(!interiorCache.has(building.id))interiorCache.set(building.id,Island.canViewInterior(islandState,building,player));

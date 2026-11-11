@@ -292,18 +292,42 @@ const buildingLookups=new WeakMap();
 function buildingAt(s,a){if(!s.buildings.length)return null;let entry=buildingLookups.get(s);if(!entry||entry.list!==s.buildings||entry.count!==s.buildings.length){entry={list:s.buildings,count:s.buildings.length,index:new SpatialIndex(s.buildings)};buildingLookups.set(s,entry)}return entry.index.query(a.x,a.y,0,0).find(b=>a.x>b.x+12&&a.x<b.x+b.w-12&&a.y>b.y+12&&a.y<b.y+b.h-12&&(!b.outline||pointPolygon(a.x,a.y,b.outline)))||null}
 function bushAt(s,a){return s.index.query(a.x-1,a.y-1,2,2).find(b=>b.kind==='bush'&&Math.hypot(a.x-b.x,a.y-b.y)<(b.hideRadius??b.r*.83))||null}
 function apertureDistance(o,p){return o.shape==='segment'?pointSegment(p.x,p.y,o.ax,o.ay,o.bx,o.by):o.hingeX!==undefined?pointSegment(p.x,p.y,o.hingeX,o.hingeY,o.hingeX+Math.cos(o.closedAngle)*o.length,o.hingeY+Math.sin(o.closedAngle)*o.length):hyp(p,{x:o.x+o.w/2,y:o.y+o.h/2})}
+function nearBuildingAperture(s,b,viewer){
+ const distance=b.palace?(viewer.r??PLAYER_RADIUS)+(b.wallThickness??18)/2+7:52;
+ return s.index.query(viewer.x-distance,viewer.y-distance,distance*2,distance*2).some(o=>{
+  if(o.destroyed||o.building!==b.id||!(o.kind==='window'||o.kind==='door'&&o.exterior))return false;
+  if(apertureDistance(o,viewer)>distance)return false;
+  if(!b.palace)return true;
+  // Stand in front of the opening, rather than peeking around the end of a wall.
+  const ax=o.ax??o.hingeX,ay=o.ay??o.hingeY;
+  const dx=o.kind==='door'?Math.cos(o.closedAngle)*o.length:o.bx-ax;
+  const dy=o.kind==='door'?Math.sin(o.closedAngle)*o.length:o.by-ay;
+  const along=((viewer.x-ax)*dx+(viewer.y-ay)*dy)/(dx*dx+dy*dy);
+  return along>=0&&along<=1;
+ });
+}
 function canViewInterior(s,b,viewer){
  if(!b||!viewer||viewer.phase&&viewer.phase!=='ground')return false;
- if(buildingAt(s,viewer)?.id===b.id)return true;
- const distance=52;
- return s.index.query(viewer.x-distance,viewer.y-distance,distance*2,distance*2).some(o=>o.building===b.id&&(o.kind==='window'||o.kind==='door'&&o.exterior)&&
-  apertureDistance(o,viewer)<=distance);
+ return buildingAt(s,viewer)?.id===b.id||nearBuildingAperture(s,b,viewer);
 }
 // Signed distance from the closed panel determines the push direction on every orientation.
 function doorSwingAway(d,opener){const tx=Math.cos(d.closedAngle),ty=Math.sin(d.closedAngle),side=tx*(opener.y-d.hingeY)-ty*(opener.x-d.hingeX);return Math.abs(side)<1e-7?(d.swing||1):side>0?-1:1}
 function doorPose(d,time){const angle=d.closedAngle+doorAngleAt(d,time);return{hingeX:d.hingeX,hingeY:d.hingeY,angle,tipX:d.hingeX+Math.cos(angle)*d.length,tipY:d.hingeY+Math.sin(angle)*d.length}}
 function doorAngleAt(d,time){const target=d.open?(d.swing||1)*Math.PI/2:0,t=clamp((time-d.changedAt)/.09,0,1),f=t*t*(3-2*t);return(d.turnFrom??(d.open?0:(d.swing||1)*Math.PI/2))*(1-f)+target*f}
-function canSee(s,viewer,target){if(viewer===target||viewer.id&&viewer.id===target.id)return true;if(target.phase&&target.phase!=='ground')return true;const building=buildingAt(s,target);if(building&&!canViewInterior(s,building,viewer))return false;if(target.phase&&target.phase!=='ground')return true;if(hyp(viewer,target)>3200)return false;const bush=bushAt(s,target);if(bush&&s.time>=(target.revealedUntil||0)&&bushAt(s,viewer)?.id!==bush.id)return false;return !raycast(s,viewer.x,viewer.y,target.x,target.y,0,o=>!['wall','door','window'].includes(o.kind)||o.kind==='window'||o.kind==='door'&&o.exterior&&building&&apertureDistance(o,viewer)<=52)}
+function canSee(s,viewer,target){
+ if(viewer===target||viewer.id&&viewer.id===target.id)return true;
+ if(target.phase&&target.phase!=='ground')return true;
+ const building=buildingAt(s,target);
+ if(building&&!canViewInterior(s,building,viewer))return false;
+ if(hyp(viewer,target)>3200)return false;
+ const bush=bushAt(s,target);
+ if(bush&&s.time>=(target.revealedUntil||0)&&bushAt(s,viewer)?.id!==bush.id)return false;
+ // An aperture reveals the room to this viewer. Weapon collision still uses raycast.
+ if(building?.palace&&nearBuildingAperture(s,building,viewer))return true;
+ return !raycast(s,viewer.x,viewer.y,target.x,target.y,0,o=>
+  !['wall','door','window'].includes(o.kind)||o.kind==='window'||
+  o.kind==='door'&&o.exterior&&building&&apertureDistance(o,viewer)<=52);
+}
 function doorInteractionDistance(door,a,time){
  if(door.hingeX===undefined)return apertureDistance(door,a);
  const pose=doorPose(door,time);

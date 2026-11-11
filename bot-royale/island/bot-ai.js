@@ -6,12 +6,16 @@ function plan(C,s,p,actors,dt,projectileSpeed=1100){
  const target=actors.find(a=>a.id===b.targetId&&a.hp>0),visible=target&&C.hyp(target,p)<950&&C.canSee(s,p,target),zone=s.zone.current,unsafe=C.hyp(p,zone)>Math.max(0,zone.r-160);let dx=0,dy=0,fire=false;
  if(visible){const d=C.hyp(target,p),lead=Math.min(.3,d/projectileSpeed)*.65,aim=Math.atan2(target.y+(b.vy||0)*lead-p.y,target.x+(b.vx||0)*lead-p.x),error=Math.sin(now*2.7+(p.skin||0)*1.7)*.045;const delta=Math.atan2(Math.sin(aim+error-p.angle),Math.cos(aim+error-p.angle));p.angle+=C.clamp(delta,-7*dt,7*dt);if(now>=b.nextStrafe){b.nextStrafe=now+1+random()*1.1;b.strafe*=-1}const forward=d>360?1:d<190?-.8:0,angle=Math.atan2(target.y-p.y,target.x-p.x);dx=Math.cos(angle)*forward-Math.sin(angle)*b.strafe*.65;dy=Math.sin(angle)*forward+Math.cos(angle)*b.strafe*.65;fire=!unsafe&&now>=b.readyAt&&d<760&&Math.abs(delta)<.2&&!C.raycast(s,p.x,p.y,target.x,target.y,1)}
  else if(b.targetId&&now-(b.seenAt??-10)<1.5){dx=b.seenX-p.x;dy=b.seenY-p.y}
- else{if(now>=b.wanderUntil){b.wander=random()*Math.PI*2;b.wanderUntil=now+1.5+random()*2}dx=Math.cos(b.wander);dy=Math.sin(b.wander);p.angle=b.wander}
+ else{if(now>=b.wanderUntil){b.wander=random()*Math.PI*2;b.wanderUntil=now+1.5+random()*2}dx=Math.cos(b.wander);dy=Math.sin(b.wander);const turn=Math.atan2(Math.sin(b.wander-p.angle),Math.cos(b.wander-p.angle));p.angle+=C.clamp(turn,-7*dt,7*dt)}
  if(unsafe){dx=zone.x-p.x;dy=zone.y-p.y;fire=false}
  const n=Math.hypot(dx,dy)||1;dx/=n;dy/=n;
  // Probe several candidate headings so a tree or wall doesn't pin a bot in place.
  if(C.raycast(s,p.x,p.y,p.x+dx*90,p.y+dy*90,20)){if(now>=b.avoidUntil){b.avoidSign=random()<.5?-1:1;b.avoidUntil=now+.7}const base=Math.atan2(dy,dx);let found=false;for(const turn of [.65,1.15,1.65,2.2,Math.PI]){for(const sign of [b.avoidSign,-b.avoidSign]){const a=base+turn*sign,ax=Math.cos(a),ay=Math.sin(a);if(!C.raycast(s,p.x,p.y,p.x+ax*90,p.y+ay*90,20)){dx=ax;dy=ay;found=true;break}}if(found)break}if(!found){dx=0;dy=0}}
- return{dx,dy,fire,visible:!!visible,unsafe};
+ // Ease changes in steering so target scans and obstacle avoidance do not snap movement.
+ const blend=1-Math.exp(-dt*14);
+ b.moveX=(b.moveX??dx)+(dx-(b.moveX??dx))*blend;
+ b.moveY=(b.moveY??dy)+(dy-(b.moveY??dy))*blend;
+ return{dx:b.moveX,dy:b.moveY,fire,visible:!!visible,unsafe};
 }
 return{plan};
 });

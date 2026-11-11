@@ -9,14 +9,37 @@ function addAmmo(p,f,n){prepare(p);if(!FAMILIES.includes(f))return false;n=Math.
 function pickup(s,p,item,makeGun){prepare(p);if(!item||item.taken)return false;
  if(item.type==='ammo'){addAmmo(p,item.ammoFamily||'smg',item.amount||30)}
  else if(item.type==='med'||item.type==='shield'||item.type==='big-shield'){const kind=item.type==='big-shield'?'big-shield':item.type==='shield'?'small-shield':'med';let g=p.inventory.find(g=>g?.kind===kind);if(g)g.count+=item.amount||1;else{const i=p.inventory.findIndex((g,i)=>i>0&&!g);if(i<0)return false;p.inventory[i]={kind,type:-1,count:item.amount||1,rarity:0}}}
- else if(item.type==='gun'){const i=p.inventory.findIndex((g,i)=>i>0&&!g);if(i<0)return false;p.inventory[i]=item.gunData?JSON.parse(JSON.stringify(item.gunData)):makeGun(item.weapon,item.rarity||0);p.slot=i;feedGun(p,p.inventory[i])}
+ else if(item.type==='gun'){
+  const index=p.inventory.findIndex((gun,slot)=>slot>0&&!gun);
+  const swap=index<0&&p.slot>0&&isGun(p.inventory[p.slot]);
+  if(index<0&&!swap)return false;
+  const slot=swap?p.slot:index;
+  const incoming=item.gunData?JSON.parse(JSON.stringify(item.gunData)):makeGun(item.weapon,item.rarity||0);
+  if(!isGun(incoming))return false;
+  if(swap){
+   const previous=p.inventory[slot];
+   s.loot.push({
+    id:'loot-'+s.nextId++,x:item.x,y:item.y,type:'gun',weapon:previous.type,
+    rarity:previous.rarity||0,gunData:droppedGunData(previous),taken:false
+   });
+  }
+  p.inventory[slot]=incoming;
+  p.slot=slot;
+  feedGun(p,incoming);
+ }
  else return false;item.taken=true;prepare(p);return true;
 }
 function autoAmmo(s,p){if(p.phase&&p.phase!=='ground')return;for(const q of s.loot){if(q.taken||q.type!=='ammo')continue;const d=C.hyp(p,q);if(q.ignorePickupBy===p.id){if(d>64)delete q.ignorePickupBy;else continue}if(d>52||C.raycast(s,p.x,p.y,q.x,q.y,0))continue;pickup(s,p,q)}}
+function droppedGunData(gun){
+ const data=JSON.parse(JSON.stringify(gun));
+ delete data.pulseStart;
+ delete data.pulseSavedMs;
+ return data;
+}
 function spawn(s,p,item,preview){if(preview)return;const wanted={x:p.x+Math.cos(p.angle||0)*76,y:p.y+Math.sin(p.angle||0)*76},point=C.findValid(s,wanted,13);s.loot.push({id:'loot-'+s.nextId++,...point,...item,taken:false,ignorePickupBy:p.id})}
 function act(s,p,m,preview=false){prepare(p);if(p.phase&&p.phase!=='ground')return{ok:false};
  if(m.kind==='inventory-move'){if(!Number.isInteger(m.from)||!Number.isInteger(m.to)||m.from<1||m.from>5||m.to<1||m.to>5||!p.inventory[m.from])return{ok:false};[p.inventory[m.from],p.inventory[m.to]]=[p.inventory[m.to],p.inventory[m.from]];if(p.slot===m.from)p.slot=m.to;else if(p.slot===m.to)p.slot=m.from}
- else if(m.kind==='inventory-drop'){if(!Number.isInteger(m.slot)||m.slot<1||m.slot>5||!p.inventory[m.slot])return{ok:false};const g=p.inventory[m.slot],gunData=JSON.parse(JSON.stringify(g));delete gunData.pulseStart;delete gunData.pulseSavedMs;spawn(s,p,isMed(g)?{type:g.kind==='big-shield'?'big-shield':g.kind==='small-shield'?'shield':'med',amount:g.count}:{type:'gun',weapon:g.type,rarity:g.rarity||0,gunData},preview);p.inventory[m.slot]=null}
+ else if(m.kind==='inventory-drop'){if(!Number.isInteger(m.slot)||m.slot<1||m.slot>5||!p.inventory[m.slot])return{ok:false};const g=p.inventory[m.slot];spawn(s,p,isMed(g)?{type:g.kind==='big-shield'?'big-shield':g.kind==='small-shield'?'shield':'med',amount:g.count}:{type:'gun',weapon:g.type,rarity:g.rarity||0,gunData:droppedGunData(g)},preview);p.inventory[m.slot]=null}
  else if(m.kind==='ammo-drop'){if(!FAMILIES.includes(m.family))return{ok:false};const total=totals(p)[m.family]||0;if(total<=0)return{ok:false};const amount=Math.max(1,Math.round(total*.1));let left=amount,n=Math.min(left,p.ammoWallet[m.family]||0);p.ammoWallet[m.family]-=n;left-=n;for(const g of p.inventory)if(left&&isGun(g)&&family(g)===m.family){n=Math.min(left,g.reserve||0);g.reserve-=n;left-=n}spawn(s,p,{type:'ammo',ammoFamily:m.family,amount},preview);prepare(p);return{ok:true,amount}}
  else if(m.kind==='medkit'){const g=p.inventory[p.slot];if(!isMed(g)||g.count<=0||(g.kind==='big-shield'?(p.shield||0)>=100:g.kind==='small-shield'?(p.shield||0)>=50:p.hp>=100)||p.hp<=0||p.healing)return{ok:false};p.healing={slot:p.slot,kind:g.kind,startedAt:s.time,endsAt:s.time+(g.kind==='small-shield'?1.5:5)}} 
  else return{ok:false};prepare(p);return{ok:true};

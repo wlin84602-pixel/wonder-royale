@@ -75,7 +75,7 @@ interact=function(){
  const target=Island.interactionTarget(islandState,player);if(!target)return;
  if(target.kind==='door'){const door=target.object,result=Island.interactDoor(islandState,door,player,islandCurrentActors());if(result.ok)islandDoorSound(door.open);else if(result.reason==='Doorway occupied')islandNote('Doorway occupied');return}
  if(target.kind==='container'){const items=Island.openContainer(islandState,target.object,player);for(const q of items)if(q.type==='ammo')IslandInventory.pickup(islandState,player,q);updateHUD();return}
- const oldSlot=slot,ok=IslandInventory.pickup(islandState,player,target.object,(type,rarity)=>gun(type,rarity));if(!ok)islandNote('Loadout full');slot=player.slot??slot;if(slot!==oldSlot){IslandPulse.select(player,combatInputTimeMs());weaponEquipReadyAtMs=combatInputTimeMs()+IslandWeaponStats.data.equipDelayMs;const g=player.inventory[slot];if(g)g.equipReadyAtMs=weaponEquipReadyAtMs;fireWasHeld=actionDown('fire');fireIntentAtMs=weaponEquipReadyAtMs}selectedItem=IslandInventory.isMed(player.inventory[slot])?'medkit':'weapon';updateHUD();
+ const oldGun=player.inventory[slot],ok=IslandInventory.pickup(islandState,player,target.object,(type,rarity)=>gun(type,rarity));if(!ok)islandNote('Loadout full');slot=player.slot??slot;if(ok&&player.inventory[slot]!==oldGun){IslandPulse.select(player,combatInputTimeMs());weaponEquipReadyAtMs=combatInputTimeMs()+IslandWeaponStats.data.equipDelayMs;const g=player.inventory[slot];if(g)g.equipReadyAtMs=weaponEquipReadyAtMs;fireWasHeld=actionDown('fire');fireIntentAtMs=weaponEquipReadyAtMs}selectedItem=IslandInventory.isMed(player.inventory[slot])?'medkit':'weapon';updateHUD();
 }
 shoot=function(a,angle,enemy=false,atMs=combatInputTimeMs()){
  if(islandNetwork.ready&&!enemy){islandSendInput();return false;}
@@ -117,7 +117,7 @@ function islandStepBullets(dt,frameStartMs){
  bullets=bullets.filter(q=>q.life>0);
 }
 function islandResolveDeaths(){
- for(const b of bots)if(b.hp<=0&&!b.islandDead){b.islandDead=true;if(b.hitByPlayer)kills++;const point=Island.findValid(islandState,b,13);islandState.loot.push({id:'loot-'+islandState.nextId++,...point,type:'ammo',amount:30,taken:false})}
+ for(const b of bots)if(b.hp<=0&&!b.islandDead){b.islandDead=true;if(b.hitByPlayer)kills++;Island.dropEliminationAmmo(islandState,b)}
  bots=bots.filter(b=>b.hp>0);loot=islandState.loot.filter(l=>!l.taken);islandState.loot=loot;
 }
 update=function(dt,frameWallMs=combatWallTimeMs()){
@@ -128,12 +128,14 @@ update=function(dt,frameWallMs=combatWallTimeMs()){
   islandOriginal.update(dt,frameWallMs);player.phase=dropPhase;for(const b of bots){if(!islandDeployBot(b,dt))islandBotStep(b,dt);if(b.phase==='ground')Island.stepKnockback(islandState,b,dt)}Island.separateActors(islandState,[player,...bots]);islandStepBullets(dt,combatTimeMs);islandResolveDeaths();Island.advanceZone(islandState,dt,bots);islandClampCamera();return;
  }
  const frameStartMs=combatTimeMs;combatTimeMs+=Math.max(0,dt)*1000;combatWallAnchorMs=frameWallMs;time+=dt;
- const smooth=Math.min(1,dt*10);cameraZoom+=(islandGroundZoom()-cameraZoom)*smooth;cameraX+=(player.x-cameraX)*smooth;cameraY+=(player.y-cameraY)*smooth;
+ const smooth=1-Math.exp(-dt*12);
  const movement=movementVector();Island.moveActor(islandState,player,movement.dx,movement.dy,dt,player.speed);Island.stepKnockback(islandState,player,dt);IslandInventory.autoAmmo(islandState,player);
  player.cd-=dt;player.meleeSwing=Math.max(0,(player.meleeSwing||0)-dt);updatePlayerAim();
  advancePlayerCombat(frameStartMs,combatTimeMs);
  if(islandMeleeSelected()&&actionDown('fire')&&player.cd<=0)swingMelee();
  for(const b of bots){if(!islandDeployBot(b,dt))islandBotStep(b,dt);if(b.phase==='ground')Island.stepKnockback(islandState,b,dt)}
+ Island.separateActors(islandState,[player,...bots]);
+ cameraZoom+=(islandGroundZoom()-cameraZoom)*smooth;cameraX+=(player.x-cameraX)*smooth;cameraY+=(player.y-cameraY)*smooth;
  islandStepBullets(dt,frameStartMs);islandResolveDeaths();
  Island.advanceZone(islandState,dt,islandCurrentActors());storm=islandState.zone.current.r;
  islandClampCamera();updateHUD();if(player.hp<=0)end(false);else if(!bots.length)end(true);
@@ -259,9 +261,9 @@ function islandSendAction(kind,extra={}){
 }
 
 function islandApplySnapshot(snapshot){
- const net=islandNetwork;if(!snapshot||net.last&&snapshot.tick<=net.last.tick)return;
+ const net=islandNetwork;if(!snapshot||net.last&&snapshot.seed===net.last.seed&&snapshot.tick<=net.last.tick)return;
  if(snapshot.seed!==islandState.seed||islandState.waitingPreview)initializeIsland(snapshot.seed);
- const before={x:player.x,y:player.y},priorDropPhase=dropPhase,first=!net.last;net.previous=net.last;net.last=snapshot;net.receivedAt=performance.now();islandState.time=snapshot.time;islandState.zone=snapshot.zone;islandMarker=snapshot.marker;
+ const priorDropPhase=dropPhase,first=!net.last;net.last=snapshot;net.receivedAt=performance.now();islandState.time=snapshot.time;islandState.zone=snapshot.zone;islandMarker=snapshot.marker;
  for(const e of snapshot.damageEvents||[])if(!islandSeenDamageEvents.has(e.id)){islandSeenDamageEvents.add(e.id);islandAddDamageNumber({id:e.target,x:e.x,y:e.y},e.hp,e.shield)}if(islandSeenDamageEvents.size>256){const ids=[...islandSeenDamageEvents];islandSeenDamageEvents=new Set(ids.slice(-128))}
  const doorById=new Map(snapshot.doors.map(d=>[d.id,d]));for(const door of islandState.doors){const next=doorById.get(door.id);if(next){const pending=net.doorPredictions?.get(door.id);if(pending&&snapshot.actionSeq<pending.seq)continue;if(pending)net.doorPredictions.delete(door.id);if(door.open!==next.open&&dist(door,player)<500)islandDoorSound(next.open);islandSyncDoor(door,next)}}
  islandSyncWorldSnapshot(islandState,snapshot);for(const h of snapshot.objectHits||[]){const o=islandState.objects.find(o=>o.id===h.id);if(o&&o.hitAt!==h.at)Object.assign(o,{hitAt:h.at,hitDX:h.dx,hitDY:h.dy,hitVisualAt:performance.now()})}
@@ -277,15 +279,18 @@ function islandOnlineUpdate(dt){
  const net=islandNetwork;if(!net.ready||!net.last){islandClampCamera();return}
  islandState.time=Math.max(islandState.time,net.last.time+Math.min(.2,(performance.now()-net.receivedAt)/1000));player.phase=dropPhase;
  if(dropPhase==='ground'&&islandMeleeSelected()&&actionDown('fire')&&!matchMenuOpen&&!settingsOpen&&performance.now()>=islandMeleeVisualReady){islandBeginMeleeVisual()}
- Island.separateActors(islandState,[player,...bots]);updatePlayerAim();const fresh=performance.now()-net.receivedAt<1000;if(!fresh){$('#island-network-state').textContent='CONNECTION LOST · RETRYING';return}
+ updatePlayerAim();const fresh=performance.now()-net.receivedAt<1000;if(!fresh){$('#island-network-state').textContent='CONNECTION LOST · RETRYING';return}
  const movement=islandMapOpen||matchMenuOpen?{dx:0,dy:0}:movementVector();
- if(dropPhase==='ground')Island.moveActor(islandState,player,movement.dx,movement.dy,dt,player.speed);
+ if(dropPhase==='ground'){
+  Island.moveActor(islandState,player,movement.dx,movement.dy,dt,player.speed);
+  const pending=net.predictedMovement||=[];
+  pending.push({seq:net.sequence+1,dx:movement.dx,dy:movement.dy,dt});
+  if(pending.length>60)pending.shift();
+ }
  else if(dropPhase==='plane')Object.assign(player,Island.planePosition(planeRoute,islandState.time));
  else{dropFast=!!keys[' '];const length=Math.hypot(movement.dx,movement.dy)||1;player.x=Island.clamp(player.x+movement.dx/length*Island.PARACHUTE_SPEED*dt,40,world-40);player.y=Island.clamp(player.y+movement.dy/length*Island.PARACHUTE_SPEED*dt,40,world-40);dropRemaining=Math.max(0,dropRemaining-dt*(dropFast?2:1))}
- // Interpolate visible remote actors only. Hidden actors are never sent by the server.
- if(net.previous){const f=Math.min(1,(performance.now()-net.receivedAt)/70);if(net._previousActorsFor!==net.previous){net._previousActorsFor=net.previous;net._previousActors=new Map(net.previous.actors.map(a=>[a.id,a]))}if(net._renderActorsFor!==net.last){net._renderActorsFor=net.last;net._renderActors=net.last.actors.map(a=>({...a}))}bots=net._renderActors;for(let i=0;i<bots.length;i++){const a=net.last.actors[i],old=net._previousActors.get(a.id);bots[i].x=old?old.x+(a.x-old.x)*f:a.x;bots[i].y=old?old.y+(a.y-old.y)*f:a.y}}
  if(net._renderBulletsFor!==net.last){net._renderBulletsFor=net.last;net._renderBullets=net.last.bullets.map(b=>({...b}))}bullets=net._renderBullets;const bulletAge=Math.min(.08,(performance.now()-net.receivedAt)/1000);for(let i=0;i<bullets.length;i++){const src=net.last.bullets[i];const motion=Island.projectileMotion(src,bulletAge);bullets[i].x=motion.x;bullets[i].y=motion.y;bullets[i].vx=motion.vx;bullets[i].vy=motion.vy;bullets[i].position={x:motion.x,y:motion.y};bullets[i].velocity={x:motion.vx,y:motion.vy}}
- const targetZoom=islandFlightZoom(),smooth=Math.min(1,dt*10);
+ const targetZoom=islandFlightZoom(),smooth=1-Math.exp(-dt*12);
  cameraZoom+=(targetZoom-cameraZoom)*smooth;cameraX+=(player.x+(net.visualOffset?.x||0)-cameraX)*smooth;cameraY+=(player.y+(net.visualOffset?.y||0)-cameraY)*smooth;islandClampCamera();updateHUD();islandSetText('#alive',String(net.last.alive));
 }
 function islandDisconnect(){

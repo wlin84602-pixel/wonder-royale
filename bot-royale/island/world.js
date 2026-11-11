@@ -195,7 +195,7 @@ function buildWorld(seed=1){
  s.palace.x-=dx;s.palace.y-=dy;s.palace.ox-=dx;s.palace.oy-=dy;s.coast=COAST.map(([x,y])=>[x*MAP_SCALE,y*MAP_SCALE]);s.locations=[{id:'palace',name:'Wonderlust Palace',x:s.palace.x+s.palace.w/2,y:s.palace.y+s.palace.h/2,color:'#e5c561',risk:'high'}];s.index=new SpatialIndex(s.objects);s.random=random;
  const addCrate=(q,kind,building)=>{const c={id:'palace-loot-'+s.nextId++,x:q.x,y:q.y,kind,building,exterior:!building,shape:'circle',r:kind==='ammo'?12:18,solid:true,blocksShots:true,lootContainer:true,destructible:true,hp:kind==='ultimate'?120:60,open:false};s.containers.push(c);s.objects.push(c);s.index.add(c)};
  for(let i=0;i<s.buildings.length;i++){const b=s.buildings[i],q=findValid(s,{x:b.x+b.w*.6,y:b.y+b.h*.65},24);if(buildingAt(s,q)?.id===b.id)addCrate(q,i<3?'ultimate':i%2?'gold':'basic',b.id)}
- for(let i=0;i<8;i++){const q=findValid(s,{x:s.palace.x+80+random()*(s.palace.w-160),y:s.palace.y+80+random()*(s.palace.h-160)},24);if(!s.containers.some(c=>hyp(c,q)<100))addCrate(q,'ammo',buildingAt(s,q)?.id)}
+ for(let i=0;i<4;i++){const q=findValid(s,{x:s.palace.x+80+random()*(s.palace.w-160),y:s.palace.y+80+random()*(s.palace.h-160)},24);if(!s.containers.some(c=>hyp(c,q)<100))addCrate(q,'ammo',buildingAt(s,q)?.id)}
  for(let i=0;i<5;i++){const q=findValid(s,{x:s.palace.x+80+random()*(s.palace.w-160),y:s.palace.y+80+random()*(s.palace.h-160)},18);s.loot.push({id:'palace-ground-'+i,...q,type:'gun',weapon:i%5,rarity:i===4?1:0,taken:false})}
  s.zone=createZone(s,random);return s;
 }
@@ -351,6 +351,12 @@ function interactDoor(s,door,a,actors=[],desiredOpen){
  }
  s.events.push({kind:'door',x:door.x,y:door.y,open:door.open});return{ok:true,moved};
 }
+function dropEliminationAmmo(s,actor){
+ const bot=actor.bot||String(actor.id||'').startsWith('offline-bot-');
+ if(bot&&s.random()>=.5)return;
+ const point=findValid(s,actor,13);
+ s.loot.push({id:'loot-'+s.nextId++,...point,type:'ammo',amount:bot?20:30,taken:false});
+}
 function interactionTarget(s,a){if(a.phase&&a.phase!=='ground')return null;const candidates=[];for(const d of s.doors){const distance=doorInteractionDistance(d,a,s.time);if(distance<=80){const hingeDistance=d.hingeX===undefined?Infinity:hyp(a,{x:d.hingeX,y:d.hingeY});candidates.push({kind:'door',object:d,distance,hingeDistance,hingeTouch:hingeDistance<=(a.r||PLAYER_RADIUS)+26})}}for(const c of s.containers)if(!c.open&&hyp(a,c)<92){const hit=raycast(s,a.x,a.y,c.x,c.y,0);if(!hit||hit.object.id===c.id)candidates.push({kind:'container',object:c,distance:hyp(a,c)})}for(const l of s.loot)if(!l.taken&&hyp(a,l)<72&&!raycast(s,a.x,a.y,l.x,l.y,0))candidates.push({kind:'loot',object:l,distance:hyp(a,l)});return candidates.sort((a,b)=>(a.kind==='door'?0:1)-(b.kind==='door'?0:1)||(a.hingeTouch?0:1)-(b.hingeTouch?0:1)||(a.hingeTouch&&b.hingeTouch?a.hingeDistance-b.hingeDistance:a.distance-b.distance))[0]||null}
 function openContainer(s,c,a,weaponCount=4){
  if(!c||c.open||hyp(a,c)>92||a.phase&&a.phase!=='ground')return[];const obstruction=raycast(s,a.x,a.y,c.x,c.y,0);if(obstruction&&obstruction.object.id!==c.id)return[];
@@ -392,7 +398,7 @@ function zoneCountdown(s){const z=s.zone;if(z.mode==='finished')return 0;const c
 function planeRoute(seed){const r=rng(seed^0xabc143),horizontal=r()<.5,reverse=r()<.5,offset=2100+r()*1800,start=horizontal?{x:reverse?7000:3800,y:offset}:{x:offset,y:reverse?7000:3800},end=horizontal?{x:reverse?3800:7000,y:offset}:{x:offset,y:reverse?3800:7000};return{start,end,angle:Math.atan2(end.y-start.y,end.x-start.x),duration:hyp(start,end)/330}}
 
 function planePosition(route,time){const f=clamp(time/route.duration,0,1);return{x:route.start.x+(route.end.x-route.start.x)*f,y:route.start.y+(route.end.y-route.start.y)*f}}
-return{softCover,projectileWall,pierceCover,separateActors,PROJECTILE_DRAG,projectileMotion,SIZE:SIZE*MAP_SCALE,MAP_SCALE,PLAYER_RADIUS,PLAYER_SPEED,PARACHUTE_SPEED,DROP_SECONDS,GROUND_GUN_COUNT,PUMP_FULL_HIT_DAMAGE,configurePumpShot,applyPumpHit,stepKnockback,solidHit,LOCATIONS:[{id:'palace',name:'Wonderlust Palace',x:1500,y:1500,color:'#e5c561'}],ZONE_PHASES,COAST:COAST.map(([x,y])=>[x*MAP_SCALE,y*MAP_SCALE]),SpatialIndex,rng,clamp,hyp,pointSegment,circleRect,buildWorld,playable,isWater,blocked,findValid,resolveActorOverlap,moveActor,raycast,segmentHitCircle,buildingAt,bushAt,apertureDistance,canViewInterior,doorSwingAway,doorPose,doorAngleAt,doorInteractionDistance,canSee,interactDoor,interactionTarget,openContainer,damageObject,advanceZone,zoneCountdown,planeRoute,planePosition,bounds};
+return{dropEliminationAmmo,softCover,projectileWall,pierceCover,separateActors,PROJECTILE_DRAG,projectileMotion,SIZE:SIZE*MAP_SCALE,MAP_SCALE,PLAYER_RADIUS,PLAYER_SPEED,PARACHUTE_SPEED,DROP_SECONDS,GROUND_GUN_COUNT,PUMP_FULL_HIT_DAMAGE,configurePumpShot,applyPumpHit,stepKnockback,solidHit,LOCATIONS:[{id:'palace',name:'Wonderlust Palace',x:1500,y:1500,color:'#e5c561'}],ZONE_PHASES,COAST:COAST.map(([x,y])=>[x*MAP_SCALE,y*MAP_SCALE]),SpatialIndex,rng,clamp,hyp,pointSegment,circleRect,buildWorld,playable,isWater,blocked,findValid,resolveActorOverlap,moveActor,raycast,segmentHitCircle,buildingAt,bushAt,apertureDistance,canViewInterior,doorSwingAway,doorPose,doorAngleAt,doorInteractionDistance,canSee,interactDoor,interactionTarget,openContainer,damageObject,advanceZone,zoneCountdown,planeRoute,planePosition,bounds};
 });
 
 

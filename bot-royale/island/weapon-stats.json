@@ -47,7 +47,7 @@
       }
     },
     "sniper": {
-      "speed": 3000,
+      "speed": 2600,
       "lifeMs": 1650,
       "spreadRadians": 0,
       "muzzleOffset": 55
@@ -59,7 +59,7 @@
       "muzzleOffset": 45
     },
     "pulse": {
-      "speed": 3000,
+      "speed": 2600,
       "lifeMs": 1650,
       "spreadRadians": 0,
       "muzzleOffset": 100

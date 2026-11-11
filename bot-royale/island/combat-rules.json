@@ -30,7 +30,7 @@
       "clip": 5,
       "damage": 68,
       "rate": 1.1,
-      "speed": 1100,
+      "speed": 2600,
       "color": "#f2c45e"
     },
     {
@@ -47,7 +47,7 @@
       "clip": 5,
       "damage": 100,
       "rate": 1,
-      "speed": 3000,
+      "speed": 2600,
       "ammoFamily": "sniper",
       "color": "#36e4ef"
     },
@@ -142,7 +142,7 @@
         }
       },
       "sniper": {
-        "speed": 3000,
+        "speed": 2600,
         "lifeMs": 1650,
         "spreadRadians": 0,
         "muzzleOffset": 55
@@ -154,7 +154,7 @@
         "muzzleOffset": 45
       },
       "pulse": {
-        "speed": 3000,
+        "speed": 2600,
         "lifeMs": 1650,
         "spreadRadians": 0,
         "muzzleOffset": 100

@@ -239,7 +239,7 @@
   ctx.restore();
   return true;
  }
- function roofs(ctx,state,viewer,visible,dt){
+ function roofs(ctx,state,viewer,visible,dt,paintRoof=roof){
   if(!state.palace)return false;
   const onGround=!viewer.phase||viewer.phase==='ground';
   for(const building of state.buildings){
@@ -255,7 +255,7 @@
    if(alpha<=0)continue;
    ctx.save();
    ctx.globalAlpha*=alpha;
-   roof(ctx,building);
+   paintRoof(ctx,building);
    ctx.restore();
   }
   return true;

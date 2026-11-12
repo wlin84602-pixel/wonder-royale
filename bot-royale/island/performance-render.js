@@ -14,9 +14,9 @@ function sprite(z,key,b,paint,res=level(z)){
 }
 function shake(z,o){const t=(performance.now()-(o.hitVisualAt??-10000))/1000;if(t>=0&&t<.22){const n=Math.sin(t*65)*4*(1-t/.22);z.translate((o.hitDX||1)*n,(o.hitDY||0)*n)}}
 R.terrain=raw.terrain;
-R.object=function(z,o,time){if(o.destroyed||o.lootContainer||o.kind==='bush')return;if(o.kind==='door'||o.shape==='segment'||o.kind==='tree'||o.kind==='rock'||o.kind==='barrel'||o.kind==='fence'){z.save();shake(z,o);raw.object(z,o,time);z.restore();return}const b=C.bounds(o),pad=o.shape==='segment'?18:6,rect={x:b.x-pad,y:b.y-pad,w:b.w+pad*2,h:b.h+pad*2};
+R.object=function(z,o,time){if(o.destroyed||o.lootContainer||o.kind==='bush')return;if(o.kind==='door'||o.shape==='segment'&&o.paint!=='palace'||o.kind==='tree'||o.kind==='rock'||o.kind==='barrel'||o.kind==='fence'){z.save();shake(z,o);raw.object(z,o,time);z.restore();return}const b=C.bounds(o),pad=o.shape==='segment'?18:6,rect={x:b.x-pad,y:b.y-pad,w:b.w+pad*2,h:b.h+pad*2};
  // Normalize the source position, so repeated shelves/windows share one image.
- const key='object:'+JSON.stringify([o.kind,o.shape,o.w,o.h,o.r,o.trunkRadius,o.paint,o.color,o.bx-o.ax,o.by-o.ay]);
+ const key='object:'+JSON.stringify([o.kind,o.shape,o.w,o.h,o.r,o.trunkRadius,o.paint,o.color,!!o.building,o.bx-o.ax,o.by-o.ay]);
  const local={...o,x:o.x-b.x,y:o.y-b.y,ax:o.ax-b.x,bx:o.bx-b.x,ay:o.ay-b.y,by:o.by-b.y};const origin={x:-pad,y:-pad,w:rect.w,h:rect.h};z.save();z.translate(b.x,b.y);shake(z,o);if(!sprite(z,key,origin,ctx=>raw.object(ctx,local,time)))raw.object(z,local,time);z.restore()
 };
 R.canopies=function(z,objects,local){for(const o of objects)if(o.kind==='tree'&&!o.destroyed){const biome=Theme.idAt(o.x,o.y,C.SIZE),r=o.canopy+6,b={x:-r,y:-r,w:r*2,h:r*2},key='canopy:'+o.canopy+':'+(o.tint||0)+':'+biome;z.save();z.translate(o.x,o.y);shake(z,o);if(!sprite(z,key,b,ctx=>raw.canopies(ctx,[{...o,x:0,y:0,visualBiome:biome}],local)))raw.canopies(z,[{...o,x:0,y:0,visualBiome:biome}],local);z.restore()}};
@@ -31,7 +31,15 @@ R.floors=function(z,s,visible){if(s.palace){const p=s.palace,F=p.scale,rect={x:p
   if(!sprite(z,'floor:'+id(s)+':'+building.id,rect,ctx=>raw.floors(ctx,{...s,buildings:[building]},()=>true)))raw.floors(z,{...s,buildings:[building]},()=>true);
  }
 };
-R.roofs=raw.roofs;
+R.roofs=function(z,s,viewer,visible,dt){
+ const resolution=Math.min(1,level(z));
+ raw.roofs(z,s,viewer,visible,dt,(ctx,building)=>{
+  const bounds={x:building.x,y:building.y,w:building.w,h:building.h};
+  if(!sprite(ctx,'palace-roof:'+id(building),bounds,roofCtx=>raw.palaceRoof(roofCtx,building),resolution)){
+   raw.palaceRoof(ctx,building);
+  }
+ });
+};
 function intersects(a,b,pad=0){return a.x+a.w+pad>=b.x&&a.x-pad<=b.x+b.w&&a.y+a.h+pad>=b.y&&a.y-pad<=b.y+b.h}
 function paintFar(ctx,s,v){
  ctx.save();ctx.beginPath();ctx.rect(v.x,v.y,v.w,v.h);ctx.clip();raw.terrain(ctx,s,v);

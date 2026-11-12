@@ -22,13 +22,16 @@
    const actor=bots[i],latest=net.last.actors[i];
    const from=previous.actors.get(actor.id),to=next.actors.get(actor.id);
    if(!from||!to||from.phase!==latest.phase||to.phase!==latest.phase||Island.hyp(from,to)>300){
-    actor.x=latest.x;actor.y=latest.y;actor.angle=latest.angle;
+    actor.x=latest.x;actor.y=latest.y;actor.angle=latest.angle;actor.weaponLastShotAtMs=latest.weaponLastShotAtMs;
     continue;
    }
    actor.x=from.x+(to.x-from.x)*fraction;
    actor.y=from.y+(to.y-from.y)*fraction;
    const start=from.angle||0,turn=(to.angle||0)-start;
    actor.angle=start+Math.atan2(Math.sin(turn),Math.cos(turn))*fraction;
+   const pose=fraction>=1?to:from;
+   if(pose.slot===latest.slot&&pose.weaponType===latest.weaponType)actor.weaponLastShotAtMs=pose.weaponLastShotAtMs;
+   else actor.weaponLastShotAtMs=latest.weaponLastShotAtMs;
   }
  }
  islandApplySnapshot=function(snapshot){
@@ -51,7 +54,7 @@
   const dx=before?before.x-player.x:0,dy=before?before.y-player.y:0;
   net.visualOffset=phaseUnchanged&&player.phase!=='plane'&&Math.hypot(dx,dy)<160?{x:dx,y:dy}:{x:0,y:0};
 
-  if(!same){net.snapshots=[];net.remoteClock=null}
+  if(!same){net.snapshots=[];net.remoteClock=null;net.effectsClock=snapshot.time}
   net.snapshots.push({time:snapshotTime(snapshot),actors:new Map(snapshot.actors.map(actor=>[actor.id,actor]))});
   if(net.snapshots.length>8)net.snapshots.shift();
   net.remoteActors=snapshot.actors.map(actor=>({...actor}));
@@ -66,6 +69,12 @@
   if(net.visualOffset){
    const decay=Math.exp(-Math.max(0,dt)/.075);
    net.visualOffset.x*=decay;net.visualOffset.y*=decay;
+  }
+  if(net.ready&&net.last&&!net.inLobby){
+   const age=Island.clamp((performance.now()-net.receivedAt)/1000,0,.08);
+   const target=net.last.time+age,clock=net.effectsClock??net.last.time;
+   const rate=Island.clamp(1+(target-clock)*5,.8,1.2);
+   net.effectsClock=Island.clamp(clock+dt*rate,net.last.time-.08,net.last.time+.08);
   }
   onlineUpdate(dt);
   if(!net.ready||!net.last)return;
@@ -86,7 +95,7 @@
  updatePlayerAim=function(...args){return withVisualPosition(aim,args)};
  islandDisconnect=function(...args){
   const net=islandNetwork;
-  net.visualOffset=null;net.snapshots=[];net.remoteClock=null;net.remoteActors=[];net.predictedMovement=[];
+  net.visualOffset=null;net.effectsClock=null;net.snapshots=[];net.remoteClock=null;net.remoteActors=[];net.predictedMovement=[];
   return disconnect(...args);
  };
 })();

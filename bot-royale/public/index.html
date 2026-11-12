@@ -1252,7 +1252,7 @@ return{themes,regions,idAt,at,noise};
   ctx.restore();
   return true;
  }
- function roofs(ctx,state,viewer,visible,dt){
+ function roofs(ctx,state,viewer,visible,dt,paintRoof=roof){
   if(!state.palace)return false;
   const onGround=!viewer.phase||viewer.phase==='ground';
   for(const building of state.buildings){
@@ -1268,7 +1268,7 @@ return{themes,regions,idAt,at,noise};
    if(alpha<=0)continue;
    ctx.save();
    ctx.globalAlpha*=alpha;
-   roof(ctx,building);
+   paintRoof(ctx,building);
    ctx.restore();
   }
   return true;
@@ -1550,7 +1550,7 @@ function roofAppearance(z,b,t,detail=true){
  if(t===Theme.themes.snow){z.fillStyle='#e3f3f6';for(const [xx,yy,ww]of [[b.x+19,b.y+15,b.w*.35],[b.x+b.w*.65,b.y+b.h-30,b.w*.30]]){round(z,xx,yy,ww,16,8);z.fill()}z.fillStyle='#b9dce9';round(z,b.x+23,b.y+b.h*.55,15,b.h*.25,6);z.fill()}
  }z.restore();
 }
-function roofs(z,s,local,visible,dt=.016){if(approvedPalace?.roofs(z,s,local,visible,dt))return;const inside=Core.buildingAt(s,local);for(const b of s.buildings.slice().sort((a,b)=>(a.name==='Throne Hall')-(b.name==='Throne Hall'))){if(!visible(b))continue;const near=Core.canViewInterior(s,b,local),entered=inside?.id===b.id,hide=b.palace?entered:near;if(!Number.isFinite(b.roofAlpha))b.roofAlpha=1;const target=hide?0:1;b.roofAlpha+=Math.sign(target-b.roofAlpha)*Math.min(Math.abs(target-b.roofAlpha),Math.max(0,dt)/.12);if(b.roofAlpha<.001)continue;z.save();z.globalAlpha*=b.roofAlpha;if(b.palace&&near&&!entered){z.beginPath();z.rect(b.x-150,b.y-150,b.w+300,b.h+300);z.moveTo(local.x+85,local.y);z.arc(local.x,local.y,85,0,Math.PI*2,true);z.clip('evenodd')}roofAppearance(z,b,Theme.at(b.x+b.w/2,b.y+b.h/2,s.size));z.restore()}}
+function roofs(z,s,local,visible,dt=.016,paintRoof){if(approvedPalace?.roofs(z,s,local,visible,dt,paintRoof))return;const inside=Core.buildingAt(s,local);for(const b of s.buildings.slice().sort((a,b)=>(a.name==='Throne Hall')-(b.name==='Throne Hall'))){if(!visible(b))continue;const near=Core.canViewInterior(s,b,local),entered=inside?.id===b.id,hide=b.palace?entered:near;if(!Number.isFinite(b.roofAlpha))b.roofAlpha=1;const target=hide?0:1;b.roofAlpha+=Math.sign(target-b.roofAlpha)*Math.min(Math.abs(target-b.roofAlpha),Math.max(0,dt)/.12);if(b.roofAlpha<.001)continue;z.save();z.globalAlpha*=b.roofAlpha;if(b.palace&&near&&!entered){z.beginPath();z.rect(b.x-150,b.y-150,b.w+300,b.h+300);z.moveTo(local.x+85,local.y);z.arc(local.x,local.y,85,0,Math.PI*2,true);z.clip('evenodd')}roofAppearance(z,b,Theme.at(b.x+b.w/2,b.y+b.h/2,s.size));z.restore()}}
 
 function gas(z,s,view){
  const c=s.zone.current;z.save();z.fillStyle='#409cf04a';z.beginPath();z.rect(view.x,view.y,view.w,view.h);z.arc(c.x,c.y,c.r,0,Math.PI*2,true);z.fill('evenodd');z.lineWidth=6;z.strokeStyle='#64caff';z.beginPath();z.arc(c.x,c.y,c.r,0,7);z.stroke();const next=s.zone.next;z.setLineDash([14,13]);z.strokeStyle='#f2fbef';z.lineWidth=3;z.beginPath();z.arc(next.x,next.y,next.r,0,7);z.stroke();z.restore();
@@ -1569,7 +1569,7 @@ function map(z,s,w,h,player,marker,route,plane,span=s.size){
  if(marker){z.fillStyle='#ffdf58';z.strokeStyle='#573d1a';z.lineWidth=span/600;z.beginPath();z.arc(marker.x,marker.y,span/75,0,7);z.fill();z.stroke();z.beginPath();z.moveTo(marker.x,marker.y+span/65);z.lineTo(marker.x,marker.y-span/45);z.stroke()}
  z.fillStyle='#fff';z.strokeStyle='#1f5b64';z.lineWidth=span/500;z.beginPath();z.arc(player.x,player.y,span/90,0,7);z.fill();z.stroke();z.restore();return{left,top,scale};
 }
-return{palaceArtReady:()=>approvedPalace?approvedPalace.ready():palaceReady(),terrain,floors,object,bushes,canopies,crate,loot,roofs,gas,map};
+return{palaceRoof:approvedPalace?.roof,palaceArtReady:()=>approvedPalace?approvedPalace.ready():palaceReady(),terrain,floors,object,bushes,canopies,crate,loot,roofs,gas,map};
 });
 
 // Bounded caches for static artwork. Collision and combat state remain live.
@@ -1588,9 +1588,9 @@ function sprite(z,key,b,paint,res=level(z)){
 }
 function shake(z,o){const t=(performance.now()-(o.hitVisualAt??-10000))/1000;if(t>=0&&t<.22){const n=Math.sin(t*65)*4*(1-t/.22);z.translate((o.hitDX||1)*n,(o.hitDY||0)*n)}}
 R.terrain=raw.terrain;
-R.object=function(z,o,time){if(o.destroyed||o.lootContainer||o.kind==='bush')return;if(o.kind==='door'||o.shape==='segment'||o.kind==='tree'||o.kind==='rock'||o.kind==='barrel'||o.kind==='fence'){z.save();shake(z,o);raw.object(z,o,time);z.restore();return}const b=C.bounds(o),pad=o.shape==='segment'?18:6,rect={x:b.x-pad,y:b.y-pad,w:b.w+pad*2,h:b.h+pad*2};
+R.object=function(z,o,time){if(o.destroyed||o.lootContainer||o.kind==='bush')return;if(o.kind==='door'||o.shape==='segment'&&o.paint!=='palace'||o.kind==='tree'||o.kind==='rock'||o.kind==='barrel'||o.kind==='fence'){z.save();shake(z,o);raw.object(z,o,time);z.restore();return}const b=C.bounds(o),pad=o.shape==='segment'?18:6,rect={x:b.x-pad,y:b.y-pad,w:b.w+pad*2,h:b.h+pad*2};
  // Normalize the source position, so repeated shelves/windows share one image.
- const key='object:'+JSON.stringify([o.kind,o.shape,o.w,o.h,o.r,o.trunkRadius,o.paint,o.color,o.bx-o.ax,o.by-o.ay]);
+ const key='object:'+JSON.stringify([o.kind,o.shape,o.w,o.h,o.r,o.trunkRadius,o.paint,o.color,!!o.building,o.bx-o.ax,o.by-o.ay]);
  const local={...o,x:o.x-b.x,y:o.y-b.y,ax:o.ax-b.x,bx:o.bx-b.x,ay:o.ay-b.y,by:o.by-b.y};const origin={x:-pad,y:-pad,w:rect.w,h:rect.h};z.save();z.translate(b.x,b.y);shake(z,o);if(!sprite(z,key,origin,ctx=>raw.object(ctx,local,time)))raw.object(z,local,time);z.restore()
 };
 R.canopies=function(z,objects,local){for(const o of objects)if(o.kind==='tree'&&!o.destroyed){const biome=Theme.idAt(o.x,o.y,C.SIZE),r=o.canopy+6,b={x:-r,y:-r,w:r*2,h:r*2},key='canopy:'+o.canopy+':'+(o.tint||0)+':'+biome;z.save();z.translate(o.x,o.y);shake(z,o);if(!sprite(z,key,b,ctx=>raw.canopies(ctx,[{...o,x:0,y:0,visualBiome:biome}],local)))raw.canopies(z,[{...o,x:0,y:0,visualBiome:biome}],local);z.restore()}};
@@ -1605,7 +1605,15 @@ R.floors=function(z,s,visible){if(s.palace){const p=s.palace,F=p.scale,rect={x:p
   if(!sprite(z,'floor:'+id(s)+':'+building.id,rect,ctx=>raw.floors(ctx,{...s,buildings:[building]},()=>true)))raw.floors(z,{...s,buildings:[building]},()=>true);
  }
 };
-R.roofs=raw.roofs;
+R.roofs=function(z,s,viewer,visible,dt){
+ const resolution=Math.min(1,level(z));
+ raw.roofs(z,s,viewer,visible,dt,(ctx,building)=>{
+  const bounds={x:building.x,y:building.y,w:building.w,h:building.h};
+  if(!sprite(ctx,'palace-roof:'+id(building),bounds,roofCtx=>raw.palaceRoof(roofCtx,building),resolution)){
+   raw.palaceRoof(ctx,building);
+  }
+ });
+};
 function intersects(a,b,pad=0){return a.x+a.w+pad>=b.x&&a.x-pad<=b.x+b.w&&a.y+a.h+pad>=b.y&&a.y-pad<=b.y+b.h}
 function paintFar(ctx,s,v){
  ctx.save();ctx.beginPath();ctx.rect(v.x,v.y,v.w,v.h);ctx.clip();raw.terrain(ctx,s,v);
@@ -1995,8 +2003,8 @@ installLobbyUI();
 (function(root,factory){const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;else root.IslandBotAI=api})(typeof globalThis!=='undefined'?globalThis:this,function(){
 'use strict';
 function plan(C,s,p,actors,dt,projectileSpeed=1100){
- const now=s.time||0,random=s.random||Math.random,b=p.botBrain||(p.botBrain={nextScan:0,targetId:null,readyAt:0,strafe:random()<.5?-1:1,nextStrafe:0,wander:random()*Math.PI*2,wanderUntil:0,avoidUntil:0,avoidSign:1});
- if(now>=b.nextScan){b.nextScan=now+.15;let best=null,score=Infinity;for(const a of actors){if(a===p||a.hp<=0||a.phase&&a.phase!=='ground')continue;const d=C.hyp(a,p);if(d>950||!C.canSee(s,p,a))continue;const cost=d*(a.id===b.targetId ? .8 : 1);if(cost<score){best=a;score=cost}}if(best){if(b.targetId!==best.id)b.readyAt=now+.22+random()*.18;const elapsed=now-(b.seenAt??now);b.vx=elapsed>0&&b.targetId===best.id?C.clamp((best.x-b.seenX)/elapsed,-360,360):0;b.vy=elapsed>0&&b.targetId===best.id?C.clamp((best.y-b.seenY)/elapsed,-360,360):0;b.targetId=best.id;b.seenX=best.x;b.seenY=best.y;b.seenAt=now}else if(now-(b.seenAt??-10)>1.5)b.targetId=null}
+ const now=s.time||0,random=s.random||Math.random,b=p.botBrain||(p.botBrain={nextScan:now+random()*.15,targetId:null,readyAt:0,strafe:random()<.5?-1:1,nextStrafe:0,wander:random()*Math.PI*2,wanderUntil:0,avoidUntil:0,avoidSign:1});
+ if(now>=b.nextScan){b.nextScan=now+.15;let best=null,score=Infinity;for(const a of actors){if(a===p||a.hp<=0||a.phase&&a.phase!=='ground')continue;const d=C.hyp(a,p),cost=d*(a.id===b.targetId ? .8 : 1);if(d<=950&&cost<score&&C.canSee(s,p,a)){best=a;score=cost}}if(best){if(b.targetId!==best.id)b.readyAt=now+.22+random()*.18;const elapsed=now-(b.seenAt??now);b.vx=elapsed>0&&b.targetId===best.id?C.clamp((best.x-b.seenX)/elapsed,-360,360):0;b.vy=elapsed>0&&b.targetId===best.id?C.clamp((best.y-b.seenY)/elapsed,-360,360):0;b.targetId=best.id;b.seenX=best.x;b.seenY=best.y;b.seenAt=now}else if(now-(b.seenAt??-10)>1.5)b.targetId=null}
  const target=actors.find(a=>a.id===b.targetId&&a.hp>0),visible=target&&C.hyp(target,p)<950&&C.canSee(s,p,target),zone=s.zone.current,unsafe=C.hyp(p,zone)>Math.max(0,zone.r-160);let dx=0,dy=0,fire=false;
  if(visible){const d=C.hyp(target,p),lead=Math.min(.3,d/projectileSpeed)*.65,aim=Math.atan2(target.y+(b.vy||0)*lead-p.y,target.x+(b.vx||0)*lead-p.x),error=Math.sin(now*2.7+(p.skin||0)*1.7)*.045;const delta=Math.atan2(Math.sin(aim+error-p.angle),Math.cos(aim+error-p.angle));p.angle+=C.clamp(delta,-7*dt,7*dt);if(now>=b.nextStrafe){b.nextStrafe=now+1+random()*1.1;b.strafe*=-1}const forward=d>360?1:d<190?-.8:0,angle=Math.atan2(target.y-p.y,target.x-p.x);dx=Math.cos(angle)*forward-Math.sin(angle)*b.strafe*.65;dy=Math.sin(angle)*forward+Math.cos(angle)*b.strafe*.65;fire=!unsafe&&now>=b.readyAt&&d<760&&Math.abs(delta)<.2&&!C.raycast(s,p.x,p.y,target.x,target.y,1)}
  else if(b.targetId&&now-(b.seenAt??-10)<1.5){dx=b.seenX-p.x;dy=b.seenY-p.y}
@@ -2014,19 +2022,89 @@ function plan(C,s,p,actors,dt,projectileSpeed=1100){
 return{plan};
 });
 
-// Screen-legible projectiles and short, attached weapon firing effects.
-function islandDrawProjectile(ctx,q,zoom){
+// A small cached wake texture avoids allocating a gradient for each live bullet.
+const islandAirWakeCache=new Map();
+function islandAirWake(style){
+ if(islandAirWakeCache.has(style))return islandAirWakeCache.get(style);
+ const canvas=typeof OffscreenCanvas!=='undefined'?new OffscreenCanvas(128,32):
+  typeof document.createElement==='function'?document.createElement('canvas'):null;
+ if(!canvas)return null;
+ canvas.width=128;canvas.height=32;
+ const ctx=canvas.getContext('2d');
+ const color=style==='pulse'?'125,232,255':style==='gold'?'255,219,135':'226,242,255';
+ const fade=ctx.createLinearGradient(0,0,128,0);
+ fade.addColorStop(0,`rgba(${color},0)`);
+ fade.addColorStop(.48,`rgba(${color},.22)`);
+ fade.addColorStop(1,`rgba(${color},.78)`);
+ ctx.fillStyle=fade;
+ ctx.beginPath();
+ ctx.moveTo(0,16);
+ ctx.quadraticCurveTo(74,11,128,14);
+ ctx.lineTo(128,18);
+ ctx.quadraticCurveTo(74,21,0,16);
+ ctx.fill();
+ // Air curling off the bullet widens as it falls behind.
+ ctx.beginPath();
+ for(const side of [-1,1]){
+  ctx.moveTo(8,16+side*14);
+  ctx.quadraticCurveTo(87,16+side*13,127,16+side*2);
+ }
+ for(const [x,spread] of [[56,10],[87,7]]){
+  ctx.moveTo(x-9,16-spread);
+  ctx.quadraticCurveTo(x+6,16,x-9,16+spread);
+ }
+ const edge=ctx.createLinearGradient(0,0,128,0);
+ edge.addColorStop(0,'rgba(41,62,75,0)');
+ edge.addColorStop(1,'rgba(41,62,75,.34)');
+ ctx.strokeStyle=edge;
+ ctx.lineWidth=3.4;
+ ctx.stroke();
+ ctx.strokeStyle=fade;
+ ctx.lineWidth=1.7;
+ ctx.stroke();
+ islandAirWakeCache.set(style,canvas);
+ return canvas;
+}
+function islandDrawProjectile(ctx,q,zoom,clockMs){
  const z=Math.max(.12,zoom),deagle=q.kind===0,pellet=q.kind===2,pulse=q.kind===5,gold=!!q.premium;
- const speed=Math.hypot(q.vx,q.vy),tail=Math.min(100,Math.max(pellet?20:28,speed*.028)),tip=deagle?10:pellet?5:q.kind===1?5.5:7;
+ const speed=Math.hypot(q.vx,q.vy),tip=deagle?10:pellet?5:q.kind===1?5.5:7;
  const width=Math.max(pellet?1.3:1.5,(deagle?2.2:1.25)/z);
- ctx.save();ctx.translate(q.x,q.y);ctx.rotate(Math.atan2(q.vy,q.vx));
- // Thin light streaks describe motion; the dark-edged tip remains a separate bullet.
- const trail=ctx.createLinearGradient(-tail,0,0,0);
- trail.addColorStop(0,'rgba(255,247,210,0)');trail.addColorStop(.4,gold?'rgba(255,220,115,.35)':'rgba(255,249,218,.3)');trail.addColorStop(1,pulse?'rgba(130,244,255,.92)':'rgba(255,250,222,.9)');
- ctx.strokeStyle=trail;ctx.lineWidth=width;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(-tail,0);ctx.lineTo(0,0);ctx.stroke();
- ctx.fillStyle='#302c28';ctx.beginPath();ctx.moveTo(-tip, -width*.8);ctx.lineTo(tip*.45,-width*.6);ctx.lineTo(tip,0);ctx.lineTo(tip*.45,width*.6);ctx.lineTo(-tip,width*.8);ctx.closePath();ctx.fill();
- ctx.fillStyle=pulse?'#8cf1ff':gold?'#ffdf76':q.kind===1?'#a78247':'#e6ba70';ctx.fillRect(-tip*.7,-width*.43,tip*1.05,width*.86);
+ const elapsed=Number.isFinite(q.spawnTimeMs)&&Number.isFinite(clockMs)?Math.max(0,(clockMs-q.spawnTimeMs)/1000):.055;
+ const wakeTime=Math.min(elapsed,pellet ? .043 : .062);
+ const drag=Island.PROJECTILE_DRAG;
+ const tail=Math.min(pellet?42:118,speed*Math.expm1(drag*wakeTime)/drag);
+ ctx.save();
+ const alpha=ctx.globalAlpha;
+ ctx.translate(q.x,q.y);
+ ctx.rotate(Math.atan2(q.vy,q.vx));
+ if(tail>3){
+  const wake=islandAirWake(pulse?'pulse':gold?'gold':'air');
+  if(wake){
+   const spread=Math.max(8,(pellet?11:15)/Math.sqrt(z));
+   ctx.globalAlpha*=Math.min(1,speed/900)*Math.min(1,tail/15);
+   ctx.drawImage(wake,-tail-tip*.3,-spread/2,tail,spread);
+  }
+ }
+ ctx.globalAlpha=alpha;
+ ctx.fillStyle='#302c28';
+ ctx.beginPath();
+ ctx.moveTo(-tip,-width*.8);
+ ctx.lineTo(tip*.45,-width*.6);
+ ctx.lineTo(tip,0);
+ ctx.lineTo(tip*.45,width*.6);
+ ctx.lineTo(-tip,width*.8);
+ ctx.closePath();
+ ctx.fill();
+ ctx.fillStyle=pulse?'#8cf1ff':gold?'#ffdf76':q.kind===1?'#a78247':'#e6ba70';
+ ctx.fillRect(-tip*.7,-width*.43,tip*1.05,width*.86);
  ctx.restore();
+}
+function islandWeaponKick(type,rarity,age){
+ const duration=IslandWeaponStats.variantFor({type,rarity})?.recoilMs??85;
+ if(!(age>=0&&age<duration))return 0;
+ const attack=Math.min(age/8,1);
+ const recovery=1-Math.max(0,age-8)/Math.max(1,duration-8);
+ return ([7,4.2,9,8,3.6][type]||3)*Math.sin(attack*Math.PI/2)*recovery*recovery;
 }
 function islandMuzzleFlash(ctx,length,age,type,rarity){
  const duration=IslandWeaponStats.variantFor({type,rarity})?.muzzleFlashMs??40;
@@ -2146,14 +2224,15 @@ swingMelee=function(){
 };
 useSelectedMedkit=function(){if(!running||dropPhase!=='ground'||selectedItem!=='medkit')return;player.slot=slot;if(islandNetwork.ready){islandSendAction('medkit');return}IslandInventory.act(islandState,player,{kind:'medkit'});selectedItem=IslandInventory.isMed(player.inventory[slot])?'medkit':'weapon';updateHUD()};
 function islandDeployBot(b,dt){if(b.phase==='plane'){Object.assign(b,Island.planePosition(planeRoute,islandState.time));if(islandState.time>=b.jumpAt||islandState.time>=planeRoute.duration)b.phase='parachute';return true}if(b.phase==='parachute'){const target=b.dropTarget||b,dx=target.x-b.x,dy=target.y-b.y,n=Math.hypot(dx,dy)||1;b.angle=Math.atan2(dy,dx);b.x=Island.clamp(b.x+dx/n*Island.PARACHUTE_SPEED*dt,40,world-40);b.y=Island.clamp(b.y+dy/n*Island.PARACHUTE_SPEED*dt,40,world-40);b.dropRemaining-=dt;if(b.dropRemaining<=0){Object.assign(b,Island.findValid(islandState,b,26,true));b.phase='ground';b.dropRemaining=0}return true}return false}
-function islandBotStep(b,dt){
- b.cd-=dt;b.turn-=dt;const intent=IslandBotAI.plan(Island,islandState,b,islandCurrentActors(),dt);Island.moveActor(islandState,b,intent.dx,intent.dy,dt,245);if(intent.fire&&b.cd<=0)shoot(b,b.angle,true);
+function islandBotStep(b,dt,actors){
+ b.cd-=dt;b.turn-=dt;const intent=IslandBotAI.plan(Island,islandState,b,actors,dt);Island.moveActor(islandState,b,intent.dx,intent.dy,dt,245);if(intent.fire&&b.cd<=0)shoot(b,b.angle,true);
  const door=islandState.doors.find(d=>!d.open&&dist(b,{x:d.x+d.w/2,y:d.y+d.h/2})<75);if(door)Island.interactDoor(islandState,door,b,islandCurrentActors());
 }
 function islandStepBullets(dt,frameStartMs){
+ const actors=islandCurrentActors();
  for(const q of bullets){
   const travelDt=q.spawnTimeMs===undefined?dt:Math.max(0,(combatTimeMs-Math.max(frameStartMs,q.spawnTimeMs))/1000),motion=Island.projectileMotion(q,travelDt),nx=motion.x,ny=motion.y,wall=Island.projectileWall(islandState,q,nx,ny);let collision=wall?{t:wall.t,object:wall.object}:null;
-  for(const target of islandCurrentActors())if(target!==q.owner&&target.hp>0&&target.phase==='ground'){const t=Island.segmentHitCircle(q.x,q.y,nx,ny,target);if(t!==null&&(!collision||t<collision.t))collision={t,target}}
+  for(const target of actors)if(target!==q.owner&&target.hp>0&&target.phase==='ground'){const t=Island.segmentHitCircle(q.x,q.y,nx,ny,target);if(t!==null&&(!collision||t<collision.t))collision={t,target}}
   Island.pierceCover(islandState,q,nx,ny,collision?.t??1,q.owner);
   if(collision){const impact=collision.t??0;q.x+=(nx-q.x)*impact;q.y+=(ny-q.y)*impact;q.life=0;if(q.kind===6){const hit=collision.target;if(hit){const hp=hit.hp,shield=hit.shield||0;damage(hit,100);if(q.owner===player){hit.hitByPlayer=true;islandAddDamageNumber(hit,hp-hit.hp,shield-hit.shield)}}else Island.damageObject(islandState,collision.object,100,q.owner);const n=Math.hypot(q.vx,q.vy)||1;q.x-=q.vx/n*2;q.y-=q.vy/n*2;IslandRPG.explode(Island,islandState,q,islandCurrentActors(),hit,q.owner,(target,amount,owner)=>{const hp=target.hp,shield=target.shield||0;damage(target,amount);if(owner===player){target.hitByPlayer=true;islandAddDamageNumber(target,hp-target.hp,shield-target.shield)}})}else if(collision.target){const t=collision.target;const oldHp=t.hp,oldShield=t.shield||0;damage(t,q.damage);if(q.owner===player){t.hitByPlayer=true;islandAddDamageNumber(t,Math.min(oldHp,Math.max(0,oldHp-t.hp)),Math.max(0,oldShield-t.shield))}Island.applyPumpHit(islandState,q,t,q.owner)}else Island.damageObject(islandState,collision.object,q.damage,q.owner)}
   else{q.x=nx;q.y=ny;q.vx=motion.vx;q.vy=motion.vy;q.life-=travelDt;if(q.kind===6&&q.life<=0)IslandRPG.explode(Island,islandState,q,islandCurrentActors(),null,q.owner,(target,amount)=>damage(target,amount))}
@@ -2170,7 +2249,7 @@ update=function(dt,frameWallMs=combatWallTimeMs()){
  if(islandNetwork.enabled){islandOnlineUpdate(dt);return}
  islandState.time+=dt;player.phase=dropPhase;IslandInventory.tickHealing(islandState,player);
  if(dropPhase!=='ground'){
-  islandOriginal.update(dt,frameWallMs);player.phase=dropPhase;for(const b of bots){if(!islandDeployBot(b,dt))islandBotStep(b,dt);if(b.phase==='ground')Island.stepKnockback(islandState,b,dt)}Island.separateActors(islandState,[player,...bots]);islandStepBullets(dt,combatTimeMs);islandResolveDeaths();Island.advanceZone(islandState,dt,bots);islandClampCamera();return;
+  islandOriginal.update(dt,frameWallMs);player.phase=dropPhase;const actors=islandCurrentActors();for(const b of bots){if(!islandDeployBot(b,dt))islandBotStep(b,dt,actors);if(b.phase==='ground')Island.stepKnockback(islandState,b,dt)}Island.separateActors(islandState,[player,...bots]);islandStepBullets(dt,combatTimeMs);islandResolveDeaths();Island.advanceZone(islandState,dt,bots);islandClampCamera();return;
  }
  const frameStartMs=combatTimeMs;combatTimeMs+=Math.max(0,dt)*1000;combatWallAnchorMs=frameWallMs;time+=dt;
  const smooth=1-Math.exp(-dt*12);
@@ -2178,7 +2257,7 @@ update=function(dt,frameWallMs=combatWallTimeMs()){
  player.cd-=dt;player.meleeSwing=Math.max(0,(player.meleeSwing||0)-dt);updatePlayerAim();
  advancePlayerCombat(frameStartMs,combatTimeMs);
  if(islandMeleeSelected()&&actionDown('fire')&&player.cd<=0)swingMelee();
- for(const b of bots){if(!islandDeployBot(b,dt))islandBotStep(b,dt);if(b.phase==='ground')Island.stepKnockback(islandState,b,dt)}
+ const actors=islandCurrentActors();for(const b of bots){if(!islandDeployBot(b,dt))islandBotStep(b,dt,actors);if(b.phase==='ground')Island.stepKnockback(islandState,b,dt)}
  Island.separateActors(islandState,[player,...bots]);
  cameraZoom+=(islandGroundZoom()-cameraZoom)*smooth;cameraX+=(player.x-cameraX)*smooth;cameraY+=(player.y-cameraY)*smooth;
  islandStepBullets(dt,frameStartMs);islandResolveDeaths();
@@ -2219,7 +2298,7 @@ draw=function(){
  x.setTransform(scale,0,0,scale,0,0);x.globalAlpha=1;x.globalCompositeOperation='source-over';x.setLineDash([]);x.fillStyle='#1978a6';x.fillRect(0,0,innerWidth,innerHeight);
  const view={x:cameraX-innerWidth/(2*cameraZoom)-120,y:cameraY-innerHeight/(2*cameraZoom)-120,w:innerWidth/cameraZoom+240,h:innerHeight/cameraZoom+240},visible=b=>b.x+b.w>=view.x&&b.x<=view.x+view.w&&b.y+b.h>=view.y&&b.y<=view.y+view.h;let objects=dropPhase==='plane'&&cameraZoom<.16&&IslandDraw.farScene?[]:islandState.index.query(view.x,view.y,view.w,view.h);
  islandRenderCount=objects.length;
- x.save();x.translate(innerWidth/2,innerHeight/2);x.scale(cameraZoom,cameraZoom);x.translate(-Math.round(cameraX*cameraZoom*scale)/(cameraZoom*scale),-Math.round(cameraY*cameraZoom*scale)/(cameraZoom*scale));
+ x.save();x.translate(innerWidth/2,innerHeight/2);x.scale(cameraZoom,cameraZoom);x.translate(-cameraX,-cameraY);
  const far=dropPhase==='plane'&&cameraZoom<.16&&IslandDraw.farScene&&IslandDraw.farScene(x,islandState,view);if(!far&&!objects.length)objects=islandState.index.query(view.x,view.y,view.w,view.h);islandRenderCount=objects.length;
  if(!far){IslandDraw.terrain(x,islandState,view);IslandDraw.floors(x,islandState,visible)}
  const interiorCache=new Map();
@@ -2232,7 +2311,8 @@ draw=function(){
  for(const q of chests)if(!far&&visible({x:q.x-30,y:q.y-30,w:60,h:60}))IslandDraw.crate(x,q);
  const pointVisible=(point,pad)=>point.x+pad>=view.x&&point.x-pad<=view.x+view.w&&point.y+pad>=view.y&&point.y-pad<=view.y+view.h;
  for(const q of loot){if(q.taken||!pointVisible(q,80))continue;const building=Island.buildingAt(islandState,q);if(building&&!interiorVisible(building))continue;const sx=innerWidth/2+(q.x-cameraX)*cameraZoom,sy=innerHeight/2+(q.y-cameraY)*cameraZoom,hovered=islandHoverCanvas&&!islandMapOpen&&!matchMenuOpen&&!settingsOpen&&q.type==='gun'&&!q.taken&&Math.hypot(mouse.x-sx,mouse.y-sy)<=Math.max(12,37*cameraZoom);IslandDraw.loot(x,q,q.type==='gun'?islandWeaponSprite(q.weapon,q.rarity):null,tiers,dropPhase==='ground'&&(dist(q,player)<85||hovered),keyLabel(bindings.interact),q.type==='gun'?types[q.weapon]?.name:'')}
- for(const q of bullets)if(pointVisible(q,Math.max(70,24/cameraZoom)))islandDrawProjectile(x,q,cameraZoom);
+ const projectileClockMs=islandNetwork.ready?(islandNetwork.effectsClock??islandState.time)*1000:combatTimeMs;
+ for(const q of bullets)if(pointVisible(q,Math.max(125,24/cameraZoom)))islandDrawProjectile(x,q,cameraZoom,projectileClockMs);
  const visibleActors=[];
  for(const actor of bots){
   if(!pointVisible(actor,Math.max(120,80/cameraZoom)))continue;
@@ -2334,7 +2414,7 @@ function islandOnlineUpdate(dt){
  }
  else if(dropPhase==='plane')Object.assign(player,Island.planePosition(planeRoute,islandState.time));
  else{dropFast=!!keys[' '];const length=Math.hypot(movement.dx,movement.dy)||1;player.x=Island.clamp(player.x+movement.dx/length*Island.PARACHUTE_SPEED*dt,40,world-40);player.y=Island.clamp(player.y+movement.dy/length*Island.PARACHUTE_SPEED*dt,40,world-40);dropRemaining=Math.max(0,dropRemaining-dt*(dropFast?2:1))}
- if(net._renderBulletsFor!==net.last){net._renderBulletsFor=net.last;net._renderBullets=net.last.bullets.map(b=>({...b}))}bullets=net._renderBullets;const bulletAge=Math.min(.08,(performance.now()-net.receivedAt)/1000);for(let i=0;i<bullets.length;i++){const src=net.last.bullets[i];const motion=Island.projectileMotion(src,bulletAge);bullets[i].x=motion.x;bullets[i].y=motion.y;bullets[i].vx=motion.vx;bullets[i].vy=motion.vy;bullets[i].position={x:motion.x,y:motion.y};bullets[i].velocity={x:motion.vx,y:motion.vy}}
+ if(net._renderBulletsFor!==net.last){net._renderBulletsFor=net.last;net._renderBullets=net.last.bullets.map(b=>({...b}))}bullets=net._renderBullets;const bulletAge=Island.clamp((net.effectsClock??net.last.time)-net.last.time,0,.08);for(let i=0;i<bullets.length;i++){const src=net.last.bullets[i];const motion=Island.projectileMotion(src,bulletAge);bullets[i].x=motion.x;bullets[i].y=motion.y;bullets[i].vx=motion.vx;bullets[i].vy=motion.vy;bullets[i].position={x:motion.x,y:motion.y};bullets[i].velocity={x:motion.vx,y:motion.vy}}
  const targetZoom=islandFlightZoom(),smooth=1-Math.exp(-dt*12);
  cameraZoom+=(targetZoom-cameraZoom)*smooth;cameraX+=(player.x+(net.visualOffset?.x||0)-cameraX)*smooth;cameraY+=(player.y+(net.visualOffset?.y||0)-cameraY)*smooth;islandClampCamera();updateHUD();islandSetText('#alive',String(net.last.alive));
 }
@@ -2370,12 +2450,17 @@ drawCharacter=function(a){
  const local=a===player,skin=local?selectedCosmetic('skins'):a.skin,packIndex=local?selectedCosmetic('backpacks'):(a.backpack??-1),meleeIndex=local?selectedCosmetic('melees'):(a.melee??-1);
  const bodyInfo=islandCosmeticBody(skin),equippedSlot=local?slot:(a.slot??1),meleeSelected=equippedSlot===0||(local?!a.inventory[equippedSlot]:a.itemKind==='empty'||a.itemKind==='melee'),g=meleeSelected?null:local?a.inventory[equippedSlot]:{type:a.weaponType??1};
  x.save();x.imageSmoothingEnabled=true;x.imageSmoothingQuality='high';x.translate(a.x,a.y);x.rotate(a.angle||0);x.scale(.8,.8);
- CosmeticRig.drawAssembly(x,{skin,backpack:packIndex,melee:meleeIndex,punchHand:islandRenderedPunchHand(a)},cosmeticSprite,islandRenderedMeleeSwing(a),meleeSelected);
- if(local&&selectedItem==='medkit'||!local&&(a.itemKind==='med'||a.itemKind==='small-shield'||a.itemKind==='big-shield')){CosmeticRig.drawGunHands?.(x,bodyInfo,0);islandDrawHeldMedkit(x,bodyInfo.mouth,local?player.inventory[slot]?.kind:a.itemKind)}
- else if(g){const rarity=local?g.rarity:(a.weaponRarity||0),last=local?g.lastShotAtMs:a.weaponLastShotAtMs,clock=islandNetwork.ready?islandState.time*1000:combatTimeMs,age=last==null?Infinity:Math.max(0,clock-last),recoilMs=IslandWeaponStats.variantFor({type:g.type,rarity})?.recoilMs??85,kick=age<recoilMs?([7,4.2,9,8,3.6][g.type]||3)*Math.exp(-age/Math.max(18,recoilMs*.28)):0;x.save();x.translate(-kick,0);x.rotate(-kick*.006);x.save();x.translate(bodyInfo.mouth,0);x.scale(1.4375,1.4375);drawHeldWeapon(g.type,0,rarity,age);islandDrawGunCasing(x,0,g.type,age);x.restore();x.restore();CosmeticRig.drawBody(x,bodyInfo);x.save();x.translate(-kick,0);x.rotate(-kick*.006);CosmeticRig.drawGunHands?.(x,bodyInfo,g.type,1.4375);x.restore();}
- else if(meleeSelected){}
- else CosmeticRig.drawFists?.(x,{...bodyInfo,punchHand:islandRenderedPunchHand(a)},islandRenderedMeleeSwing(a));
- if(!bodyInfo.art&&!g&&(!meleeSelected||meleeIndex<0)&&selectedItem!=='medkit')CosmeticRig.drawBody(x,bodyInfo);
+ const holdingMed=local?selectedItem==='medkit':a.itemKind==='med'||a.itemKind==='small-shield'||a.itemKind==='big-shield';
+ bodyInfo.punchHand=islandRenderedPunchHand(a);
+ CosmeticRig.drawPack(x,CosmeticRig.pack(cosmeticSprite('backpacks',packIndex),packIndex+10,bodyInfo));
+ if(!g||holdingMed)CosmeticRig.drawBody(x,bodyInfo);
+ if(meleeSelected){
+  const swing=islandRenderedMeleeSwing(a),held=CosmeticRig.melee(cosmeticSprite('melees',meleeIndex),meleeIndex,bodyInfo,swing);
+  if(!CosmeticRig.drawMelee(x,held))CosmeticRig.drawFists(x,bodyInfo,swing);
+ }
+ if(holdingMed){CosmeticRig.drawGunHands?.(x,bodyInfo,0);islandDrawHeldMedkit(x,bodyInfo.mouth,local?player.inventory[slot]?.kind:a.itemKind)}
+ else if(g){const rarity=local?g.rarity:(a.weaponRarity||0),last=local?g.lastShotAtMs:a.weaponLastShotAtMs,clock=islandNetwork.ready?(local?islandNetwork.effectsClock??islandState.time:islandNetwork.remoteClock??islandState.time)*1000:combatTimeMs,age=last==null||last>clock?Infinity:clock-last,kick=islandWeaponKick(g.type,rarity,age);x.save();x.translate(-kick,0);x.rotate(-kick*.006);x.save();x.translate(bodyInfo.mouth,0);x.scale(1.4375,1.4375);drawHeldWeapon(g.type,0,rarity,age);islandDrawGunCasing(x,0,g.type,age);x.restore();x.restore();CosmeticRig.drawBody(x,bodyInfo);x.save();x.translate(-kick,0);x.rotate(-kick*.006);CosmeticRig.drawGunHands?.(x,bodyInfo,g.type,1.4375);x.restore();}
+
  x.restore();
  if(!islandNetwork.inLobby){islandDrawLobbyBubble(x,a,islandState.time,cameraZoom)}
  if(!local&&!islandNetwork.ready){x.fillStyle='#263b2b';x.fillRect(a.x-22,a.y-43,44,5);x.fillStyle='#e7f07d';x.fillRect(a.x-22,a.y-43,44*Math.max(0,a.hp)/75,5)}
@@ -2521,13 +2606,16 @@ function islandSyncWorldSnapshot(s,snapshot){
    const actor=bots[i],latest=net.last.actors[i];
    const from=previous.actors.get(actor.id),to=next.actors.get(actor.id);
    if(!from||!to||from.phase!==latest.phase||to.phase!==latest.phase||Island.hyp(from,to)>300){
-    actor.x=latest.x;actor.y=latest.y;actor.angle=latest.angle;
+    actor.x=latest.x;actor.y=latest.y;actor.angle=latest.angle;actor.weaponLastShotAtMs=latest.weaponLastShotAtMs;
     continue;
    }
    actor.x=from.x+(to.x-from.x)*fraction;
    actor.y=from.y+(to.y-from.y)*fraction;
    const start=from.angle||0,turn=(to.angle||0)-start;
    actor.angle=start+Math.atan2(Math.sin(turn),Math.cos(turn))*fraction;
+   const pose=fraction>=1?to:from;
+   if(pose.slot===latest.slot&&pose.weaponType===latest.weaponType)actor.weaponLastShotAtMs=pose.weaponLastShotAtMs;
+   else actor.weaponLastShotAtMs=latest.weaponLastShotAtMs;
   }
  }
  islandApplySnapshot=function(snapshot){
@@ -2550,7 +2638,7 @@ function islandSyncWorldSnapshot(s,snapshot){
   const dx=before?before.x-player.x:0,dy=before?before.y-player.y:0;
   net.visualOffset=phaseUnchanged&&player.phase!=='plane'&&Math.hypot(dx,dy)<160?{x:dx,y:dy}:{x:0,y:0};
 
-  if(!same){net.snapshots=[];net.remoteClock=null}
+  if(!same){net.snapshots=[];net.remoteClock=null;net.effectsClock=snapshot.time}
   net.snapshots.push({time:snapshotTime(snapshot),actors:new Map(snapshot.actors.map(actor=>[actor.id,actor]))});
   if(net.snapshots.length>8)net.snapshots.shift();
   net.remoteActors=snapshot.actors.map(actor=>({...actor}));
@@ -2565,6 +2653,12 @@ function islandSyncWorldSnapshot(s,snapshot){
   if(net.visualOffset){
    const decay=Math.exp(-Math.max(0,dt)/.075);
    net.visualOffset.x*=decay;net.visualOffset.y*=decay;
+  }
+  if(net.ready&&net.last&&!net.inLobby){
+   const age=Island.clamp((performance.now()-net.receivedAt)/1000,0,.08);
+   const target=net.last.time+age,clock=net.effectsClock??net.last.time;
+   const rate=Island.clamp(1+(target-clock)*5,.8,1.2);
+   net.effectsClock=Island.clamp(clock+dt*rate,net.last.time-.08,net.last.time+.08);
   }
   onlineUpdate(dt);
   if(!net.ready||!net.last)return;
@@ -2585,7 +2679,7 @@ function islandSyncWorldSnapshot(s,snapshot){
  updatePlayerAim=function(...args){return withVisualPosition(aim,args)};
  islandDisconnect=function(...args){
   const net=islandNetwork;
-  net.visualOffset=null;net.snapshots=[];net.remoteClock=null;net.remoteActors=[];net.predictedMovement=[];
+  net.visualOffset=null;net.effectsClock=null;net.snapshots=[];net.remoteClock=null;net.remoteActors=[];net.predictedMovement=[];
   return disconnect(...args);
  };
 })();

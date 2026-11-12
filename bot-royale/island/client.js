@@ -101,14 +101,15 @@ swingMelee=function(){
 };
 useSelectedMedkit=function(){if(!running||dropPhase!=='ground'||selectedItem!=='medkit')return;player.slot=slot;if(islandNetwork.ready){islandSendAction('medkit');return}IslandInventory.act(islandState,player,{kind:'medkit'});selectedItem=IslandInventory.isMed(player.inventory[slot])?'medkit':'weapon';updateHUD()};
 function islandDeployBot(b,dt){if(b.phase==='plane'){Object.assign(b,Island.planePosition(planeRoute,islandState.time));if(islandState.time>=b.jumpAt||islandState.time>=planeRoute.duration)b.phase='parachute';return true}if(b.phase==='parachute'){const target=b.dropTarget||b,dx=target.x-b.x,dy=target.y-b.y,n=Math.hypot(dx,dy)||1;b.angle=Math.atan2(dy,dx);b.x=Island.clamp(b.x+dx/n*Island.PARACHUTE_SPEED*dt,40,world-40);b.y=Island.clamp(b.y+dy/n*Island.PARACHUTE_SPEED*dt,40,world-40);b.dropRemaining-=dt;if(b.dropRemaining<=0){Object.assign(b,Island.findValid(islandState,b,26,true));b.phase='ground';b.dropRemaining=0}return true}return false}
-function islandBotStep(b,dt){
- b.cd-=dt;b.turn-=dt;const intent=IslandBotAI.plan(Island,islandState,b,islandCurrentActors(),dt);Island.moveActor(islandState,b,intent.dx,intent.dy,dt,245);if(intent.fire&&b.cd<=0)shoot(b,b.angle,true);
+function islandBotStep(b,dt,actors){
+ b.cd-=dt;b.turn-=dt;const intent=IslandBotAI.plan(Island,islandState,b,actors,dt);Island.moveActor(islandState,b,intent.dx,intent.dy,dt,245);if(intent.fire&&b.cd<=0)shoot(b,b.angle,true);
  const door=islandState.doors.find(d=>!d.open&&dist(b,{x:d.x+d.w/2,y:d.y+d.h/2})<75);if(door)Island.interactDoor(islandState,door,b,islandCurrentActors());
 }
 function islandStepBullets(dt,frameStartMs){
+ const actors=islandCurrentActors();
  for(const q of bullets){
   const travelDt=q.spawnTimeMs===undefined?dt:Math.max(0,(combatTimeMs-Math.max(frameStartMs,q.spawnTimeMs))/1000),motion=Island.projectileMotion(q,travelDt),nx=motion.x,ny=motion.y,wall=Island.projectileWall(islandState,q,nx,ny);let collision=wall?{t:wall.t,object:wall.object}:null;
-  for(const target of islandCurrentActors())if(target!==q.owner&&target.hp>0&&target.phase==='ground'){const t=Island.segmentHitCircle(q.x,q.y,nx,ny,target);if(t!==null&&(!collision||t<collision.t))collision={t,target}}
+  for(const target of actors)if(target!==q.owner&&target.hp>0&&target.phase==='ground'){const t=Island.segmentHitCircle(q.x,q.y,nx,ny,target);if(t!==null&&(!collision||t<collision.t))collision={t,target}}
   Island.pierceCover(islandState,q,nx,ny,collision?.t??1,q.owner);
   if(collision){const impact=collision.t??0;q.x+=(nx-q.x)*impact;q.y+=(ny-q.y)*impact;q.life=0;if(q.kind===6){const hit=collision.target;if(hit){const hp=hit.hp,shield=hit.shield||0;damage(hit,100);if(q.owner===player){hit.hitByPlayer=true;islandAddDamageNumber(hit,hp-hit.hp,shield-hit.shield)}}else Island.damageObject(islandState,collision.object,100,q.owner);const n=Math.hypot(q.vx,q.vy)||1;q.x-=q.vx/n*2;q.y-=q.vy/n*2;IslandRPG.explode(Island,islandState,q,islandCurrentActors(),hit,q.owner,(target,amount,owner)=>{const hp=target.hp,shield=target.shield||0;damage(target,amount);if(owner===player){target.hitByPlayer=true;islandAddDamageNumber(target,hp-target.hp,shield-target.shield)}})}else if(collision.target){const t=collision.target;const oldHp=t.hp,oldShield=t.shield||0;damage(t,q.damage);if(q.owner===player){t.hitByPlayer=true;islandAddDamageNumber(t,Math.min(oldHp,Math.max(0,oldHp-t.hp)),Math.max(0,oldShield-t.shield))}Island.applyPumpHit(islandState,q,t,q.owner)}else Island.damageObject(islandState,collision.object,q.damage,q.owner)}
   else{q.x=nx;q.y=ny;q.vx=motion.vx;q.vy=motion.vy;q.life-=travelDt;if(q.kind===6&&q.life<=0)IslandRPG.explode(Island,islandState,q,islandCurrentActors(),null,q.owner,(target,amount)=>damage(target,amount))}
@@ -125,7 +126,7 @@ update=function(dt,frameWallMs=combatWallTimeMs()){
  if(islandNetwork.enabled){islandOnlineUpdate(dt);return}
  islandState.time+=dt;player.phase=dropPhase;IslandInventory.tickHealing(islandState,player);
  if(dropPhase!=='ground'){
-  islandOriginal.update(dt,frameWallMs);player.phase=dropPhase;for(const b of bots){if(!islandDeployBot(b,dt))islandBotStep(b,dt);if(b.phase==='ground')Island.stepKnockback(islandState,b,dt)}Island.separateActors(islandState,[player,...bots]);islandStepBullets(dt,combatTimeMs);islandResolveDeaths();Island.advanceZone(islandState,dt,bots);islandClampCamera();return;
+  islandOriginal.update(dt,frameWallMs);player.phase=dropPhase;const actors=islandCurrentActors();for(const b of bots){if(!islandDeployBot(b,dt))islandBotStep(b,dt,actors);if(b.phase==='ground')Island.stepKnockback(islandState,b,dt)}Island.separateActors(islandState,[player,...bots]);islandStepBullets(dt,combatTimeMs);islandResolveDeaths();Island.advanceZone(islandState,dt,bots);islandClampCamera();return;
  }
  const frameStartMs=combatTimeMs;combatTimeMs+=Math.max(0,dt)*1000;combatWallAnchorMs=frameWallMs;time+=dt;
  const smooth=1-Math.exp(-dt*12);
@@ -133,7 +134,7 @@ update=function(dt,frameWallMs=combatWallTimeMs()){
  player.cd-=dt;player.meleeSwing=Math.max(0,(player.meleeSwing||0)-dt);updatePlayerAim();
  advancePlayerCombat(frameStartMs,combatTimeMs);
  if(islandMeleeSelected()&&actionDown('fire')&&player.cd<=0)swingMelee();
- for(const b of bots){if(!islandDeployBot(b,dt))islandBotStep(b,dt);if(b.phase==='ground')Island.stepKnockback(islandState,b,dt)}
+ const actors=islandCurrentActors();for(const b of bots){if(!islandDeployBot(b,dt))islandBotStep(b,dt,actors);if(b.phase==='ground')Island.stepKnockback(islandState,b,dt)}
  Island.separateActors(islandState,[player,...bots]);
  cameraZoom+=(islandGroundZoom()-cameraZoom)*smooth;cameraX+=(player.x-cameraX)*smooth;cameraY+=(player.y-cameraY)*smooth;
  islandStepBullets(dt,frameStartMs);islandResolveDeaths();
@@ -174,7 +175,7 @@ draw=function(){
  x.setTransform(scale,0,0,scale,0,0);x.globalAlpha=1;x.globalCompositeOperation='source-over';x.setLineDash([]);x.fillStyle='#1978a6';x.fillRect(0,0,innerWidth,innerHeight);
  const view={x:cameraX-innerWidth/(2*cameraZoom)-120,y:cameraY-innerHeight/(2*cameraZoom)-120,w:innerWidth/cameraZoom+240,h:innerHeight/cameraZoom+240},visible=b=>b.x+b.w>=view.x&&b.x<=view.x+view.w&&b.y+b.h>=view.y&&b.y<=view.y+view.h;let objects=dropPhase==='plane'&&cameraZoom<.16&&IslandDraw.farScene?[]:islandState.index.query(view.x,view.y,view.w,view.h);
  islandRenderCount=objects.length;
- x.save();x.translate(innerWidth/2,innerHeight/2);x.scale(cameraZoom,cameraZoom);x.translate(-Math.round(cameraX*cameraZoom*scale)/(cameraZoom*scale),-Math.round(cameraY*cameraZoom*scale)/(cameraZoom*scale));
+ x.save();x.translate(innerWidth/2,innerHeight/2);x.scale(cameraZoom,cameraZoom);x.translate(-cameraX,-cameraY);
  const far=dropPhase==='plane'&&cameraZoom<.16&&IslandDraw.farScene&&IslandDraw.farScene(x,islandState,view);if(!far&&!objects.length)objects=islandState.index.query(view.x,view.y,view.w,view.h);islandRenderCount=objects.length;
  if(!far){IslandDraw.terrain(x,islandState,view);IslandDraw.floors(x,islandState,visible)}
  const interiorCache=new Map();
@@ -187,7 +188,8 @@ draw=function(){
  for(const q of chests)if(!far&&visible({x:q.x-30,y:q.y-30,w:60,h:60}))IslandDraw.crate(x,q);
  const pointVisible=(point,pad)=>point.x+pad>=view.x&&point.x-pad<=view.x+view.w&&point.y+pad>=view.y&&point.y-pad<=view.y+view.h;
  for(const q of loot){if(q.taken||!pointVisible(q,80))continue;const building=Island.buildingAt(islandState,q);if(building&&!interiorVisible(building))continue;const sx=innerWidth/2+(q.x-cameraX)*cameraZoom,sy=innerHeight/2+(q.y-cameraY)*cameraZoom,hovered=islandHoverCanvas&&!islandMapOpen&&!matchMenuOpen&&!settingsOpen&&q.type==='gun'&&!q.taken&&Math.hypot(mouse.x-sx,mouse.y-sy)<=Math.max(12,37*cameraZoom);IslandDraw.loot(x,q,q.type==='gun'?islandWeaponSprite(q.weapon,q.rarity):null,tiers,dropPhase==='ground'&&(dist(q,player)<85||hovered),keyLabel(bindings.interact),q.type==='gun'?types[q.weapon]?.name:'')}
- for(const q of bullets)if(pointVisible(q,Math.max(70,24/cameraZoom)))islandDrawProjectile(x,q,cameraZoom);
+ const projectileClockMs=islandNetwork.ready?(islandNetwork.effectsClock??islandState.time)*1000:combatTimeMs;
+ for(const q of bullets)if(pointVisible(q,Math.max(125,24/cameraZoom)))islandDrawProjectile(x,q,cameraZoom,projectileClockMs);
  const visibleActors=[];
  for(const actor of bots){
   if(!pointVisible(actor,Math.max(120,80/cameraZoom)))continue;
@@ -289,7 +291,7 @@ function islandOnlineUpdate(dt){
  }
  else if(dropPhase==='plane')Object.assign(player,Island.planePosition(planeRoute,islandState.time));
  else{dropFast=!!keys[' '];const length=Math.hypot(movement.dx,movement.dy)||1;player.x=Island.clamp(player.x+movement.dx/length*Island.PARACHUTE_SPEED*dt,40,world-40);player.y=Island.clamp(player.y+movement.dy/length*Island.PARACHUTE_SPEED*dt,40,world-40);dropRemaining=Math.max(0,dropRemaining-dt*(dropFast?2:1))}
- if(net._renderBulletsFor!==net.last){net._renderBulletsFor=net.last;net._renderBullets=net.last.bullets.map(b=>({...b}))}bullets=net._renderBullets;const bulletAge=Math.min(.08,(performance.now()-net.receivedAt)/1000);for(let i=0;i<bullets.length;i++){const src=net.last.bullets[i];const motion=Island.projectileMotion(src,bulletAge);bullets[i].x=motion.x;bullets[i].y=motion.y;bullets[i].vx=motion.vx;bullets[i].vy=motion.vy;bullets[i].position={x:motion.x,y:motion.y};bullets[i].velocity={x:motion.vx,y:motion.vy}}
+ if(net._renderBulletsFor!==net.last){net._renderBulletsFor=net.last;net._renderBullets=net.last.bullets.map(b=>({...b}))}bullets=net._renderBullets;const bulletAge=Island.clamp((net.effectsClock??net.last.time)-net.last.time,0,.08);for(let i=0;i<bullets.length;i++){const src=net.last.bullets[i];const motion=Island.projectileMotion(src,bulletAge);bullets[i].x=motion.x;bullets[i].y=motion.y;bullets[i].vx=motion.vx;bullets[i].vy=motion.vy;bullets[i].position={x:motion.x,y:motion.y};bullets[i].velocity={x:motion.vx,y:motion.vy}}
  const targetZoom=islandFlightZoom(),smooth=1-Math.exp(-dt*12);
  cameraZoom+=(targetZoom-cameraZoom)*smooth;cameraX+=(player.x+(net.visualOffset?.x||0)-cameraX)*smooth;cameraY+=(player.y+(net.visualOffset?.y||0)-cameraY)*smooth;islandClampCamera();updateHUD();islandSetText('#alive',String(net.last.alive));
 }
@@ -325,12 +327,17 @@ drawCharacter=function(a){
  const local=a===player,skin=local?selectedCosmetic('skins'):a.skin,packIndex=local?selectedCosmetic('backpacks'):(a.backpack??-1),meleeIndex=local?selectedCosmetic('melees'):(a.melee??-1);
  const bodyInfo=islandCosmeticBody(skin),equippedSlot=local?slot:(a.slot??1),meleeSelected=equippedSlot===0||(local?!a.inventory[equippedSlot]:a.itemKind==='empty'||a.itemKind==='melee'),g=meleeSelected?null:local?a.inventory[equippedSlot]:{type:a.weaponType??1};
  x.save();x.imageSmoothingEnabled=true;x.imageSmoothingQuality='high';x.translate(a.x,a.y);x.rotate(a.angle||0);x.scale(.8,.8);
- CosmeticRig.drawAssembly(x,{skin,backpack:packIndex,melee:meleeIndex,punchHand:islandRenderedPunchHand(a)},cosmeticSprite,islandRenderedMeleeSwing(a),meleeSelected);
- if(local&&selectedItem==='medkit'||!local&&(a.itemKind==='med'||a.itemKind==='small-shield'||a.itemKind==='big-shield')){CosmeticRig.drawGunHands?.(x,bodyInfo,0);islandDrawHeldMedkit(x,bodyInfo.mouth,local?player.inventory[slot]?.kind:a.itemKind)}
- else if(g){const rarity=local?g.rarity:(a.weaponRarity||0),last=local?g.lastShotAtMs:a.weaponLastShotAtMs,clock=islandNetwork.ready?islandState.time*1000:combatTimeMs,age=last==null?Infinity:Math.max(0,clock-last),recoilMs=IslandWeaponStats.variantFor({type:g.type,rarity})?.recoilMs??85,kick=age<recoilMs?([7,4.2,9,8,3.6][g.type]||3)*Math.exp(-age/Math.max(18,recoilMs*.28)):0;x.save();x.translate(-kick,0);x.rotate(-kick*.006);x.save();x.translate(bodyInfo.mouth,0);x.scale(1.4375,1.4375);drawHeldWeapon(g.type,0,rarity,age);islandDrawGunCasing(x,0,g.type,age);x.restore();x.restore();CosmeticRig.drawBody(x,bodyInfo);x.save();x.translate(-kick,0);x.rotate(-kick*.006);CosmeticRig.drawGunHands?.(x,bodyInfo,g.type,1.4375);x.restore();}
- else if(meleeSelected){}
- else CosmeticRig.drawFists?.(x,{...bodyInfo,punchHand:islandRenderedPunchHand(a)},islandRenderedMeleeSwing(a));
- if(!bodyInfo.art&&!g&&(!meleeSelected||meleeIndex<0)&&selectedItem!=='medkit')CosmeticRig.drawBody(x,bodyInfo);
+ const holdingMed=local?selectedItem==='medkit':a.itemKind==='med'||a.itemKind==='small-shield'||a.itemKind==='big-shield';
+ bodyInfo.punchHand=islandRenderedPunchHand(a);
+ CosmeticRig.drawPack(x,CosmeticRig.pack(cosmeticSprite('backpacks',packIndex),packIndex,bodyInfo));
+ if(!g||holdingMed)CosmeticRig.drawBody(x,bodyInfo);
+ if(meleeSelected){
+  const swing=islandRenderedMeleeSwing(a),held=CosmeticRig.melee(cosmeticSprite('melees',meleeIndex),meleeIndex,bodyInfo,swing);
+  if(!CosmeticRig.drawMelee(x,held))CosmeticRig.drawFists(x,bodyInfo,swing);
+ }
+ if(holdingMed){CosmeticRig.drawGunHands?.(x,bodyInfo,0);islandDrawHeldMedkit(x,bodyInfo.mouth,local?player.inventory[slot]?.kind:a.itemKind)}
+ else if(g){const rarity=local?g.rarity:(a.weaponRarity||0),last=local?g.lastShotAtMs:a.weaponLastShotAtMs,clock=islandNetwork.ready?(local?islandNetwork.effectsClock??islandState.time:islandNetwork.remoteClock??islandState.time)*1000:combatTimeMs,age=last==null||last>clock?Infinity:clock-last,kick=islandWeaponKick(g.type,rarity,age);x.save();x.translate(-kick,0);x.rotate(-kick*.006);x.save();x.translate(bodyInfo.mouth,0);x.scale(1.4375,1.4375);drawHeldWeapon(g.type,0,rarity,age);islandDrawGunCasing(x,0,g.type,age);x.restore();x.restore();CosmeticRig.drawBody(x,bodyInfo);x.save();x.translate(-kick,0);x.rotate(-kick*.006);CosmeticRig.drawGunHands?.(x,bodyInfo,g.type,1.4375);x.restore();}
+
  x.restore();
  if(!islandNetwork.inLobby){islandDrawLobbyBubble(x,a,islandState.time,cameraZoom)}
  if(!local&&!islandNetwork.ready){x.fillStyle='#263b2b';x.fillRect(a.x-22,a.y-43,44,5);x.fillStyle='#e7f07d';x.fillRect(a.x-22,a.y-43,44*Math.max(0,a.hp)/75,5)}

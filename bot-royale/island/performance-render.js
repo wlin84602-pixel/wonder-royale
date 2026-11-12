@@ -13,7 +13,24 @@ function sprite(z,key,b,paint,res=level(z)){
  z.drawImage(item.canvas,b.x,b.y,item.canvas.width/res,item.canvas.height/res);return true
 }
 function shake(z,o){const t=(performance.now()-(o.hitVisualAt??-10000))/1000;if(t>=0&&t<.22){const n=Math.sin(t*65)*4*(1-t/.22);z.translate((o.hitDX||1)*n,(o.hitDY||0)*n)}}
-R.terrain=raw.terrain;
+R.terrain=function(z,s,view){
+ // Far views cover too many tiles. Keep their existing overview renderer.
+ if(!s.palace||view.w>3400||view.h>2600)return raw.terrain(z,s,view);
+ const size=720,resolution=Math.min(.5,level(z));
+ for(let y=Math.floor(view.y/size)*size;y<view.y+view.h;y+=size){
+  for(let x=Math.floor(view.x/size)*size;x<view.x+view.w;x+=size){
+   const tile={x,y,w:size,h:size};
+   if(!sprite(z,'terrain:'+id(s)+':'+x+':'+y,tile,ctx=>{
+    ctx.beginPath();ctx.rect(x,y,size,size);ctx.clip();
+    const padding=180;
+    raw.terrain(ctx,s,{x:x-padding,y:y-padding,w:size+padding*2,h:size+padding*2});
+    stats.terrainBuilds++;
+   },resolution)){
+    return raw.terrain(z,s,view);
+   }
+  }
+ }
+};
 R.object=function(z,o,time){if(o.destroyed||o.lootContainer||o.kind==='bush')return;if(o.kind==='door'||o.shape==='segment'&&o.paint!=='palace'||o.kind==='tree'||o.kind==='rock'||o.kind==='barrel'||o.kind==='fence'){z.save();shake(z,o);raw.object(z,o,time);z.restore();return}const b=C.bounds(o),pad=o.shape==='segment'?18:6,rect={x:b.x-pad,y:b.y-pad,w:b.w+pad*2,h:b.h+pad*2};
  // Normalize the source position, so repeated shelves/windows share one image.
  const key='object:'+JSON.stringify([o.kind,o.shape,o.w,o.h,o.r,o.trunkRadius,o.paint,o.color,!!o.building,o.bx-o.ax,o.by-o.ay]);
